@@ -6,7 +6,7 @@ parsing — an imported module, a called symbol that might live elsewhere —
 is emitted as a **dangling reference**: structurally complete, but not yet
 resolved to another node's identity. Resolving those against the rest of
 the repo's evidence is Stage 2 (Graph Assembly), not this tier. See
-`archilens-final-spec_2.md` §Stage 1 (Tier 2) and §Stage 2 (identity
+`rudhmap-final-spec_2.md` §Stage 1 (Tier 2) and §Stage 2 (identity
 resolution) — this doc only pins down the emission shape tier2 commits to
 on day one, so Stage 2 has a stable contract to consume later.
 
