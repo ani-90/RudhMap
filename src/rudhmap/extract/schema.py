@@ -1,6 +1,6 @@
 """Shared evidence record shapes. Every extraction tier (0-3) emits these same
 shapes so downstream graph assembly never needs to know which tier produced
-what. See archilens spec Part II, Stage 1.
+what. See rudhmap spec Part II, Stage 1.
 """
 from __future__ import annotations
 

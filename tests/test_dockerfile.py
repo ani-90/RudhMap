@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from archilens.extract.tier0_iac.dockerfile import parse_dockerfile
+from rudhmap.extract.tier0_iac.dockerfile import parse_dockerfile
 
 FIXTURE = Path(__file__).parent / "fixtures" / "dockerfile"
 

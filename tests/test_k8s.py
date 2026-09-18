@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from archilens.extract.tier0_iac.k8s import parse_k8s
+from rudhmap.extract.tier0_iac.k8s import parse_k8s
 
 FIXTURE = Path(__file__).parent / "fixtures" / "k8s"
 

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 
 import networkx as nx
 
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 
 @dataclass

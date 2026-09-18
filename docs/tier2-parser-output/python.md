@@ -1,6 +1,6 @@
 # `parse_python_ast` output reference
 
-Extractor: [`src/archilens/extract/tier2_ast/python.py`](../../src/archilens/extract/tier2_ast/python.py)
+Extractor: [`src/rudhmap/extract/tier2_ast/python.py`](../../src/rudhmap/extract/tier2_ast/python.py)
 Schema: [`docs/tier2_ast_schema.md`](../tier2_ast_schema.md)
 
 Read-only reference, not a test suite — `tests/` is untouched. This shows

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from archilens.extract.tier0_iac.compose import parse_compose
+from rudhmap.extract.tier0_iac.compose import parse_compose
 
 FIXTURE = Path(__file__).parent / "fixtures" / "compose_extended"
 

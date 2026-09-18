@@ -1,5 +1,5 @@
 """The IR: a flat, ordered, NetworkX-free shape for a verified graph. See
-archilens spec Part II, Stage 2 (verifier). Reuses `EvidenceRecord`/
+rudhmap spec Part II, Stage 2 (verifier). Reuses `EvidenceRecord`/
 `EdgeRecord` unchanged -- they already carry everything (file, line, tier,
 confidence) a citation needs; the IR only adds the stable node/edge
 container shape that layout, render, and the phase-8 abstraction step can
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 
 @dataclass

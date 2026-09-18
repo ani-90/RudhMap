@@ -1,7 +1,7 @@
 # `parse_tier1_rules` output reference
 
-Extractor: [`src/archilens/extract/tier1_rules/engine.py`](../../src/archilens/extract/tier1_rules/engine.py)
-Rules: [`src/archilens/extract/tier1_rules/rules/aws.yaml`](../../src/archilens/extract/tier1_rules/rules/aws.yaml), [`databases.yaml`](../../src/archilens/extract/tier1_rules/rules/databases.yaml)
+Extractor: [`src/rudhmap/extract/tier1_rules/engine.py`](../../src/rudhmap/extract/tier1_rules/engine.py)
+Rules: [`src/rudhmap/extract/tier1_rules/rules/aws.yaml`](../../src/rudhmap/extract/tier1_rules/rules/aws.yaml), [`databases.yaml`](../../src/rudhmap/extract/tier1_rules/rules/databases.yaml)
 
 Read-only reference, not a test suite — `tests/` is untouched. This shows
 the actual `EvidenceRecord` output for the fixture repo used in

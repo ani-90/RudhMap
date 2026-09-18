@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
-from archilens.ir.schema import IREdge, IRGraph, IRNode
-from archilens.ir.verify import verify_ir
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.ir.schema import IREdge, IRGraph, IRNode
+from rudhmap.ir.verify import verify_ir
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ir_verify"
 SAMPLE = FIXTURE / "sample.py"

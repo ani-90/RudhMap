@@ -1,6 +1,6 @@
-from archilens.extract.schema import EvidenceRecord
-from archilens.graph.assemble import assemble_graph
-from archilens.graph.resolve import resolve_build_context_containment
+from rudhmap.extract.schema import EvidenceRecord
+from rudhmap.graph.assemble import assemble_graph
+from rudhmap.graph.resolve import resolve_build_context_containment
 
 
 def _compose_service(identity: str, compose_file: str, build_context: str) -> EvidenceRecord:
@@ -91,7 +91,7 @@ def test_service_without_build_context_links_nothing():
 
 
 def test_dropped_edges_pass_through_unchanged():
-    from archilens.extract.schema import EdgeRecord
+    from rudhmap.extract.schema import EdgeRecord
 
     service = _compose_service("compose:api", "repo/docker-compose.yml", "./app")
     dangling = EdgeRecord(

@@ -18,9 +18,9 @@ from pathlib import Path
 
 import yaml
 
-from archilens.cache import ExtractionCache
-from archilens.extract import COMMON_SKIP_DIRS, iter_files
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.cache import ExtractionCache
+from rudhmap.extract import COMMON_SKIP_DIRS, iter_files
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 TIER = 1
 _EXTRACTOR_NAME = "tier1"

@@ -11,9 +11,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from archilens.extract import COMMON_SKIP_DIRS, iter_files
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
-from archilens.extract.tier0_iac.compose import _kind_and_subtype_for_image
+from rudhmap.extract import COMMON_SKIP_DIRS, iter_files
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.extract.tier0_iac.compose import _kind_and_subtype_for_image
 
 TIER = 0
 CONFIDENCE = 1.0

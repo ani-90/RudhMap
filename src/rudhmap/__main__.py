@@ -1,4 +1,4 @@
-from archilens.cli import main
+from rudhmap.cli import main
 
 if __name__ == "__main__":
     main()

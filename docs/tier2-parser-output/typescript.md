@@ -1,6 +1,6 @@
 # `parse_typescript_ast` output reference
 
-Extractor: [`src/archilens/extract/tier2_ast/typescript.py`](../../src/archilens/extract/tier2_ast/typescript.py)
+Extractor: [`src/rudhmap/extract/tier2_ast/typescript.py`](../../src/rudhmap/extract/tier2_ast/typescript.py)
 Schema: [`docs/tier2_ast_schema.md`](../tier2_ast_schema.md)
 
 Read-only reference, not a test suite — `tests/` is untouched. This shows

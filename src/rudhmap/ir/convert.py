@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import networkx as nx
 
-from archilens.ir.schema import IREdge, IRGraph, IRNode
+from rudhmap.ir.schema import IREdge, IRGraph, IRNode
 
 
 def graph_to_ir(graph: nx.MultiDiGraph) -> IRGraph:

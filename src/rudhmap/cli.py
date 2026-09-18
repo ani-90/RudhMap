@@ -3,22 +3,22 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 
-from archilens.cache import ExtractionCache
-from archilens.extract.tier0_iac.compose import parse_compose
-from archilens.extract.tier0_iac.k8s import parse_k8s
-from archilens.extract.tier0_iac.terraform import parse_terraform
-from archilens.extract.tier1_rules.engine import parse_tier1_rules
-from archilens.extract.tier2_ast.python import parse_python_ast
-from archilens.extract.tier2_ast.typescript import parse_typescript_ast
-from archilens.graph.assemble import AssemblyResult, assemble_graph
-from archilens.graph.resolve import (
+from rudhmap.cache import ExtractionCache
+from rudhmap.extract.tier0_iac.compose import parse_compose
+from rudhmap.extract.tier0_iac.k8s import parse_k8s
+from rudhmap.extract.tier0_iac.terraform import parse_terraform
+from rudhmap.extract.tier1_rules.engine import parse_tier1_rules
+from rudhmap.extract.tier2_ast.python import parse_python_ast
+from rudhmap.extract.tier2_ast.typescript import parse_typescript_ast
+from rudhmap.graph.assemble import AssemblyResult, assemble_graph
+from rudhmap.graph.resolve import (
     resolve_build_context_containment,
     resolve_cross_file_calls,
     resolve_same_scope_calls,
 )
-from archilens.graph.slice import slice_graph
-from archilens.ir.convert import graph_to_ir
-from archilens.ir.verify import verify_ir
+from rudhmap.graph.slice import slice_graph
+from rudhmap.ir.convert import graph_to_ir
+from rudhmap.ir.verify import verify_ir
 
 EXTRACTORS = [
     ("terraform", parse_terraform),
@@ -145,7 +145,7 @@ def slice_cmd(repo_path: str, query: str, max_nodes: int) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="archilens")
+    parser = argparse.ArgumentParser(prog="rudhmap")
     sub = parser.add_subparsers(dest="command", required=True)
 
     scan_p = sub.add_parser("scan", help="Structural graph only, no LLM")

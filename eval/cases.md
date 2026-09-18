@@ -9,7 +9,7 @@ lost between now and then.
 
 ## Case 1: test file exclusion
 
-**Discovered:** 2026-08-29, dogfooding `slice` against the ArchiLens repo itself.
+**Discovered:** 2026-08-29, dogfooding `slice` against the RudhMap repo itself.
 
 **Query:** `slice("BM25 seeding for the slicer")`
 
@@ -37,7 +37,7 @@ result, for this query and in general.
 
 **Status:** FIXED, 2026-08-29. Chose extraction-time exclusion (Option 1):
 `tests`, `test`, `__tests__`, `spec`, `specs` added to `COMMON_SKIP_DIRS`
-(`src/archilens/extract/__init__.py`) — same shared-constant mechanism as the
+(`src/rudhmap/extract/__init__.py`) — same shared-constant mechanism as the
 `.venv`/`node_modules` skip fix, so it applies to every extractor across every
 tier automatically, not just the slicer. Directory-name matching only,
 deliberately not filename-pattern matching (`foo.test.ts` alongside source is

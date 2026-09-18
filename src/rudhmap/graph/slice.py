@@ -1,5 +1,5 @@
 """Slicing: turn the whole-repo graph into a small, relevant subgraph for a
-plain-English query. See archilens spec Part II, Stage 3.
+plain-English query. See rudhmap spec Part II, Stage 3.
 
 Four steps, each deterministic:
   1. Seed   -- BM25 over per-node text built from evidence (identity, kind,
@@ -33,7 +33,7 @@ from pathlib import Path
 import networkx as nx
 from rank_bm25 import BM25Okapi
 
-from archilens.graph.assemble import AssemblyResult
+from rudhmap.graph.assemble import AssemblyResult
 
 MAX_HOP_BUDGET = 3.0
 _STRONG_RELATIONS = {"routes_to", "depends_on", "build_context_contains"}

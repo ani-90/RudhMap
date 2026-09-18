@@ -12,8 +12,8 @@ from pathlib import Path
 
 import hcl2
 
-from archilens.extract import COMMON_SKIP_DIRS, iter_files
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.extract import COMMON_SKIP_DIRS, iter_files
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 TIER = 0
 CONFIDENCE = 1.0

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from archilens.extract.tier1_rules.engine import _compile_rule, parse_tier1_rules
+from rudhmap.extract.tier1_rules.engine import _compile_rule, parse_tier1_rules
 
 FIXTURE = Path(__file__).parent / "fixtures" / "tier1_rules"
 

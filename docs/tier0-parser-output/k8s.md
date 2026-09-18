@@ -1,6 +1,6 @@
 # `parse_k8s` output reference
 
-Extractor: [`src/archilens/extract/tier0_iac/k8s.py`](../../src/archilens/extract/tier0_iac/k8s.py)
+Extractor: [`src/rudhmap/extract/tier0_iac/k8s.py`](../../src/rudhmap/extract/tier0_iac/k8s.py)
 
 ---
 

@@ -1,7 +1,7 @@
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
-from archilens.graph.assemble import assemble_graph
-from archilens.graph.slice import SliceResult, slice_graph
-from archilens.ir.convert import graph_to_ir
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.graph.assemble import assemble_graph
+from rudhmap.graph.slice import SliceResult, slice_graph
+from rudhmap.ir.convert import graph_to_ir
 
 
 def _node(identity: str, **kwargs) -> EvidenceRecord:

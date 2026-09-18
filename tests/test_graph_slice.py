@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
-from archilens.extract.tier2_ast.python import parse_python_ast
-from archilens.graph.assemble import assemble_graph
-from archilens.graph.resolve import resolve_same_scope_calls
-from archilens.graph.slice import slice_graph
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.extract.tier2_ast.python import parse_python_ast
+from rudhmap.graph.assemble import assemble_graph
+from rudhmap.graph.resolve import resolve_same_scope_calls
+from rudhmap.graph.slice import slice_graph
 
 FIXTURE = Path(__file__).parent / "fixtures" / "tier2_ast"
 

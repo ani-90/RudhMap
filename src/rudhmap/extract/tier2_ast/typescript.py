@@ -13,9 +13,9 @@ from pathlib import Path
 from tree_sitter import Language, Node, Parser, Tree
 import tree_sitter_typescript as tsts
 
-from archilens.cache import ExtractionCache
-from archilens.extract import COMMON_SKIP_DIRS, iter_files
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.cache import ExtractionCache
+from rudhmap.extract import COMMON_SKIP_DIRS, iter_files
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 TIER = 2
 CONFIDENCE = 1.0

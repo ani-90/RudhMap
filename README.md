@@ -1,8 +1,8 @@
-# ArchiLens
+# RudhMap
 
 An MCP server that generates verified data flow diagrams from source code — every component and arrow traceable to a line of code, laid out deterministically.
 
-ArchiLens reads a repo and produces an evidence-cited architecture graph: no node or edge is asserted unless it resolves to a real `file:line`.  **this README documents only what is actually implemented so far.**
+RudhMap reads a repo and produces an evidence-cited architecture graph: no node or edge is asserted unless it resolves to a real `file:line`.  **this README documents only what is actually implemented so far.**
 
 ## Status
 
@@ -26,7 +26,7 @@ tier 1 (regex) ─┼─▶ extraction cache ─▶ graph assembly ─▶ identi
 tier 2 (AST)  ─┘
 ```
 
-### Tier 0 — IaC/config extractors (`src/archilens/extract/tier0_iac/`)
+### Tier 0 — IaC/config extractors (`src/rudhmap/extract/tier0_iac/`)
 
 Parse infrastructure-as-code files directly (no regex, no LLM) into evidence nodes/edges:
 
@@ -39,26 +39,26 @@ Parse infrastructure-as-code files directly (no regex, no LLM) into evidence nod
 
 All tier 0 extractors skip vendor/build/VCS directories (`.git`, `node_modules`, `vendor`, `venv`, `.venv`, `__pycache__`, `dist`, `build`) via a shared `COMMON_SKIP_DIRS` set, so a third-party package's bundled compose file (e.g. inside `.venv`) is never mistaken for the scanned repo's own infrastructure.
 
-### Tier 1 — YAML regex rule engine (`src/archilens/extract/tier1_rules/`)
+### Tier 1 — YAML regex rule engine (`src/rudhmap/extract/tier1_rules/`)
 
 Declarative regex rules (`rules/aws.yaml`, `rules/databases.yaml`) matched against application source (Python, JS/TS, Go, Java) to detect SDK/client-construction patterns (e.g. "this file constructs an S3 client"). Produces evidence nodes only — a regex has no notion of scope, so it can say a pattern matched somewhere in a file but not which function it belongs to; building real call edges is tier 2's job.
 
-### Tier 2 — tree-sitter AST extractors (`src/archilens/extract/tier2_ast/`)
+### Tier 2 — tree-sitter AST extractors (`src/rudhmap/extract/tier2_ast/`)
 
 Real AST parsing for Python and TypeScript. Extracts functions/classes/methods as nodes and call/import edges as edges, including:
 - `self.foo` / `this.foo` method calls
 - bare (module-level) calls
 - import bindings (including aliased imports, `from x import y as z`)
 
-### Extraction cache (`src/archilens/cache.py`)
+### Extraction cache (`src/rudhmap/cache.py`)
 
-`ExtractionCache` keys extraction results by `(extractor_name, sha256(file_bytes))` and persists to `.archilens_cache/extraction_cache.json` in the target repo. A file's content hash — not its path or mtime — is the cache key, so a touched-but-unchanged file still hits cache, and a changed file is a guaranteed miss (required for spec invariant 4: same commit → byte-identical output). Currently opted in for tier 1 and tier 2 only (tier 0 IaC parsing is cheap enough not to need it).
+`ExtractionCache` keys extraction results by `(extractor_name, sha256(file_bytes))` and persists to `.rudhmap_cache/extraction_cache.json` in the target repo. A file's content hash — not its path or mtime — is the cache key, so a touched-but-unchanged file still hits cache, and a changed file is a guaranteed miss (required for spec invariant 4: same commit → byte-identical output). Currently opted in for tier 1 and tier 2 only (tier 0 IaC parsing is cheap enough not to need it).
 
-### Graph assembly (`src/archilens/graph/assemble.py`)
+### Graph assembly (`src/rudhmap/graph/assemble.py`)
 
 Turns the flat lists of `EvidenceRecord`/`EdgeRecord` from all tiers into one `networkx.MultiDiGraph`. Pure and lossless: every extracted node becomes a graph node exactly as extracted, and an edge whose endpoint has no matching node is dropped (counted, not silently discarded) rather than auto-creating an evidence-less placeholder node.
 
-### Identity resolution (`src/archilens/graph/resolve.py`)
+### Identity resolution (`src/rudhmap/graph/resolve.py`)
 
 Recovers a subset of dropped edges once real graph identities are available, using only information already present in extracted evidence — never a guess:
 
@@ -66,10 +66,10 @@ Recovers a subset of dropped edges once real graph identities are available, usi
 2. **Cross-file calls** — bare calls through an import binding, resolved via TS/JS relative-path resolution (with extension/index fallback) or Python dotted-import suffix matching against actually-scanned files (left unresolved if ambiguous).
 3. **Compose build-context containment** — links a compose service node to every tier 1/2 code node whose file falls under that service's `build:` context directory, using the compose file's own `file:line` as evidence.
 
-### CLI (`src/archilens/cli.py`)
+### CLI (`src/rudhmap/cli.py`)
 
 ```
-python -m archilens scan <repo_path>
+python -m rudhmap scan <repo_path>
 ```
 
 Runs all tiers, prints every extracted node/edge with its `file:line`, flushes the cache, assembles the graph, runs all three identity-resolution passes, and prints a summary: nodes, edges, edges dropped, and how many were resolved by each pass.
@@ -77,7 +77,7 @@ Runs all tiers, prints every extracted node/edge with its `file:line`, flushes t
 ## Repo layout
 
 ```
-src/archilens/
+src/rudhmap/
 ├── cli.py                     # scan CLI entrypoint
 ├── cache.py                   # SHA-256 content-keyed extraction cache
 ├── extract/

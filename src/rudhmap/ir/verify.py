@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from archilens.ir.schema import IREdge, IRGraph, IRNode
+from rudhmap.ir.schema import IREdge, IRGraph, IRNode
 
 _VALID_TIERS = {0, 1, 2, 3}
 

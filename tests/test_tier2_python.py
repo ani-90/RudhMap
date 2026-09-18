@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from archilens.extract.tier2_ast.python import parse_python_ast
+from rudhmap.extract.tier2_ast.python import parse_python_ast
 
 FIXTURE = Path(__file__).parent / "fixtures" / "tier2_ast"
 

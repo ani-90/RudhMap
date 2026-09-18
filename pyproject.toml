@@ -1,5 +1,5 @@
 [project]
-name = "archilens"
+name = "rudhmap"
 version = "0.1.0"
 description = "MCP server that generates verified data flow diagrams from source code"
 requires-python = ">=3.10"

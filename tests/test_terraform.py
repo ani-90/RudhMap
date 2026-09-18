@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from archilens.extract.tier0_iac.terraform import parse_terraform
+from rudhmap.extract.tier0_iac.terraform import parse_terraform
 
 FIXTURE = Path(__file__).parent / "fixtures" / "terraform"
 

@@ -1,6 +1,6 @@
 # `parse_compose` output reference
 
-Extractor: [`src/archilens/extract/tier0_iac/compose.py`](../../src/archilens/extract/tier0_iac/compose.py)
+Extractor: [`src/rudhmap/extract/tier0_iac/compose.py`](../../src/rudhmap/extract/tier0_iac/compose.py)
 
 ---
 

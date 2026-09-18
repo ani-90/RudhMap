@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from archilens.cache import ExtractionCache
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.cache import ExtractionCache
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 
 def test_cache_miss_calls_compute_and_stores_result(tmp_path):
@@ -152,11 +152,11 @@ def test_unreadable_file_falls_back_to_compute_without_caching(tmp_path):
 def test_flush_with_nothing_new_is_a_noop(tmp_path):
     cache = ExtractionCache(tmp_path)
     cache.flush()  # must not create a cache file when nothing was computed
-    assert not (tmp_path / ".archilens_cache").exists()
+    assert not (tmp_path / ".rudhmap_cache").exists()
 
 
 def test_corrupt_cache_file_degrades_to_cold_cache(tmp_path):
-    cache_dir = tmp_path / ".archilens_cache"
+    cache_dir = tmp_path / ".rudhmap_cache"
     cache_dir.mkdir()
     (cache_dir / "extraction_cache.json").write_text("not valid json{{{")
 

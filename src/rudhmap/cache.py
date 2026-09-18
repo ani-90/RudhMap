@@ -20,9 +20,9 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Callable
 
-from archilens.extract.schema import EdgeRecord, EvidenceRecord
+from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
-_CACHE_DIRNAME = ".archilens_cache"
+_CACHE_DIRNAME = ".rudhmap_cache"
 _CACHE_FILENAME = "extraction_cache.json"
 
 

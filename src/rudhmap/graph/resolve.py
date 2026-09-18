@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import os
 
-from archilens.extract.schema import EdgeRecord
-from archilens.graph.assemble import AssemblyResult
+from rudhmap.extract.schema import EdgeRecord
+from rudhmap.graph.assemble import AssemblyResult
 
 
 def _candidate_identity(edge: EdgeRecord) -> str | None:
