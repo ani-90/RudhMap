@@ -23,7 +23,9 @@ from rudhmap.extract import COMMON_SKIP_DIRS, iter_files
 from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 TIER = 1
-_EXTRACTOR_NAME = "tier1"
+# Bump the version whenever this extractor's output changes, so cached
+# results from the old version are never served (see rudhmap.cache).
+_EXTRACTOR_NAME = "tier1@1"
 
 _RULES_DIR = Path(__file__).parent / "rules"
 

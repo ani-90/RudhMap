@@ -6,13 +6,19 @@ MCP server that reads a repo and produces an evidence-cited (`file:line`-traceab
 
 **Last updated:** 2026-10-20
 
-**Phase 7 complete (2026-10-20): layout + draw.io renderer** (220 tests passing):
+**Cross-file attribute-call resolution + two cache bugs fixed (2026-10-20)** (232 tests passing) — see `eval/cases.md` Case 5:
+- Python `from app.db import crud; crud.create_user()` (and `import a.b as x; x.f()`, `import a.b; a.b.f()`, class attributes like `User.create()`) now resolves. Extractor records `resolved_dotted_path` (built from what the local name is bound to — new `bound` field in the import table); `resolve._resolve_dotted_attribute_path` tries every (module file, qualname) split and connects only if exactly one names both a scanned file and an existing node. TS namespace imports (`import * as crud`) and attribute calls on named imports resolve the same way via `resolved_name`. Default imports stay unresolved. `Knowledge-News-App`: 47 → 81 edges, all verified; 7 cited lines spot-checked correct.
+- Cache bug 1: key was (extractor, content hash) only, so two files with identical bytes shared an entry and the second file's nodes vanished. Key now includes the file path.
+- Cache bug 2: no extractor version in the key, so changing extractor output kept serving stale cache. Names are now `python@2`, `typescript@2`, `tier1@1` — **bump the version whenever an extractor's output changes.** Cache file renamed `extraction_cache.v2.json` (old `extraction_cache.json` files are orphaned, safe to delete).
+- Python module suffix matching now requires a path boundary (`writer` no longer matches `rewriter.py`) and accepts `pkg/__init__.py`.
+
+**Phase 7 complete (2026-10-20): layout + draw.io renderer:**
 - `src/rudhmap/render/layout.py`: pure-Python simplified Sugiyama (no Graphviz/ELK — an external engine would put byte-identical output at the mercy of its version). DFS cycle breaking (back edges reversed for layering only), longest-path layering (callers above callees, heap-based Kahn), dummy nodes for long edges (become draw.io waypoints), 8 alternating barycenter sweeps, per-layer centering; components shelf-packed into rows (max 2400px), edge-less nodes in a sqrt grid. Every tie broken by node id.
 - `src/rudhmap/render/drawio.py`: uncompressed `.drawio`; each node/edge is an `<object>` with `evidence`, `kind`/`relation`, `rudhmap_id`, and a hover tooltip (groundwork for phase 9 `trace_edge`). Parallel same-relation edges merge into one arrow listing all call sites. The renderer sorts its own input, so output is byte-identical regardless of caller order (tested with shuffled input). Colors by kind; non-call relations dashed + labelled.
 - `src/rudhmap/diagram.py` (build → slice → verify → render → write) shared by CLI `rudhmap diagram <repo> [-q Q] [-o out.drawio]` and MCP tool `generate_diagram`. Default output `rudhmap.drawio` / `rudhmap-<slug>.drawio` in the repo root; refuses non-`.drawio` output paths; writes nothing when the query is ambiguous/no-match.
 - `pipeline.build_view` is now the single build/slice/verify path for CLI `slice`/`diagram` and all MCP tools. `paths.Relativizer` is shared.
 - Ambiguity is now actionable: an exact repo-relative node id as the query slices on that node directly (`slice_graph(..., seed_ids=...)`). Before this, ambiguous results were a dead end.
-- Real-repo check (`eval/cases.md` Case 4): `Knowledge-News-App` diagram is readable; RudhMap's own graph is a hub tangle — expected, phase 8's job. Also flagged a possible cross-file resolution gap (`api/user.py:create_user` has no edge to `db/crud.py:create_user`), not yet investigated.
+- Real-repo check (`eval/cases.md` Case 4): `Knowledge-News-App` diagram is readable; RudhMap's own graph is a hub tangle — expected, phase 8's job. Also surfaced the cross-file resolution gap fixed above (Case 5).
 
 **Minimal MCP server built early (2026-10-20), ahead of phase 7 — a first slice of phase 10, not phase 10 itself:**
 - `src/rudhmap/server.py`: stdio MCP server on the official `mcp` SDK **2.x** (`from mcp.server.mcpserver import MCPServer` — `FastMCP` was renamed in 2.x; `mcp.server.fastmcp` no longer exists). Two read-only tools, `scan(repo_path)` and `slice(repo_path, query, max_nodes=60)`, returning JSON of the *verified* IR (post-`verify_ir`) with evidence per node/edge. Pipeline runs in a worker thread (`anyio.to_thread`) so the event loop isn't blocked. Bad input raises `ToolError` (returned as `is_error`, not a crash).
@@ -44,7 +50,7 @@ Phases 0-5 complete and merged to `main`:
 
 **Phase 5 slicer graded, 5 queries, average 1.8/3** (below the 2.5 bar for proceeding straight to phase 8) — see `eval/cases.md` Case 3. Two failure modes, both hub/graph-shape problems rather than slicer-logic bugs: (1) hub dilution — `ExtractionCache`'s methods disconnected from its class node, `EdgeRecord`/`EvidenceRecord` constructed almost everywhere; (2) BM25 document-length bias favoring a sparse dataclass over the real entry point (`main`). **Decision: not fixed at the slicer level** — phase 8 (abstraction/grouping) is the right place to solve this, not more BM25/k-hop tuning. Proceeding to phase 6 next per the existing build order (not phase 8 directly). Revisit Case 3 once phase 8 exists.
 
-**Next up:** Phase 8 — abstraction LLM pass (grouping per-function boxes into named components). Worth first checking the Case 4 cross-file resolution gap.
+**Next up:** Phase 8 — abstraction LLM pass (grouping per-function boxes into named components).
 
 Not started: abstraction LLM pass, the rest of the MCP surface (`trace_edge`, sampling), tier 3 LLM extraction, eval harness.
 

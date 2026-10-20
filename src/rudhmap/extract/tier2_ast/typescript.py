@@ -19,7 +19,9 @@ from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 TIER = 2
 CONFIDENCE = 1.0
-_EXTRACTOR_NAME = "typescript"
+# Bump the version whenever this extractor's output changes, so cached
+# results from the old version are never served (see rudhmap.cache).
+_EXTRACTOR_NAME = "typescript@2"
 
 _SKIP_DIRS = COMMON_SKIP_DIRS
 
@@ -128,7 +130,7 @@ def _process_file(ts_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
                 ident = child.children[-1]
                 local_name = _text(ident, source)
                 names.append("*")
-                import_table[local_name] = {"module": module, "name": None}
+                import_table[local_name] = {"module": module, "name": None, "namespace": True}
             elif child.type == "named_imports":
                 for spec in child.children:
                     if spec.type != "import_specifier":
@@ -152,14 +154,20 @@ def _process_file(ts_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
         import_entry = import_table.get(chain[0])
         likely_alias = import_entry is not None
         attrs = {"callee_chain": chain, "likely_import_alias": likely_alias}
-        # Only a bare call of a named-import binding is unambiguous
-        # enough to resolve cross-file -- namespace/default imports
-        # (import_entry["name"] is None) followed by attribute access
-        # could be a property on the returned object, not a module
-        # path, so they're left unresolved.
-        if likely_alias and len(chain) == 1 and import_entry["name"] is not None:
+        # A bare call of a named-import binding names its target exactly.
+        # So does an attribute call through a binding that is known to be
+        # a module (`import * as crud` then `crud.createUser()`) or a named
+        # export (`import { User }` then `User.create()`): the qualname is
+        # the rest of the chain. The resolver still only connects the edge
+        # if that exact node was extracted from the resolved file. Default
+        # imports stay unresolved -- the default export has no fixed
+        # identity here.
+        if likely_alias and import_entry["name"] is not None:
             attrs["resolved_module"] = import_entry["module"]
-            attrs["resolved_name"] = import_entry["name"]
+            attrs["resolved_name"] = ".".join([import_entry["name"], *chain[1:]])
+        elif likely_alias and len(chain) >= 2 and import_entry.get("namespace"):
+            attrs["resolved_module"] = import_entry["module"]
+            attrs["resolved_name"] = ".".join(chain[1:])
         edges.append(
             EdgeRecord(
                 src=scope_identity(scope_stack),

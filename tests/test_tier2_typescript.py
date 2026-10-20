@@ -57,7 +57,11 @@ def test_call_edges_carry_callee_chain_as_a_list():
     assert write_call.attrs["resolved_module"] == "./ingest/writer"
     assert write_call.attrs["resolved_name"] == "putObject"
 
-    assert "resolved_module" not in boto_call.attrs  # namespace import + attr access, not resolved
+    # namespace import + attr access: the extractor records the candidate
+    # (module "boto3", name "client"); the resolver is what refuses it,
+    # since "boto3" is a bare specifier -- an external package, never scanned.
+    assert boto_call.attrs["resolved_module"] == "boto3"
+    assert boto_call.attrs["resolved_name"] == "client"
 
     this_call = next(e for e in calls if e.attrs["callee_chain"] == ["this", "validate"])
     assert this_call.attrs["likely_import_alias"] is False  # "this" is not an import

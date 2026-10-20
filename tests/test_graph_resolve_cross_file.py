@@ -142,3 +142,111 @@ def test_real_typescript_fixture_still_leaves_write_object_dropped_since_ingest_
     write_edges = [e for e in result.dropped_edges if e.attrs.get("callee_chain") == ["writeObject"]]
     assert len(write_edges) == 1
     assert write_edges[0].attrs["resolved_module"] == "./ingest/writer"
+
+
+# --- attribute calls through an imported name (module or class) -----------
+
+
+def _write(root: Path, rel: str, text: str) -> None:
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def _resolved_pairs(root: Path) -> set[tuple[str, str]]:
+    nodes, edges = parse_python_ast(str(root))
+    result = resolve_cross_file_calls(resolve_same_scope_calls(assemble_graph(nodes, edges)))
+    prefix = str(root) + "\\" if "\\" in str(root) else str(root) + "/"
+
+    def rel(identity: str) -> str:
+        return identity.removeprefix(prefix).replace("\\", "/")
+
+    return {(rel(u), rel(v)) for u, v in result.graph.edges()}
+
+
+_CRUD = "def create_user(db, name):\n    return name\n"
+
+
+def test_module_imported_from_package_then_attribute_call_resolves(tmp_path):
+    _write(tmp_path, "app/db/crud.py", _CRUD)
+    _write(tmp_path, "app/api/user.py", "from app.db import crud\n\n\ndef create_user(req):\n    return crud.create_user(None, req)\n")
+
+    assert ("app/api/user.py:create_user", "app/db/crud.py:create_user") in _resolved_pairs(tmp_path)
+
+
+def test_aliased_module_import_then_attribute_call_resolves(tmp_path):
+    _write(tmp_path, "app/db/crud.py", _CRUD)
+    _write(tmp_path, "app/api/user.py", "import app.db.crud as store\n\n\ndef handler(req):\n    return store.create_user(None, req)\n")
+
+    assert ("app/api/user.py:handler", "app/db/crud.py:create_user") in _resolved_pairs(tmp_path)
+
+
+def test_unaliased_dotted_import_full_path_call_resolves(tmp_path):
+    _write(tmp_path, "app/db/crud.py", _CRUD)
+    _write(tmp_path, "app/api/user.py", "import app.db.crud\n\n\ndef handler(req):\n    return app.db.crud.create_user(None, req)\n")
+
+    assert ("app/api/user.py:handler", "app/db/crud.py:create_user") in _resolved_pairs(tmp_path)
+
+
+def test_class_imported_then_method_call_resolves_to_the_method(tmp_path):
+    _write(tmp_path, "app/models.py", "class User:\n    @classmethod\n    def create(cls):\n        return cls()\n")
+    _write(tmp_path, "app/api.py", "from app.models import User\n\n\ndef handler():\n    return User.create()\n")
+
+    assert ("app/api.py:handler", "app/models.py:User.create") in _resolved_pairs(tmp_path)
+
+
+def test_attribute_call_into_unscanned_package_stays_dropped(tmp_path):
+    _write(tmp_path, "app/api.py", "import os\n\n\ndef handler(p):\n    return os.path.join(p, 'x')\n")
+
+    assert _resolved_pairs(tmp_path) == set()
+
+
+def test_attribute_call_with_two_valid_splits_stays_dropped():
+    nodes = [
+        _node("app/api.py:handler", "app/api.py"),
+        _node("app/db.py:crud.create_user", "app/db.py"),  # attribute `crud` on module app/db.py
+        _node("app/db/crud.py:create_user", "app/db/crud.py"),  # submodule app/db/crud.py
+    ]
+    edge = _call_edge("app/api.py:handler", "app/api.py", ["db", "crud", "create_user"])
+    edge.attrs["resolved_dotted_path"] = "app.db.crud.create_user"
+
+    result = resolve_cross_file_calls(assemble_graph(nodes, [edge]))
+
+    assert result.graph.number_of_edges() == 0
+    assert result.dropped_edges == [edge]
+
+
+def test_module_suffix_match_respects_path_boundaries():
+    nodes = [
+        _node("app.py:Handler.process", "app.py"),
+        _node("ingest/rewriter.py:put_object", "ingest/rewriter.py"),
+    ]
+    edge = _call_edge(
+        "app.py:Handler.process", "app.py", ["put_object"],
+        resolved_module="writer", resolved_name="put_object",
+    )
+
+    result = resolve_cross_file_calls(assemble_graph(nodes, [edge]))
+
+    assert result.graph.number_of_edges() == 0
+
+
+def _resolved_ts_pairs(root: Path) -> set[tuple[str, str]]:
+    nodes, edges = parse_typescript_ast(str(root))
+    result = resolve_cross_file_calls(resolve_same_scope_calls(assemble_graph(nodes, edges)))
+    prefix = str(root) + ("\\" if "\\" in str(root) else "/")
+    return {(u.removeprefix(prefix).replace("\\", "/"), v.removeprefix(prefix).replace("\\", "/")) for u, v in result.graph.edges()}
+
+
+def test_ts_namespace_import_then_attribute_call_resolves(tmp_path):
+    _write(tmp_path, "src/db/crud.ts", "export function createUser(name: string) {\n  return name;\n}\n")
+    _write(tmp_path, "src/api/user.ts", "import * as crud from '../db/crud';\n\nexport function handler(n: string) {\n  return crud.createUser(n);\n}\n")
+
+    assert ("src/api/user.ts:handler", "src/db/crud.ts:createUser") in _resolved_ts_pairs(tmp_path)
+
+
+def test_ts_default_import_attribute_call_stays_dropped(tmp_path):
+    _write(tmp_path, "src/db/crud.ts", "export function createUser(name: string) {\n  return name;\n}\n")
+    _write(tmp_path, "src/api/user.ts", "import crud from '../db/crud';\n\nexport function handler(n: string) {\n  return crud.createUser(n);\n}\n")
+
+    assert ("src/api/user.ts:handler", "src/db/crud.ts:createUser") not in _resolved_ts_pairs(tmp_path)

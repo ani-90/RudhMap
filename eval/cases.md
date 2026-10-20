@@ -153,7 +153,51 @@ this checks the layout geometry, not draw.io's own rendering).
   (repo-relative) node id as the query slices on that node directly
   (`slice_graph(..., seed_ids=...)`), and the CLI/MCP tool docs say so.
   `-q "app/api/user.py:create_user"` now yields a 2-node diagram.
-- **Possible resolver gap, not investigated yet:** that slice shows
+- **Resolver gap -- confirmed and fixed (Case 5).** That slice showed
   `api/user.py:create_user -> UserResponse` but no edge to
-  `db/crud.py:create_user`, which the API handler presumably calls. Worth
-  checking cross-file call resolution against this repo before phase 8.
+  `db/crud.py:create_user`, which the handler does call.
+
+## Case 5: attribute calls through an imported module were never resolved
+
+Found from Case 4. `app/api/user.py` does `from app.db import crud` and then
+`crud.create_user(...)`. Tier 2 only resolved a *bare* call of a `from x
+import y` binding (`y()`); a call with any attribute access after the
+imported name was deliberately skipped, because `crud` could have been an
+object rather than a module. That is the dominant style for calling a
+service/DB layer in Python web apps, so the whole API → DB → service
+backbone of this repo was missing from the graph.
+
+**Fix.** The extractor now records the full dotted path the call names
+(`app.db.crud.create_user`, built from what the imported name is bound to).
+The resolver tries every split into (module file, qualname) and connects the
+edge only if exactly one split names both a scanned file *and* an extracted
+node. Zero matches (an external package like `os.path.join`) or more than
+one (genuinely ambiguous) leave the edge dropped. The same rule covers class
+attributes (`User.create()` after `from app.models import User`) and
+TypeScript namespace imports (`import * as crud` then `crud.createUser()`).
+
+**Result on `Knowledge-News-App`:** 47 → **81** edges (+34, all verified,
+0 dropped by the verifier). 7 of the 34 cited lines were spot-checked
+against the source and every one is the claimed call, e.g.
+`app/scheduler.py:26  crud.create_pipeline_run(...)`. RudhMap's own source
+gains 0, as expected: it uses `from x import y` throughout.
+
+**Two more bugs found while fixing it:**
+
+1. **Identical files shared one cache entry.** The extraction cache keyed on
+   (extractor, content hash) only. Two files with identical bytes hit the
+   same entry, so the second got the first file's records, and its own
+   nodes vanished from the graph, on the very first scan. Reproduced with
+   two copies of a one-function module: only `a.py:helper` appeared. Fixed
+   by putting the file path in the key.
+2. **No extractor version in the cache key**, so changing what an extractor
+   emits (as this fix does) would have kept serving old cached results
+   until each source file happened to change. Extractor names now carry a
+   version (`python@2`), and the cache file was renamed
+   (`extraction_cache.v2.json`) so caches written under the old key scheme
+   are discarded rather than read. Old `extraction_cache.json` files in
+   previously scanned repos are now unused and can be deleted.
+
+Also tightened: Python module suffix matching had no path-separator
+boundary, so module `writer` could match `rewriter.py`. It now requires a
+boundary, and also accepts `pkg/__init__.py` for package imports.

@@ -158,7 +158,7 @@ def test_flush_with_nothing_new_is_a_noop(tmp_path):
 def test_corrupt_cache_file_degrades_to_cold_cache(tmp_path):
     cache_dir = tmp_path / ".rudhmap_cache"
     cache_dir.mkdir()
-    (cache_dir / "extraction_cache.json").write_text("not valid json{{{")
+    (cache_dir / "extraction_cache.v2.json").write_text("not valid json{{{")
 
     f = tmp_path / "a.py"
     f.write_text("x = 1")
@@ -167,3 +167,48 @@ def test_corrupt_cache_file_degrades_to_cold_cache(tmp_path):
     calls = []
     cache.get_or_compute(f, "python", lambda: (calls.append(1), ([], []))[1])
     assert len(calls) == 1  # didn't crash, just treated corrupt cache as empty
+
+
+def test_identical_content_in_two_files_does_not_share_an_entry(tmp_path):
+    a = tmp_path / "a.py"
+    b = tmp_path / "b.py"
+    a.write_text("def helper():\n    return 1\n")
+    b.write_text("def helper():\n    return 1\n")
+    cache = ExtractionCache(tmp_path)
+
+    def compute_for(path):
+        return lambda: ([EvidenceRecord(kind="function", identity=f"{path}:helper", file=str(path), line=1, tier=2, confidence=1.0)], [])
+
+    nodes_a, _ = cache.get_or_compute(a, "python", compute_for(a))
+    nodes_b, _ = cache.get_or_compute(b, "python", compute_for(b))
+
+    assert nodes_a[0].file == str(a)
+    assert nodes_b[0].file == str(b)
+
+
+def test_identical_files_both_appear_in_the_assembled_graph(tmp_path):
+    from rudhmap.pipeline import build_assembly
+
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "a.py").write_text("def helper():\n    return 1\n")
+    (pkg / "b.py").write_text("def helper():\n    return 1\n")
+
+    for _ in range(2):  # cold, then warm from the flushed cache
+        graph = build_assembly(str(tmp_path), verbose=False).result.graph
+        assert sorted(n.rsplit("pkg", 1)[1] for n in graph.nodes) == [
+            str(Path("/a.py")) + ":helper",
+            str(Path("/b.py")) + ":helper",
+        ]
+
+
+def test_extractor_version_is_part_of_the_key(tmp_path):
+    f = tmp_path / "a.py"
+    f.write_text("x = 1")
+    cache = ExtractionCache(tmp_path)
+    calls = []
+
+    cache.get_or_compute(f, "python@1", lambda: (calls.append(1), ([], []))[1])
+    cache.get_or_compute(f, "python@2", lambda: (calls.append(2), ([], []))[1])
+
+    assert calls == [1, 2]

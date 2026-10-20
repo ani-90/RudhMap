@@ -19,7 +19,9 @@ from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 TIER = 2
 CONFIDENCE = 1.0
-_EXTRACTOR_NAME = "python"
+# Bump the version whenever this extractor's output changes, so cached
+# results from the old version are never served (see rudhmap.cache).
+_EXTRACTOR_NAME = "python@2"
 
 _SKIP_DIRS = COMMON_SKIP_DIRS
 
@@ -64,9 +66,12 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
 
     file_str = str(py_file)
     # alias -> {"module": dotted module path, "name": original imported
-    # name, or None for a whole-module import like `import x as y`}.
+    # name, or None for a whole-module import like `import x as y`,
+    # "bound": the full dotted path the local name stands for}.
     # Kept separate (not concatenated) so a call resolving through this
     # table can tell "which file" apart from "which name in that file".
+    # "bound" differs from "module" for `import a.b.c` (binds `a`, so
+    # bound == "a") and for `from a.b import c` (bound == "a.b.c").
     import_table: dict[str, dict[str, str | None]] = {}
 
     def scope_identity(scope_stack: list[str]) -> str:
@@ -81,14 +86,15 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
             for child in node.children:
                 if child.type == "dotted_name":
                     module = _text(child, source)
-                    import_table[module.split(".")[0]] = {"module": module, "name": None}
+                    root = module.split(".")[0]
+                    import_table[root] = {"module": module, "name": None, "bound": root}
                     emit_import(src_identity, module, [], raw, line)
                 elif child.type == "aliased_import":
                     dotted = child.child_by_field_name("name")
                     alias = child.child_by_field_name("alias")
                     module = _text(dotted, source) if dotted is not None else ""
                     alias_name = _text(alias, source) if alias is not None else module
-                    import_table[alias_name] = {"module": module, "name": None}
+                    import_table[alias_name] = {"module": module, "name": None, "bound": module}
                     emit_import(src_identity, module, [], raw, line)
         else:  # import_from_statement
             module_node = node.child_by_field_name("module_name")
@@ -100,14 +106,14 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
                 if child.type == "dotted_name":
                     name = _text(child, source)
                     names.append(name)
-                    import_table[name] = {"module": module, "name": name}
+                    import_table[name] = {"module": module, "name": name, "bound": f"{module}.{name}"}
                 elif child.type == "aliased_import":
                     dotted = child.child_by_field_name("name")
                     alias = child.child_by_field_name("alias")
                     name = _text(dotted, source) if dotted is not None else ""
                     alias_name = _text(alias, source) if alias is not None else name
                     names.append(name)
-                    import_table[alias_name] = {"module": module, "name": name}
+                    import_table[alias_name] = {"module": module, "name": name, "bound": f"{module}.{name}"}
                 elif child.type == "wildcard_import":
                     names.append("*")
             emit_import(src_identity, module, names, raw, line)
@@ -143,6 +149,12 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
         if likely_alias and len(chain) == 1 and import_entry["name"] is not None:
             attrs["resolved_module"] = import_entry["module"]
             attrs["resolved_name"] = import_entry["name"]
+        # An attribute call through an imported name (`crud.create_user()`
+        # after `from app.db import crud`) can't be classified here -- the
+        # name may be a module or an object -- so record the full dotted path
+        # and let the resolver decide from what was actually scanned.
+        if likely_alias and len(chain) >= 2:
+            attrs["resolved_dotted_path"] = ".".join([import_entry["bound"], *chain[1:]])
         edges.append(
             EdgeRecord(
                 src=scope_identity(scope_stack),

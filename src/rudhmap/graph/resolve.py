@@ -92,6 +92,14 @@ def resolve_same_scope_calls(assembly: AssemblyResult) -> AssemblyResult:
 #     one scanned file has that suffix, it's ambiguous -- left unresolved,
 #     never picked arbitrarily.
 #
+#   - Python attribute call through an imported name (`crud.create_user()`
+#     after `from app.db import crud`, or `pkg.mod.f()` after `import
+#     pkg.mod`): every split of the full dotted path into (module file,
+#     qualname) is tried; it resolves only if exactly one split names both
+#     a scanned file and an extracted node. Covers module attributes and
+#     class attributes (`User.create()` after `from app.models import
+#     User`) alike, and never resolves into an unscanned package.
+#
 # Left unresolved, deliberately: a bare TS/JS module specifier (e.g.
 # "react") -- that's an external package, not something scanned; and a
 # Python relative import with a leading dot (`from .writer import x`) --
@@ -117,17 +125,49 @@ def _resolve_relative_module_file(
     return None
 
 
+def _suffix_matches(module: str, node_files: set[str]) -> set[str]:
+    as_path = os.path.join(*module.split("."))
+    suffixes = (
+        os.sep + os.path.normpath(as_path + ".py"),
+        os.sep + os.path.normpath(os.path.join(as_path, "__init__.py")),
+    )
+    return {f for f in node_files if (os.sep + os.path.normpath(f)).endswith(suffixes)}
+
+
 def _resolve_dotted_module_suffix(module: str, node_files: set[str]) -> str | None:
-    suffix = os.path.normpath(os.path.join(*module.split(".")) + ".py")
-    matches = {f for f in node_files if os.path.normpath(f).endswith(suffix)}
+    matches = _suffix_matches(module, node_files)
     if len(matches) == 1:
         return next(iter(matches))
     return None
 
 
-def _cross_file_candidate_identity(edge: EdgeRecord, node_files: set[str]) -> str | None:
+def _resolve_dotted_attribute_path(dotted: str, node_files: set[str], node_ids: set[str]) -> str | None:
+    """`app.db.crud.create_user` -> `<.../app/db/crud.py>:create_user`.
+
+    Tries every split of the path into (module, qualname). A split counts
+    only if the module names exactly one scanned file *and* that file has
+    a node with that qualname. Resolves only when exactly one split counts;
+    zero (external package, attribute on an object) or several (genuinely
+    ambiguous) leave the edge dropped."""
+    parts = dotted.split(".")
+    found = set()
+    for k in range(1, len(parts)):
+        target_file = _resolve_dotted_module_suffix(".".join(parts[:k]), node_files)
+        if target_file is None:
+            continue
+        candidate = f"{target_file}:{'.'.join(parts[k:])}"
+        if candidate in node_ids:
+            found.add(candidate)
+    return next(iter(found)) if len(found) == 1 else None
+
+
+def _cross_file_candidate_identity(edge: EdgeRecord, node_files: set[str], node_ids: set[str]) -> str | None:
     if edge.tier != 2:
         return None
+    dotted = edge.attrs.get("resolved_dotted_path")
+    if dotted is not None and edge.file.endswith(_PY_EXT) and not dotted.startswith("."):
+        return _resolve_dotted_attribute_path(dotted, node_files, node_ids)
+
     module = edge.attrs.get("resolved_module")
     name = edge.attrs.get("resolved_name")
     if module is None or name is None:
@@ -150,10 +190,11 @@ def _cross_file_candidate_identity(edge: EdgeRecord, node_files: set[str]) -> st
 def resolve_cross_file_calls(assembly: AssemblyResult) -> AssemblyResult:
     graph = assembly.graph
     node_files = {ev.file for _, data in graph.nodes(data=True) for ev in data["evidence"]}
+    node_ids = set(graph.nodes)
 
     still_dropped: list[EdgeRecord] = []
     for edge in assembly.dropped_edges:
-        candidate = _cross_file_candidate_identity(edge, node_files)
+        candidate = _cross_file_candidate_identity(edge, node_files, node_ids)
         if (
             candidate is not None
             and graph.has_node(candidate)

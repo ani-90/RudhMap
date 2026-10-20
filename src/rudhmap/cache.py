@@ -7,10 +7,17 @@ changed produces a different hash and is a guaranteed cache miss -- this can
 never serve a stale result for changed content (spec invariant 4: same
 commit -> byte-identical diagram).
 
-Keyed by (extractor_name, content_hash), not by file path or mtime: the
-extractor name is included because several tier 0 extractors share the same
-tier number, and hashing content (not touching mtime) means a file that was
-merely touched but not actually modified still hits the cache.
+Keyed by (extractor_name, file_path, content_hash), never by mtime: hashing
+content means a file that was merely touched but not modified still hits the
+cache. The path is part of the key because cached records cite their own
+file -- an earlier version keyed on content alone, so two files with
+identical bytes shared one entry and the second silently got the first
+file's records (its own nodes vanished from the graph). Callers fold an
+extractor version into `extractor_name`, so changing what an extractor emits
+invalidates its old entries instead of serving them.
+
+The on-disk filename carries a format version; bumping it discards caches
+written under an older key scheme rather than leaving them to grow forever.
 """
 from __future__ import annotations
 
@@ -23,7 +30,7 @@ from typing import Callable
 from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
 _CACHE_DIRNAME = ".rudhmap_cache"
-_CACHE_FILENAME = "extraction_cache.json"
+_CACHE_FILENAME = "extraction_cache.v2.json"
 
 
 def _hash_bytes(data: bytes) -> str:
@@ -56,7 +63,7 @@ class ExtractionCache:
             # an unreadable file -- caching has nothing to key on here.
             return compute()
 
-        key = f"{extractor_name}:{_hash_bytes(content)}"
+        key = f"{extractor_name}:{file_path}:{_hash_bytes(content)}"
         cached = self._entries.get(key)
         if cached is not None:
             nodes = [EvidenceRecord(**n) for n in cached["nodes"]]

@@ -56,7 +56,7 @@ Real AST parsing for Python and TypeScript. Extracts functions/classes/methods a
 
 ### Extraction cache (`src/rudhmap/cache.py`)
 
-`ExtractionCache` keys extraction results by `(extractor_name, sha256(file_bytes))` and persists to `.rudhmap_cache/extraction_cache.json` in the target repo. A file's content hash — not its path or mtime — is the cache key, so a touched-but-unchanged file still hits cache, and a changed file is a guaranteed miss (required for spec invariant 4: same commit → byte-identical output). Currently opted in for tier 1 and tier 2 only (tier 0 IaC parsing is cheap enough not to need it).
+`ExtractionCache` keys extraction results by `(extractor_name@version, file_path, sha256(file_bytes))` and persists to `.rudhmap_cache/extraction_cache.v2.json` in the target repo. Hashing content (never mtime) means a touched-but-unchanged file still hits cache and a changed file is a guaranteed miss (spec invariant 4: same commit → byte-identical output). The path is in the key because cached records cite their own file; the extractor version is in the key so changing an extractor never serves its old output. Currently opted in for tier 1 and tier 2 only (tier 0 IaC parsing is cheap enough not to need it).
 
 ### Graph assembly (`src/rudhmap/graph/assemble.py`)
 
@@ -67,7 +67,7 @@ Turns the flat lists of `EvidenceRecord`/`EdgeRecord` from all tiers into one `n
 Recovers a subset of dropped edges once real graph identities are available, using only information already present in extracted evidence — never a guess:
 
 1. **Same-scope calls** — `self.foo`/`this.foo` and bare module-level calls resolved against the caller's own file/class.
-2. **Cross-file calls** — bare calls through an import binding, resolved via TS/JS relative-path resolution (with extension/index fallback) or Python dotted-import suffix matching against actually-scanned files (left unresolved if ambiguous).
+2. **Cross-file calls** — calls through an import binding, resolved via TS/JS relative-path resolution (with extension/index fallback) or Python dotted-import suffix matching against actually-scanned files (left unresolved if ambiguous). This covers bare calls (`put_object()` after `from writer import put_object`) and attribute calls through an imported module or class (`crud.create_user()` after `from app.db import crud`; `User.create()`; TS `import * as crud`): every split of the dotted path into (file, qualname) is tried, and the edge is connected only if exactly one split names both a scanned file and an extracted node.
 3. **Compose build-context containment** — links a compose service node to every tier 1/2 code node whose file falls under that service's `build:` context directory, using the compose file's own `file:line` as evidence.
 
 ### Slicer (`src/rudhmap/graph/slice.py`)
@@ -158,7 +158,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-220 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, all three identity-resolution passes, the slicer, the IR verifier, layout and draw.io rendering (including byte-identical output under shuffled input), the `diagram` CLI command, and the MCP server (driven through a real in-process MCP client).
+232 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, all three identity-resolution passes, the slicer, the IR verifier, layout and draw.io rendering (including byte-identical output under shuffled input), the `diagram` CLI command, and the MCP server (driven through a real in-process MCP client).
 
 ## Known limits
 
