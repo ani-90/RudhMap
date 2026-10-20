@@ -6,7 +6,7 @@ RudhMap reads a repo and produces an evidence-cited architecture graph: no node 
 
 ## Status
 
-This repo currently implements **structural extraction and graph assembly (no LLM involved anywhere yet)**. Concretely:
+This repo currently implements **structural extraction, graph assembly, slicing, verification, and an MCP server exposing them (no LLM involved anywhere yet)**. Concretely:
 
 - Tier 0: IaC/config extractors (Terraform, docker-compose, Dockerfile, Kubernetes manifests)
 - Tier 1: YAML-declared regex rule engine over application source
@@ -14,16 +14,19 @@ This repo currently implements **structural extraction and graph assembly (no LL
 - Content-addressed extraction cache (SHA-256 keyed, tier 1/2 only)
 - Graph assembly from extracted evidence into a NetworkX graph
 - Identity resolution: same-scope call resolution, cross-file import resolution, and compose build-context containment
-- A `scan` CLI command that runs the full pipeline above and prints the result
+- Slicer: query-scoped subgraph for a plain-English question (BM25 seed + bounded weighted k-hop expansion, ambiguity detection)
+- IR + verifier: drops any node/edge whose `file:line` citation doesn't resolve on disk
+- `scan` / `slice` CLI commands
+- An MCP server (`rudhmap-mcp`, stdio) exposing `scan` and `slice` as read-only tools
 
-Not yet implemented: slicing, verifier, layout/rendering (draw.io/svg/mermaid), the abstraction LLM pass, the MCP server surface, tier 3 (LLM extraction), and the eval harness. None of these exist in the code yet — don't infer them from the spec.
+Not yet implemented: layout/rendering (draw.io/svg/mermaid), the abstraction LLM pass, `generate_diagram`/`trace_edge` MCP tools, tier 3 (LLM extraction), and the eval harness. None of these exist in the code yet — don't infer them from the spec.
 
 ## Pipeline (as built)
 
 ```
-tier 0 (IaC)  ─┐
-tier 1 (regex) ─┼─▶ extraction cache ─▶ graph assembly ─▶ identity resolution ─▶ printed graph summary
-tier 2 (AST)  ─┘
+tier 0 (IaC)  ─┐                                                             ┌─▶ scan  ─┐
+tier 1 (regex) ─┼─▶ extraction cache ─▶ graph assembly ─▶ identity resolution ─┤          ├─▶ IR + verifier ─▶ CLI output / MCP tool result
+tier 2 (AST)  ─┘                                                             └─▶ slice ─┘
 ```
 
 ### Tier 0 — IaC/config extractors (`src/rudhmap/extract/tier0_iac/`)
@@ -66,28 +69,68 @@ Recovers a subset of dropped edges once real graph identities are available, usi
 2. **Cross-file calls** — bare calls through an import binding, resolved via TS/JS relative-path resolution (with extension/index fallback) or Python dotted-import suffix matching against actually-scanned files (left unresolved if ambiguous).
 3. **Compose build-context containment** — links a compose service node to every tier 1/2 code node whose file falls under that service's `build:` context directory, using the compose file's own `file:line` as evidence.
 
+### Slicer (`src/rudhmap/graph/slice.py`)
+
+Turns a plain-English question into a scoped subgraph: BM25 picks seed nodes (indexing only each node's file basename + qualname, never parent directories), a weighted bounded-Dijkstra expansion (max 3 hops) pulls in nearby dependencies, and a 60-node cap trims the rest deterministically. If the top matches fall into separate subsystems with no clear winner, it returns the candidates instead of guessing.
+
+### IR + verifier (`src/rudhmap/ir/`)
+
+`graph_to_ir` flattens a graph into a deterministically sorted node/edge list; `verify_ir` checks schema shape, referential integrity, and that every cited file exists on disk with the cited line in range. Anything that fails is dropped and counted. This proves a citation is *possible*, not that the line's content matches the claim.
+
 ### CLI (`src/rudhmap/cli.py`)
 
 ```
 python -m rudhmap scan <repo_path>
+python -m rudhmap slice <repo_path> "<question>" [--max-nodes 60]
 ```
 
-Runs all tiers, prints every extracted node/edge with its `file:line`, flushes the cache, assembles the graph, runs all three identity-resolution passes, and prints a summary: nodes, edges, edges dropped, and how many were resolved by each pass.
+`scan` runs all tiers, prints every extracted node/edge with its `file:line`, assembles and resolves the graph, verifies it, and prints a summary. `slice` prints the scoped subgraph for a question (or the ambiguous candidates).
+
+### MCP server (`src/rudhmap/server.py`)
+
+```
+rudhmap-mcp            # stdio transport
+```
+
+Exposes two read-only tools over stdio, built on the official `mcp` Python SDK (2.x):
+
+| Tool | Arguments | Returns |
+|---|---|---|
+| `scan` | `repo_path` | The full verified graph: nodes (`id`, `kind`, evidence list) and edges (`src`, `dst`, `relation`, evidence), plus verifier drop counts |
+| `slice` | `repo_path`, `query`, `max_nodes=60` | `status: "ok"` with a verified subgraph, `"ambiguous"` with candidate subsystems, or `"no_match"` |
+
+All ids and paths in results are relative to the repo root with forward slashes, so the same commit gives the same result regardless of checkout location or OS. Both CLI and server build graphs through the same `rudhmap.pipeline.build_assembly`.
+
+Register it with Claude Code:
+
+```
+claude mcp add rudhmap -- <path-to-venv>/Scripts/rudhmap-mcp     # Windows
+claude mcp add rudhmap -- <path-to-venv>/bin/rudhmap-mcp         # macOS/Linux
+```
+
+Any other MCP client (e.g. VS Code) takes the same command as a stdio server.
 
 ## Repo layout
 
 ```
 src/rudhmap/
-├── cli.py                     # scan CLI entrypoint
+├── cli.py                     # scan / slice CLI entrypoint
+├── server.py                  # MCP server (stdio): scan / slice tools
+├── pipeline.py                # shared extract -> assemble -> resolve pipeline
 ├── cache.py                   # SHA-256 content-keyed extraction cache
 ├── extract/
 │   ├── schema.py               # EvidenceRecord / EdgeRecord (shared across all tiers)
 │   ├── tier0_iac/               # Terraform, compose, Dockerfile, k8s
 │   ├── tier1_rules/              # YAML regex rules + engine
 │   └── tier2_ast/                # tree-sitter Python + TypeScript
-└── graph/
-    ├── assemble.py             # flat records -> NetworkX graph
-    └── resolve.py              # identity resolution passes
+├── graph/
+│   ├── assemble.py             # flat records -> NetworkX graph
+│   ├── resolve.py              # identity resolution passes
+│   └── slice.py                # query-scoped subgraph
+└── ir/
+    ├── schema.py               # IRNode / IREdge / IRGraph
+    ├── convert.py              # NetworkX graph -> sorted IR
+    └── verify.py               # evidence verifier
 ```
 
 ## Testing
@@ -97,7 +140,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-164 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, and all three identity-resolution passes.
+197 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, all three identity-resolution passes, the slicer, the IR verifier, and the MCP server (driven through a real in-process MCP client).
 
 ## Known limits
 
@@ -105,4 +148,4 @@ pytest
 
 ## Requirements
 
-Python ≥3.10. Dependencies: `python-hcl2`, `pyyaml`, `tree-sitter` (+ `tree-sitter-python`, `tree-sitter-typescript`), `networkx`.
+Python ≥3.10. Dependencies: `python-hcl2`, `pyyaml`, `tree-sitter` (+ `tree-sitter-python`, `tree-sitter-typescript`), `networkx`, `rank-bm25`, `mcp` (2.x), `anyio`.
