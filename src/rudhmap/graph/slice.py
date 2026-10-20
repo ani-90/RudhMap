@@ -253,19 +253,33 @@ def _apply_cap(
     return kept, dropped
 
 
-def slice_graph(assembly: AssemblyResult, query: str, max_nodes: int = 60) -> SliceResult:
+def slice_graph(
+    assembly: AssemblyResult,
+    query: str,
+    max_nodes: int = 60,
+    seed_ids: list[str] | None = None,
+) -> SliceResult:
+    """Slice around the best BM25 match for `query`, or -- when `seed_ids` is
+    given -- around exactly those nodes, skipping search and ambiguity
+    detection. Explicit seeds are how a caller resolves an ambiguous result:
+    pick one of the returned candidates and slice on it directly."""
     graph = assembly.graph
-    node_ids, blobs = _build_corpus(graph)
-    relevant_ranked = _relevant_ranked(node_ids, blobs, query)
+    if seed_ids is not None:
+        seeds = sorted(s for s in seed_ids if s in graph)
+        if not seeds:
+            return SliceResult(graph=None, query=query)
+    else:
+        node_ids, blobs = _build_corpus(graph)
+        relevant_ranked = _relevant_ranked(node_ids, blobs, query)
 
-    if not relevant_ranked:
-        return SliceResult(graph=None, query=query)
+        if not relevant_ranked:
+            return SliceResult(graph=None, query=query)
 
-    candidates = _detect_ambiguity(graph, relevant_ranked)
-    if candidates is not None:
-        return SliceResult(graph=None, ambiguous=True, candidates=candidates, query=query)
+        candidates = _detect_ambiguity(graph, relevant_ranked)
+        if candidates is not None:
+            return SliceResult(graph=None, ambiguous=True, candidates=candidates, query=query)
 
-    seeds = [relevant_ranked[0][0]]
+        seeds = [relevant_ranked[0][0]]
     visited = _expand(graph, seeds)
     kept, dropped = _apply_cap(graph, visited, set(seeds), max_nodes)
 

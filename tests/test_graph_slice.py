@@ -305,3 +305,31 @@ def test_real_fixture_integration_seed_and_cap_respected():
     assert result.graph.number_of_nodes() <= 60
     assert result.graph.number_of_nodes() > 0
     assert any("do_local_work" in seed for seed in result.seed_ids)
+
+
+def test_explicit_seed_resolves_an_ambiguous_query():
+    nodes = [
+        _node("svc_a_login", attrs={"name": "login"}),
+        _node("svc_a_helper", attrs={"name": "helper"}),
+        _node("svc_b_login", attrs={"name": "login"}),
+        _node("svc_b_helper", attrs={"name": "helper"}),
+    ]
+    edges = [
+        _edge("svc_a_login", "svc_a_helper"),
+        _edge("svc_b_login", "svc_b_helper"),
+    ]
+    assembly = assemble_graph(nodes, edges)
+
+    result = slice_graph(assembly, "login", max_nodes=60, seed_ids=["svc_b_login"])
+
+    assert result.ambiguous is False
+    assert result.seed_ids == ["svc_b_login"]
+    assert set(result.graph.nodes) == {"svc_b_login", "svc_b_helper"}
+
+
+def test_explicit_seed_not_in_graph_is_no_match():
+    assembly = assemble_graph([_node("a")], [])
+
+    result = slice_graph(assembly, "whatever", seed_ids=["missing"])
+
+    assert result.graph is None and result.ambiguous is False

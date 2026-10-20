@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 
-from rudhmap.graph.slice import slice_graph
+from rudhmap.diagram import generate_diagram
+from rudhmap.graph.slice import SliceCandidate
 from rudhmap.ir.convert import graph_to_ir
 from rudhmap.ir.verify import verify_ir
-from rudhmap.pipeline import build_assembly
+from rudhmap.paths import Relativizer
+from rudhmap.pipeline import build_assembly, build_view
+from rudhmap.render.drawio import edge_relation
 
 
 def scan(repo_path: str) -> None:
@@ -30,37 +35,70 @@ def scan(repo_path: str) -> None:
     )
 
 
+def _print_candidates(query: str, candidates: list[SliceCandidate], rel: Relativizer) -> None:
+    print(f"ambiguous query {query!r} -- {len(candidates)} candidate subsystems:")
+    for c in candidates:
+        print(f"  [{c.score:.3f}] {rel(c.label)}  ({len(c.seed_ids)} seed nodes)")
+    print("re-run with one of the ids above as the query to slice on it directly")
+
+
 def slice_cmd(repo_path: str, query: str, max_nodes: int) -> None:
-    assembly = build_assembly(repo_path, verbose=False).result
-    result = slice_graph(assembly, query, max_nodes=max_nodes)
+    root = Path(repo_path).resolve()
+    rel = Relativizer(root)
+    view = build_view(root, query, max_nodes)
 
-    if result.ambiguous:
-        print(f"ambiguous query {query!r} -- {len(result.candidates)} candidate subsystems:")
-        for c in result.candidates:
-            print(f"  [{c.score:.3f}] {c.label}  ({len(c.seed_ids)} seed nodes)")
+    if view.status == "ambiguous":
+        _print_candidates(query, view.candidates, rel)
         return
-
-    if result.graph is None:
+    if view.status == "no_match":
         print(f"no match for query {query!r}")
         return
 
+    verification = view.verification
     print(
-        f"slice for {query!r}: seed={result.seed_ids}, "
-        f"{result.graph.number_of_nodes()} nodes, {result.graph.number_of_edges()} edges "
-        f"({len(result.dropped_for_cap)} dropped for cap)"
+        f"slice for {query!r}: seed={[rel(s) for s in view.seed_ids]}, "
+        f"{len(verification.ir.nodes)} nodes, {len(verification.ir.edges)} edges "
+        f"({view.dropped_for_cap} dropped for cap)"
     )
-    for node_id in sorted(result.graph.nodes):
-        print(f"  [node] {node_id}")
-    for u, v, data in sorted(result.graph.edges(data=True), key=lambda e: (e[0], e[1])):
-        relation = data["evidence"].attrs.get("relation", "")
-        print(f"  [edge] {u} -> {v}  relation={relation}")
-
-    verification = verify_ir(graph_to_ir(result.graph), repo_path)
+    for node in verification.ir.nodes:
+        print(f"  [node] {rel(node.id)}")
+    for edge in verification.ir.edges:
+        print(f"  [edge] {rel(edge.src)} -> {rel(edge.dst)}  relation={edge_relation(edge.evidence)}")
     print(
-        f"verified IR: {len(verification.ir.nodes)} nodes, {len(verification.ir.edges)} edges, "
-        f"{len(verification.dropped_nodes)} nodes dropped, "
+        f"verified IR: {len(verification.dropped_nodes)} nodes dropped, "
         f"{len(verification.dropped_edges)} edges dropped (schema/evidence)"
     )
+
+
+def diagram_cmd(repo_path: str, query: str | None, max_nodes: int, output: str | None) -> int:
+    root = Path(repo_path).resolve()
+    if not root.is_dir():
+        print(f"not a directory: {repo_path}", file=sys.stderr)
+        return 2
+    out = Path(output).resolve() if output else None
+    try:
+        result = generate_diagram(root, query, max_nodes, out)
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+
+    view = result.view
+    if view.status == "ambiguous":
+        print("no diagram written.")
+        _print_candidates(query, view.candidates, Relativizer(root))
+        return 1
+    if view.status == "no_match":
+        print(f"no match for query {query!r} -- no diagram written")
+        return 1
+
+    verification = view.verification
+    print(f"wrote {result.output_path}")
+    print(
+        f"  {len(verification.ir.nodes)} nodes, {len(verification.ir.edges)} edges "
+        f"({len(verification.dropped_nodes)} nodes / {len(verification.dropped_edges)} edges dropped by verifier)"
+    )
+    print("  open it in draw.io desktop, https://app.diagrams.net, or the VS Code Draw.io extension")
+    return 0
 
 
 def main() -> None:
@@ -75,11 +113,21 @@ def main() -> None:
     slice_p.add_argument("query")
     slice_p.add_argument("--max-nodes", type=int, default=60)
 
+    diagram_p = sub.add_parser("diagram", help="Write a draw.io diagram of the repo, or of a slice with --query")
+    diagram_p.add_argument("repo_path")
+    diagram_p.add_argument("--query", "-q", help="plain-English question; diagrams only that slice")
+    diagram_p.add_argument("--max-nodes", type=int, default=60)
+    diagram_p.add_argument(
+        "--output", "-o", help="output .drawio path (default: rudhmap[-<query>].drawio in the repo root)"
+    )
+
     args = parser.parse_args()
     if args.command == "scan":
         scan(args.repo_path)
     elif args.command == "slice":
         slice_cmd(args.repo_path, args.query, args.max_nodes)
+    elif args.command == "diagram":
+        sys.exit(diagram_cmd(args.repo_path, args.query, args.max_nodes, args.output))
 
 
 if __name__ == "__main__":

@@ -132,3 +132,28 @@ between the two symmetric python/typescript extractors, exactly right.
 `graph assembly` scored 2 — seed reasonable but diluted by sibling IaC-parser
 calls in the same orchestrator function.
 
+
+## Case 4: phase 7 draw.io output on real repos
+
+Rendered with `rudhmap diagram` and inspected via a rough PIL preview of the
+written coordinates (draw.io itself isn't installed on the dev machine, so
+this checks the layout geometry, not draw.io's own rendering).
+
+- **`Knowledge-News-App`, whole repo** (102 nodes, 47 edges, 0 dropped by the
+  verifier): readable. Components laid out top-down with callers above
+  callees, near-zero crossings, the ~40 edge-less nodes packed into a grid
+  instead of one long row.
+- **RudhMap's own `src/`** (150 nodes, 201 edges): the main component is a
+  wide tangle. Same root cause as Case 3 — `EvidenceRecord`/`EdgeRecord` and
+  other hubs are called from nearly everywhere, so long edges fan in from
+  across the page. Barycenter sweeps can't fix a hub; grouping (phase 8) can.
+  Expected, and the reason phase 7 alone isn't a release point.
+- **Ambiguity was a dead end** for diagram/slice users: candidates were
+  printed but there was no way to pick one. Fixed in phase 7 — an exact
+  (repo-relative) node id as the query slices on that node directly
+  (`slice_graph(..., seed_ids=...)`), and the CLI/MCP tool docs say so.
+  `-q "app/api/user.py:create_user"` now yields a 2-node diagram.
+- **Possible resolver gap, not investigated yet:** that slice shows
+  `api/user.py:create_user -> UserResponse` but no edge to
+  `db/crud.py:create_user`, which the API handler presumably calls. Worth
+  checking cross-file call resolution against this repo before phase 8.

@@ -4,7 +4,8 @@ so the two surfaces can never disagree about what a repo's graph is.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 
 from rudhmap.cache import ExtractionCache
 from rudhmap.extract.tier0_iac.compose import parse_compose
@@ -19,6 +20,10 @@ from rudhmap.graph.resolve import (
     resolve_cross_file_calls,
     resolve_same_scope_calls,
 )
+from rudhmap.graph.slice import SliceCandidate, slice_graph
+from rudhmap.ir.convert import graph_to_ir
+from rudhmap.ir.verify import VerificationResult, verify_ir
+from rudhmap.paths import Relativizer
 
 EXTRACTORS = [
     ("terraform", parse_terraform),
@@ -86,4 +91,44 @@ def build_assembly(repo_path: str, *, verbose: bool) -> AssemblyStats:
         resolved_same_scope=resolved_same_scope,
         resolved_cross_file=resolved_cross_file,
         resolved_containment=resolved_containment,
+    )
+
+
+@dataclass
+class VerifiedView:
+    """The verified IR for a whole repo (`query=None`) or for a slice of it.
+    `status` is "ok", or for a slice also "ambiguous"/"no_match", in which
+    case `verification` is None and `candidates` may be populated."""
+
+    status: str
+    verification: VerificationResult | None = None
+    seed_ids: list[str] = field(default_factory=list)
+    candidates: list[SliceCandidate] = field(default_factory=list)
+    dropped_for_cap: int = 0
+    unresolved_edges: int = 0
+
+
+def build_view(repo_root: Path, query: str | None = None, max_nodes: int = 60) -> VerifiedView:
+    assembly = build_assembly(str(repo_root), verbose=False).result
+    if query is None:
+        verification = verify_ir(graph_to_ir(assembly.graph), repo_root)
+        return VerifiedView("ok", verification, unresolved_edges=len(assembly.dropped_edges))
+
+    # A query that is exactly a node id (as returned in an ambiguous result's
+    # candidates, repo-relative) slices on that node directly instead of searching.
+    rel = Relativizer(repo_root)
+    by_relative_id = {rel(node_id): node_id for node_id in assembly.graph.nodes}
+    exact = by_relative_id.get(query.strip().replace("\\", "/"))
+    seed_ids = [exact] if exact is not None else None
+
+    result = slice_graph(assembly, query, max_nodes=max_nodes, seed_ids=seed_ids)
+    if result.ambiguous:
+        return VerifiedView("ambiguous", candidates=result.candidates)
+    if result.graph is None:
+        return VerifiedView("no_match")
+    return VerifiedView(
+        "ok",
+        verify_ir(graph_to_ir(result.graph), repo_root),
+        seed_ids=result.seed_ids,
+        dropped_for_cap=len(result.dropped_for_cap),
     )

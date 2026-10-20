@@ -6,14 +6,22 @@ MCP server that reads a repo and produces an evidence-cited (`file:line`-traceab
 
 **Last updated:** 2026-10-20
 
-**Minimal MCP server built early (2026-10-20), ahead of phase 7 — a first slice of phase 10, not phase 10 itself** (197 tests passing):
+**Phase 7 complete (2026-10-20): layout + draw.io renderer** (220 tests passing):
+- `src/rudhmap/render/layout.py`: pure-Python simplified Sugiyama (no Graphviz/ELK — an external engine would put byte-identical output at the mercy of its version). DFS cycle breaking (back edges reversed for layering only), longest-path layering (callers above callees, heap-based Kahn), dummy nodes for long edges (become draw.io waypoints), 8 alternating barycenter sweeps, per-layer centering; components shelf-packed into rows (max 2400px), edge-less nodes in a sqrt grid. Every tie broken by node id.
+- `src/rudhmap/render/drawio.py`: uncompressed `.drawio`; each node/edge is an `<object>` with `evidence`, `kind`/`relation`, `rudhmap_id`, and a hover tooltip (groundwork for phase 9 `trace_edge`). Parallel same-relation edges merge into one arrow listing all call sites. The renderer sorts its own input, so output is byte-identical regardless of caller order (tested with shuffled input). Colors by kind; non-call relations dashed + labelled.
+- `src/rudhmap/diagram.py` (build → slice → verify → render → write) shared by CLI `rudhmap diagram <repo> [-q Q] [-o out.drawio]` and MCP tool `generate_diagram`. Default output `rudhmap.drawio` / `rudhmap-<slug>.drawio` in the repo root; refuses non-`.drawio` output paths; writes nothing when the query is ambiguous/no-match.
+- `pipeline.build_view` is now the single build/slice/verify path for CLI `slice`/`diagram` and all MCP tools. `paths.Relativizer` is shared.
+- Ambiguity is now actionable: an exact repo-relative node id as the query slices on that node directly (`slice_graph(..., seed_ids=...)`). Before this, ambiguous results were a dead end.
+- Real-repo check (`eval/cases.md` Case 4): `Knowledge-News-App` diagram is readable; RudhMap's own graph is a hub tangle — expected, phase 8's job. Also flagged a possible cross-file resolution gap (`api/user.py:create_user` has no edge to `db/crud.py:create_user`), not yet investigated.
+
+**Minimal MCP server built early (2026-10-20), ahead of phase 7 — a first slice of phase 10, not phase 10 itself:**
 - `src/rudhmap/server.py`: stdio MCP server on the official `mcp` SDK **2.x** (`from mcp.server.mcpserver import MCPServer` — `FastMCP` was renamed in 2.x; `mcp.server.fastmcp` no longer exists). Two read-only tools, `scan(repo_path)` and `slice(repo_path, query, max_nodes=60)`, returning JSON of the *verified* IR (post-`verify_ir`) with evidence per node/edge. Pipeline runs in a worker thread (`anyio.to_thread`) so the event loop isn't blocked. Bad input raises `ToolError` (returned as `is_error`, not a crash).
 - All ids/paths in tool output are made relative to the repo root with forward slashes, so output is identical across checkout locations/OSes (tested). Tier 2 edges have no `relation` attr — the server labels them `imports` (`attrs.kind == "import"`) or `calls`.
 - Nothing may print to stdout in this process (stdio *is* the protocol stream) — `build_assembly(verbose=False)` only.
 - `src/rudhmap/pipeline.py`: `build_assembly`/`AssemblyStats` moved out of `cli.py` unchanged so CLI and server share one pipeline.
 - Entry points in `pyproject.toml`: `rudhmap` (CLI) and `rudhmap-mcp` (server). Deps added: `mcp>=2.3,<3`, `anyio>=4.9`.
 - Verified over a real stdio subprocess against `Knowledge-News-App`: 102 nodes/47 edges (matches CLI), 0 dropped by verifier, ~1s warm. Slice queries there mostly come back `ambiguous`/`no_match` — that's the known Case 3 slicer weakness, deferred to phase 8, not a server bug.
-- Still missing for real phase 10: `generate_diagram` (needs phase 7), `trace_edge` (phase 9), sampling for zero-API-key installs.
+- Still missing for real phase 10: `trace_edge` (phase 9), sampling for zero-API-key installs. (`generate_diagram` landed with phase 7.)
 - Setup gotcha: after the archilens→rudhmap rename the venv still had only the old package installed, so every test failed to import `rudhmap`. Fix: `pip install -e ".[dev]"`.
 
 Phases 0-6 complete and merged to `main`:
@@ -36,9 +44,9 @@ Phases 0-5 complete and merged to `main`:
 
 **Phase 5 slicer graded, 5 queries, average 1.8/3** (below the 2.5 bar for proceeding straight to phase 8) — see `eval/cases.md` Case 3. Two failure modes, both hub/graph-shape problems rather than slicer-logic bugs: (1) hub dilution — `ExtractionCache`'s methods disconnected from its class node, `EdgeRecord`/`EvidenceRecord` constructed almost everywhere; (2) BM25 document-length bias favoring a sparse dataclass over the real entry point (`main`). **Decision: not fixed at the slicer level** — phase 8 (abstraction/grouping) is the right place to solve this, not more BM25/k-hop tuning. Proceeding to phase 6 next per the existing build order (not phase 8 directly). Revisit Case 3 once phase 8 exists.
 
-**Next up:** Phase 7 — layout + draw.io renderer.
+**Next up:** Phase 8 — abstraction LLM pass (grouping per-function boxes into named components). Worth first checking the Case 4 cross-file resolution gap.
 
-Not started: layout/draw.io rendering, abstraction LLM pass, the rest of the MCP surface (`generate_diagram`, `trace_edge`, sampling), tier 3 LLM extraction, eval harness.
+Not started: abstraction LLM pass, the rest of the MCP surface (`trace_edge`, sampling), tier 3 LLM extraction, eval harness.
 
 ## V1 public release target: through Phase 10
 

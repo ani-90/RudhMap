@@ -1,22 +1,19 @@
 """The MCP server surface: exposes the tier 0-2 pipeline as MCP tools over
 stdio, so any MCP client (Claude Code, VS Code, ...) can ask for a repo's
-verified graph or a query-scoped slice of it. No LLM calls happen here --
-the tools return exactly what `build_assembly` -> `slice_graph` ->
-`verify_ir` produce, reshaped into JSON.
+verified graph, a query-scoped slice of it, or a draw.io diagram of either.
+No LLM calls happen here -- the tools return exactly what the pipeline
+(`rudhmap.pipeline.build_view`) produces, reshaped into JSON.
 
 Every path and node id in a tool result is made relative to the scanned
-repo root (forward slashes) before it leaves the server, so the same commit
-gives the same result regardless of where it's checked out or which OS
-scanned it (spec invariant 4) -- the same class of leak the slicer's
-basename-only indexing fixed.
+repo root (`rudhmap.paths.Relativizer`) before it leaves the server, so the
+same commit gives the same result regardless of where it's checked out or
+which OS scanned it (spec invariant 4).
 
 Nothing in this module may write to stdout: under the stdio transport,
-stdout *is* the protocol stream. `build_assembly` is always called with
-`verbose=False` for that reason.
+stdout *is* the protocol stream. The pipeline is always run non-verbose.
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -25,12 +22,13 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp_types import ToolAnnotations
 
+from rudhmap.diagram import generate_diagram
 from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
-from rudhmap.graph.slice import slice_graph
-from rudhmap.ir.convert import graph_to_ir
 from rudhmap.ir.schema import IRGraph
-from rudhmap.ir.verify import VerificationResult, verify_ir
-from rudhmap.pipeline import build_assembly
+from rudhmap.ir.verify import VerificationResult
+from rudhmap.paths import Relativizer
+from rudhmap.pipeline import VerifiedView, build_view
+from rudhmap.render.drawio import edge_relation
 
 mcp = MCPServer(
     name="rudhmap",
@@ -38,21 +36,15 @@ mcp = MCPServer(
         "RudhMap builds an evidence-cited architecture graph of a local code repository. "
         "Every node and edge it returns cites the file:line that proves it, and anything "
         "whose citation doesn't resolve on disk has already been dropped. Use `slice` to "
-        "answer a question about one part of a codebase; use `scan` for the whole graph."
+        "answer a question about one part of a codebase, `scan` for the whole graph, and "
+        "`generate_diagram` to write either one as a .drawio file the user can open."
     ),
 )
 
 _READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False, open_world_hint=False)
-
-
-class _Relativizer:
-    def __init__(self, root: Path):
-        self._prefix = str(root) + os.sep
-
-    def __call__(self, value: str) -> str:
-        if value.startswith(self._prefix):
-            value = value[len(self._prefix) :]
-        return value.replace("\\", "/")
+_WRITES_DIAGRAM = ToolAnnotations(
+    read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+)
 
 
 def _resolve_repo(repo_path: str) -> Path:
@@ -62,7 +54,14 @@ def _resolve_repo(repo_path: str) -> Path:
     return root.resolve()
 
 
-def _evidence_json(record: EvidenceRecord | EdgeRecord, rel: _Relativizer) -> dict[str, Any]:
+def _check_slice_args(query: str, max_nodes: int) -> None:
+    if not query.strip():
+        raise ToolError("query must be non-empty")
+    if max_nodes < 1:
+        raise ToolError(f"max_nodes must be >= 1, got {max_nodes}")
+
+
+def _evidence_json(record: EvidenceRecord | EdgeRecord, rel: Relativizer) -> dict[str, Any]:
     return {
         "file": rel(record.file),
         "line": record.line,
@@ -71,15 +70,7 @@ def _evidence_json(record: EvidenceRecord | EdgeRecord, rel: _Relativizer) -> di
     }
 
 
-def _relation(edge: EdgeRecord) -> str:
-    """Tier 0 and resolver edges name their relation explicitly; tier 2 edges
-    don't, and are either imports (`kind: "import"`) or calls."""
-    if "relation" in edge.attrs:
-        return edge.attrs["relation"]
-    return "imports" if edge.attrs.get("kind") == "import" else "calls"
-
-
-def _ir_json(ir: IRGraph, rel: _Relativizer) -> dict[str, Any]:
+def _ir_json(ir: IRGraph, rel: Relativizer) -> dict[str, Any]:
     nodes = [
         {
             "id": rel(node.id),
@@ -92,7 +83,7 @@ def _ir_json(ir: IRGraph, rel: _Relativizer) -> dict[str, Any]:
         {
             "src": rel(edge.src),
             "dst": rel(edge.dst),
-            "relation": _relation(edge.evidence),
+            "relation": edge_relation(edge.evidence),
             "evidence": _evidence_json(edge.evidence, rel),
         }
         for edge in ir.edges
@@ -100,7 +91,7 @@ def _ir_json(ir: IRGraph, rel: _Relativizer) -> dict[str, Any]:
     return {"nodes": nodes, "edges": edges}
 
 
-def _verification_json(verification: VerificationResult, rel: _Relativizer) -> dict[str, Any]:
+def _verification_json(verification: VerificationResult, rel: Relativizer) -> dict[str, Any]:
     return {
         **_ir_json(verification.ir, rel),
         "dropped_by_verifier": {
@@ -110,48 +101,71 @@ def _verification_json(verification: VerificationResult, rel: _Relativizer) -> d
     }
 
 
-def scan_repo(repo_path: str) -> dict[str, Any]:
-    root = _resolve_repo(repo_path)
-    rel = _Relativizer(root)
-    stats = build_assembly(str(root), verbose=False)
-    verification = verify_ir(graph_to_ir(stats.result.graph), root)
-    return {
-        "repo": root.name,
-        **_verification_json(verification, rel),
-        "unresolved_edges": len(stats.result.dropped_edges),
-    }
-
-
-def slice_repo(repo_path: str, query: str, max_nodes: int = 60) -> dict[str, Any]:
-    if not query.strip():
-        raise ToolError("query must be non-empty")
-    if max_nodes < 1:
-        raise ToolError(f"max_nodes must be >= 1, got {max_nodes}")
-
-    root = _resolve_repo(repo_path)
-    rel = _Relativizer(root)
-    assembly = build_assembly(str(root), verbose=False).result
-    result = slice_graph(assembly, query, max_nodes=max_nodes)
-
-    if result.ambiguous:
+def _not_ok_json(view: VerifiedView, query: str, rel: Relativizer) -> dict[str, Any]:
+    if view.status == "ambiguous":
         return {
             "status": "ambiguous",
             "query": query,
             "candidates": [
                 {"label": rel(c.label), "score": round(c.score, 6), "seed_ids": [rel(s) for s in c.seed_ids]}
-                for c in result.candidates
+                for c in view.candidates
             ],
         }
-    if result.graph is None:
-        return {"status": "no_match", "query": query}
+    return {"status": "no_match", "query": query}
 
-    verification = verify_ir(graph_to_ir(result.graph), root)
+
+def scan_repo(repo_path: str) -> dict[str, Any]:
+    root = _resolve_repo(repo_path)
+    rel = Relativizer(root)
+    view = build_view(root)
+    return {
+        "repo": root.name,
+        **_verification_json(view.verification, rel),
+        "unresolved_edges": view.unresolved_edges,
+    }
+
+
+def slice_repo(repo_path: str, query: str, max_nodes: int = 60) -> dict[str, Any]:
+    _check_slice_args(query, max_nodes)
+    root = _resolve_repo(repo_path)
+    rel = Relativizer(root)
+    view = build_view(root, query, max_nodes)
+    if view.status != "ok":
+        return _not_ok_json(view, query, rel)
     return {
         "status": "ok",
         "query": query,
-        "seed_ids": [rel(s) for s in result.seed_ids],
-        **_verification_json(verification, rel),
-        "dropped_for_cap": len(result.dropped_for_cap),
+        "seed_ids": [rel(s) for s in view.seed_ids],
+        **_verification_json(view.verification, rel),
+        "dropped_for_cap": view.dropped_for_cap,
+    }
+
+
+def diagram_repo(
+    repo_path: str, query: str | None = None, max_nodes: int = 60, output_path: str | None = None
+) -> dict[str, Any]:
+    if query is not None:
+        _check_slice_args(query, max_nodes)
+    root = _resolve_repo(repo_path)
+    rel = Relativizer(root)
+    out = Path(output_path).expanduser().resolve() if output_path else None
+    if out is not None and out.suffix != ".drawio":
+        raise ToolError(f"output_path must end in .drawio, got {output_path}")
+
+    result = generate_diagram(root, query, max_nodes, out)
+    if result.view.status != "ok":
+        return _not_ok_json(result.view, query or "", rel)
+
+    ir = result.view.verification.ir
+    return {
+        "status": "ok",
+        "output_path": str(result.output_path),
+        "nodes": len(ir.nodes),
+        "edges": len(ir.edges),
+        "dropped_by_verifier": {
+            "nodes": len(result.view.verification.dropped_nodes),
+            "edges": len(result.view.verification.dropped_edges),
+        },
     }
 
 
@@ -177,8 +191,10 @@ async def slice_tool(repo_path: str, query: str, max_nodes: int = 60) -> dict[st
 
     Finds the components best matching `query` (plain English, e.g. "how are uploads
     stored") and expands to their nearby dependencies, capped at `max_nodes`. Returns
-    `status`: "ok" with a verified subgraph, "ambiguous" with candidate subsystems to
-    re-ask about more specifically, or "no_match".
+    `status`: "ok" with a verified subgraph, "ambiguous" with candidate subsystems, or
+    "no_match". To resolve an ambiguous result, call again with one candidate's
+    `label` (a node id such as "app/api/user.py:create_user") as the query: an exact
+    node id slices on that node directly instead of searching.
 
     Args:
         repo_path: Absolute path to the repository root on this machine.
@@ -186,6 +202,29 @@ async def slice_tool(repo_path: str, query: str, max_nodes: int = 60) -> dict[st
         max_nodes: Upper bound on nodes in the returned subgraph.
     """
     return await anyio.to_thread.run_sync(slice_repo, repo_path, query, max_nodes)
+
+
+@mcp.tool(name="generate_diagram", annotations=_WRITES_DIAGRAM)
+async def generate_diagram_tool(
+    repo_path: str, query: str | None = None, max_nodes: int = 60, output_path: str | None = None
+) -> dict[str, Any]:
+    """Write a draw.io diagram of a repository's verified architecture graph.
+
+    Without `query`, diagrams the whole repo; with `query`, diagrams the same scoped
+    subgraph `slice` would return (if the query is ambiguous or matches nothing, no file
+    is written and the candidates are returned instead). Every box and arrow in the
+    file carries the file:line it was extracted from, shown on hover in draw.io.
+    The file opens in draw.io desktop, app.diagrams.net, or the VS Code Draw.io extension.
+
+    Args:
+        repo_path: Absolute path to the repository root on this machine.
+        query: Optional plain-English description of the part of the system to diagram,
+            or an exact node id (e.g. a candidate label from an ambiguous result).
+        max_nodes: Upper bound on nodes when `query` is given.
+        output_path: Where to write the .drawio file. Defaults to `rudhmap.drawio`
+            (or `rudhmap-<query>.drawio`) in the repository root.
+    """
+    return await anyio.to_thread.run_sync(diagram_repo, repo_path, query, max_nodes, output_path)
 
 
 def main() -> None:

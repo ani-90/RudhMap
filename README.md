@@ -6,7 +6,7 @@ RudhMap reads a repo and produces an evidence-cited architecture graph: no node 
 
 ## Status
 
-This repo currently implements **structural extraction, graph assembly, slicing, verification, and an MCP server exposing them (no LLM involved anywhere yet)**. Concretely:
+This repo currently implements **structural extraction, graph assembly, slicing, verification, draw.io rendering, and an MCP server exposing them (no LLM involved anywhere yet)**. Concretely:
 
 - Tier 0: IaC/config extractors (Terraform, docker-compose, Dockerfile, Kubernetes manifests)
 - Tier 1: YAML-declared regex rule engine over application source
@@ -16,10 +16,11 @@ This repo currently implements **structural extraction, graph assembly, slicing,
 - Identity resolution: same-scope call resolution, cross-file import resolution, and compose build-context containment
 - Slicer: query-scoped subgraph for a plain-English question (BM25 seed + bounded weighted k-hop expansion, ambiguity detection)
 - IR + verifier: drops any node/edge whose `file:line` citation doesn't resolve on disk
-- `scan` / `slice` CLI commands
-- An MCP server (`rudhmap-mcp`, stdio) exposing `scan` and `slice` as read-only tools
+- Deterministic layered layout + draw.io renderer: every box and arrow carries its `file:line` evidence (shown on hover)
+- `scan` / `slice` / `diagram` CLI commands
+- An MCP server (`rudhmap-mcp`, stdio) exposing `scan`, `slice`, and `generate_diagram`
 
-Not yet implemented: layout/rendering (draw.io/svg/mermaid), the abstraction LLM pass, `generate_diagram`/`trace_edge` MCP tools, tier 3 (LLM extraction), and the eval harness. None of these exist in the code yet — don't infer them from the spec.
+Not yet implemented: the abstraction LLM pass (diagrams are still one box per function/class/service), SVG/mermaid output, the `trace_edge` MCP tool, tier 3 (LLM extraction), and the eval harness. None of these exist in the code yet — don't infer them from the spec.
 
 ## Pipeline (as built)
 
@@ -77,14 +78,23 @@ Turns a plain-English question into a scoped subgraph: BM25 picks seed nodes (in
 
 `graph_to_ir` flattens a graph into a deterministically sorted node/edge list; `verify_ir` checks schema shape, referential integrity, and that every cited file exists on disk with the cited line in range. Anything that fails is dropped and counted. This proves a citation is *possible*, not that the line's content matches the claim.
 
+### Layout + draw.io renderer (`src/rudhmap/render/`)
+
+`layout.py` is a pure-Python simplified Sugiyama layout (no Graphviz/ELK, so output can't drift with an external tool's version): DFS cycle breaking, longest-path layering (callers above callees), dummy nodes for long edges, barycenter crossing reduction, then components shelf-packed into rows with edge-less nodes in a grid. `drawio.py` writes an uncompressed `.drawio` file where each node/edge is an `<object>` carrying `evidence`, `kind`/`relation`, and a hover tooltip. Parallel edges with the same relation merge into one arrow listing every call site. Output is byte-identical for the same graph regardless of input order: no timestamps or random ids.
+
+Open the file in draw.io desktop, [app.diagrams.net](https://app.diagrams.net), or the VS Code Draw.io extension.
+
 ### CLI (`src/rudhmap/cli.py`)
 
 ```
-python -m rudhmap scan <repo_path>
-python -m rudhmap slice <repo_path> "<question>" [--max-nodes 60]
+rudhmap scan <repo_path>
+rudhmap slice <repo_path> "<question>" [--max-nodes 60]
+rudhmap diagram <repo_path> [-q "<question>"] [--max-nodes 60] [-o out.drawio]
 ```
 
-`scan` runs all tiers, prints every extracted node/edge with its `file:line`, assembles and resolves the graph, verifies it, and prints a summary. `slice` prints the scoped subgraph for a question (or the ambiguous candidates).
+(`python -m rudhmap ...` works too.) `scan` runs all tiers, prints every extracted node/edge with its `file:line`, assembles, resolves and verifies the graph, and prints a summary. `slice` prints the scoped subgraph for a question. `diagram` writes a `.drawio` file of the whole repo, or of a slice with `-q`; the default output is `rudhmap.drawio` (or `rudhmap-<query>.drawio`) in the repo root.
+
+If a question is ambiguous, `slice`/`diagram` list candidate node ids; re-run with one of those ids as the query (e.g. `-q "app/api/user.py:create_user"`) to slice on it directly.
 
 ### MCP server (`src/rudhmap/server.py`)
 
@@ -92,12 +102,15 @@ python -m rudhmap slice <repo_path> "<question>" [--max-nodes 60]
 rudhmap-mcp            # stdio transport
 ```
 
-Exposes two read-only tools over stdio, built on the official `mcp` Python SDK (2.x):
+Exposes three tools over stdio, built on the official `mcp` Python SDK (2.x):
 
 | Tool | Arguments | Returns |
 |---|---|---|
 | `scan` | `repo_path` | The full verified graph: nodes (`id`, `kind`, evidence list) and edges (`src`, `dst`, `relation`, evidence), plus verifier drop counts |
 | `slice` | `repo_path`, `query`, `max_nodes=60` | `status: "ok"` with a verified subgraph, `"ambiguous"` with candidate subsystems, or `"no_match"` |
+| `generate_diagram` | `repo_path`, `query=None`, `max_nodes=60`, `output_path=None` | Writes a `.drawio` file (whole repo, or a slice) and returns its path and counts; writes nothing if the query is ambiguous/unmatched |
+
+`scan` and `slice` are read-only. `generate_diagram` only ever writes a `.drawio` file (it refuses any other extension). In any tool, an exact node id as the query (e.g. a candidate `label` from an ambiguous result) slices on that node directly.
 
 All ids and paths in results are relative to the repo root with forward slashes, so the same commit gives the same result regardless of checkout location or OS. Both CLI and server build graphs through the same `rudhmap.pipeline.build_assembly`.
 
@@ -114,9 +127,11 @@ Any other MCP client (e.g. VS Code) takes the same command as a stdio server.
 
 ```
 src/rudhmap/
-├── cli.py                     # scan / slice CLI entrypoint
-├── server.py                  # MCP server (stdio): scan / slice tools
-├── pipeline.py                # shared extract -> assemble -> resolve pipeline
+├── cli.py                     # scan / slice / diagram CLI entrypoint
+├── server.py                  # MCP server (stdio): scan / slice / generate_diagram
+├── pipeline.py                # shared extract -> assemble -> resolve -> (slice) -> verify
+├── diagram.py                 # pipeline -> render -> write .drawio (shared by CLI + MCP)
+├── paths.py                   # repo-relative ids/paths for anything leaving the process
 ├── cache.py                   # SHA-256 content-keyed extraction cache
 ├── extract/
 │   ├── schema.py               # EvidenceRecord / EdgeRecord (shared across all tiers)
@@ -127,10 +142,13 @@ src/rudhmap/
 │   ├── assemble.py             # flat records -> NetworkX graph
 │   ├── resolve.py              # identity resolution passes
 │   └── slice.py                # query-scoped subgraph
-└── ir/
-    ├── schema.py               # IRNode / IREdge / IRGraph
-    ├── convert.py              # NetworkX graph -> sorted IR
-    └── verify.py               # evidence verifier
+├── ir/
+│   ├── schema.py               # IRNode / IREdge / IRGraph
+│   ├── convert.py              # NetworkX graph -> sorted IR
+│   └── verify.py               # evidence verifier
+└── render/
+    ├── layout.py               # deterministic layered layout
+    └── drawio.py               # IR + layout -> .drawio XML
 ```
 
 ## Testing
@@ -140,7 +158,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-197 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, all three identity-resolution passes, the slicer, the IR verifier, and the MCP server (driven through a real in-process MCP client).
+220 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, all three identity-resolution passes, the slicer, the IR verifier, layout and draw.io rendering (including byte-identical output under shuffled input), the `diagram` CLI command, and the MCP server (driven through a real in-process MCP client).
 
 ## Known limits
 
