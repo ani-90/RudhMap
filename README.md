@@ -1,8 +1,7 @@
 # RudhMap
 
-An MCP server that generates verified data flow diagrams from source code — every component and arrow traceable to a line of code, laid out deterministically.
-
-RudhMap reads a repo and produces an evidence-cited architecture graph: no node or edge is asserted unless it resolves to a real `file:line`.  **this README documents only what is actually implemented so far.**
+RudhMap is an MCP server that gives AI coding assistants a map of a codebase where every connection is backed by the exact file and line that proves it, so they stop guessing.
+**this README documents only what is actually implemented so far.**
 
 ## Status
 
