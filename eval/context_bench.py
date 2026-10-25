@@ -30,6 +30,9 @@ def main() -> int:
     parser.add_argument("repo_path")
     parser.add_argument("questions")
     parser.add_argument("--budget", type=int, default=DEFAULT_TOKEN_BUDGET)
+    parser.add_argument(
+        "--show-files", action="store_true", help="list each whole file counted in the baseline, with its size"
+    )
     args = parser.parse_args()
 
     root = Path(args.repo_path).resolve()
@@ -47,6 +50,9 @@ def main() -> int:
             f"{len(pack.snippets):>4} {len(pack.references):>4}  {question}"
         )
         print(f"{'':>31}seeds: {', '.join(pack.seed_ids)}")
+        if args.show_files:
+            for file, tokens in pack.baseline_breakdown:
+                print(f"{'':>31}  {tokens:>5}  {file}")
     if ratios:
         print(f"\nmedian whole-file/pack ratio: {statistics.median(ratios):.1f}x over {len(ratios)} answered questions")
     return 0

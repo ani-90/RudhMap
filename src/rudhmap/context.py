@@ -79,6 +79,7 @@ class ContextPack:
     # What reading every file the slice touches, whole, would cost.
     baseline_tokens: int = 0
     baseline_files: int = 0
+    baseline_breakdown: list[tuple[str, int]] = field(default_factory=list)  # (relative file, tokens)
 
 
 def _hops_from_seeds(ir: IRGraph, seeds: list[str]) -> dict[str, int]:
@@ -242,8 +243,9 @@ def pack_from_view(
     pack.pack_tokens = estimate_tokens(pack.text)
 
     touched = sorted({ev.file for node in ir.nodes for ev in node.evidence if Path(ev.file).is_file()})
+    pack.baseline_breakdown = [(rel(f), estimate_tokens("\n".join(files.lines(f)))) for f in touched]
     pack.baseline_files = len(touched)
-    pack.baseline_tokens = sum(estimate_tokens("\n".join(files.lines(f))) for f in touched)
+    pack.baseline_tokens = sum(tokens for _, tokens in pack.baseline_breakdown)
     return pack
 
 
