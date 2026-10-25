@@ -62,8 +62,8 @@ def _list_tools():
 def test_lists_tools_with_correct_annotations():
     tools = {t.name: t for t in _list_tools().tools}
 
-    assert set(tools) == {"scan", "slice", "generate_diagram"}
-    for name in ("scan", "slice"):
+    assert set(tools) == {"scan", "slice", "generate_diagram", "get_context"}
+    for name in ("scan", "slice", "get_context"):
         assert tools[name].annotations.read_only_hint is True
         assert tools[name].annotations.destructive_hint is False
     assert tools["generate_diagram"].annotations.read_only_hint is False
@@ -71,6 +71,9 @@ def test_lists_tools_with_correct_annotations():
     assert set(tools["slice"].input_schema["properties"]) == {"repo_path", "query", "max_nodes"}
     assert set(tools["generate_diagram"].input_schema["properties"]) == {
         "repo_path", "query", "max_nodes", "output_path"
+    }
+    assert set(tools["get_context"].input_schema["properties"]) == {
+        "repo_path", "query", "token_budget", "max_nodes"
     }
 
 
@@ -208,3 +211,28 @@ def test_slice_on_exact_node_id_skips_search(tmp_path):
     assert data["status"] == "ok"
     assert data["seed_ids"] == ["app/store.py:_write"]
     assert "app/store.py:save_upload" in {n["id"] for n in data["nodes"]}
+
+
+def test_get_context_returns_cited_source_pack(tmp_path):
+    repo = _make_repo(tmp_path)
+
+    result = _call("get_context", {"repo_path": str(repo), "query": "handle upload"})
+
+    assert result.is_error is False
+    data = result.structured_content
+    assert data["status"] == "ok"
+    assert "- app/service.py:handle_upload -> app/store.py:save_upload [calls @ app/service.py:5]" in data["context"]
+    assert "### app/store.py:save_upload (function, app/store.py:1-2)" in data["context"]
+    assert "return _write(data)" in data["context"]
+    assert str(tmp_path) not in data["context"]
+    assert 0 < data["approx_tokens"] <= 6000
+
+
+def test_get_context_no_match_and_bad_budget(tmp_path):
+    repo = _make_repo(tmp_path)
+
+    data = _call("get_context", {"repo_path": str(repo), "query": "kafka billing invoices"}).structured_content
+    assert data == {"status": "no_match", "query": "kafka billing invoices"}
+
+    result = _call("get_context", {"repo_path": str(repo), "query": "upload", "token_budget": 10})
+    assert result.is_error is True

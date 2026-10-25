@@ -22,6 +22,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp_types import ToolAnnotations
 
+from rudhmap.context import DEFAULT_TOKEN_BUDGET, build_context_pack
 from rudhmap.diagram import generate_diagram
 from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 from rudhmap.ir.schema import IRGraph
@@ -35,8 +36,10 @@ mcp = MCPServer(
     instructions=(
         "RudhMap builds an evidence-cited architecture graph of a local code repository. "
         "Every node and edge it returns cites the file:line that proves it, and anything "
-        "whose citation doesn't resolve on disk has already been dropped. Use `slice` to "
-        "answer a question about one part of a codebase, `scan` for the whole graph, and "
+        "whose citation doesn't resolve on disk has already been dropped. Use `get_context` "
+        "first when you need to understand code to answer a question: it returns the call "
+        "graph and the source of the relevant functions within a token budget, far cheaper "
+        "than reading whole files. Use `slice` for the raw subgraph of one part of a codebase, `scan` for the whole graph, and "
         "`generate_diagram` to write either one as a .drawio file the user can open."
     ),
 )
@@ -169,6 +172,27 @@ def diagram_repo(
     }
 
 
+def context_repo(
+    repo_path: str, query: str, token_budget: int = DEFAULT_TOKEN_BUDGET, max_nodes: int = 60
+) -> dict[str, Any]:
+    _check_slice_args(query, max_nodes)
+    if token_budget < 200:
+        raise ToolError(f"token_budget must be >= 200, got {token_budget}")
+    root = _resolve_repo(repo_path)
+    pack = build_context_pack(root, query, token_budget, max_nodes)
+    if pack.status != "ok":
+        return {"status": "no_match", "query": query}
+    return {
+        "status": "ok",
+        "query": query,
+        "context": pack.text,
+        "approx_tokens": pack.pack_tokens,
+        "snippets": len(pack.snippets),
+        "references_not_shown": len(pack.references),
+        "approx_tokens_reading_touched_files_whole": pack.baseline_tokens,
+    }
+
+
 @mcp.tool(annotations=_READ_ONLY)
 async def scan(repo_path: str) -> dict[str, Any]:
     """Build the full verified architecture graph of a local repository.
@@ -225,6 +249,31 @@ async def generate_diagram_tool(
             (or `rudhmap-<query>.drawio`) in the repository root.
     """
     return await anyio.to_thread.run_sync(diagram_repo, repo_path, query, max_nodes, output_path)
+
+
+@mcp.tool(name="get_context", annotations=_READ_ONLY)
+async def get_context_tool(
+    repo_path: str, query: str, token_budget: int = DEFAULT_TOKEN_BUDGET, max_nodes: int = 60
+) -> dict[str, Any]:
+    """Gather the code context needed to answer a question about a repository, cheaply.
+
+    Returns `context`: a markdown pack with the call graph around the code most relevant
+    to `query` (each edge cited by file:line) and the source of the closest functions and
+    classes, cut to their exact line ranges and ranked to fit `token_budget`. Definitions
+    that didn't fit are listed with their file:start-end range, so read only those lines
+    if you need them, rather than whole files. If the query matches several unconnected
+    areas, all of the top ones are included. Static analysis only: dynamic dispatch and
+    languages other than Python/TypeScript may be missing, so fall back to search if the
+    pack doesn't cover the question.
+
+    Args:
+        repo_path: Absolute path to the repository root on this machine.
+        query: The question or the thing to find, in plain English or as identifiers
+            (e.g. "how does user signup reach the database", "create_user").
+        token_budget: Approximate upper bound on the pack's size in tokens.
+        max_nodes: Upper bound on graph nodes considered.
+    """
+    return await anyio.to_thread.run_sync(context_repo, repo_path, query, token_budget, max_nodes)
 
 
 def main() -> None:

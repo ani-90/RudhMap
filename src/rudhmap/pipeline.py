@@ -108,7 +108,16 @@ class VerifiedView:
     unresolved_edges: int = 0
 
 
-def build_view(repo_root: Path, query: str | None = None, max_nodes: int = 60) -> VerifiedView:
+MERGED_CANDIDATES = 3
+
+
+def build_view(
+    repo_root: Path, query: str | None = None, max_nodes: int = 60, *, merge_ambiguous: bool = False
+) -> VerifiedView:
+    """With `merge_ambiguous`, an ambiguous query is not a dead end: the slice
+    is seeded on the top `MERGED_CANDIDATES` candidates together and the view
+    is "ok" with `candidates` still populated. A diagram wants one subsystem;
+    a context pack for an LLM would rather see every plausible one."""
     assembly = build_assembly(str(repo_root), verbose=False).result
     if query is None:
         verification = verify_ir(graph_to_ir(assembly.graph), repo_root)
@@ -122,13 +131,18 @@ def build_view(repo_root: Path, query: str | None = None, max_nodes: int = 60) -
     seed_ids = [exact] if exact is not None else None
 
     result = slice_graph(assembly, query, max_nodes=max_nodes, seed_ids=seed_ids)
+    candidates = result.candidates
+    if result.ambiguous and merge_ambiguous:
+        merged_seeds = [c.label for c in candidates[:MERGED_CANDIDATES]]
+        result = slice_graph(assembly, query, max_nodes=max_nodes, seed_ids=merged_seeds)
     if result.ambiguous:
-        return VerifiedView("ambiguous", candidates=result.candidates)
+        return VerifiedView("ambiguous", candidates=candidates)
     if result.graph is None:
         return VerifiedView("no_match")
     return VerifiedView(
         "ok",
         verify_ir(graph_to_ir(result.graph), repo_root),
         seed_ids=result.seed_ids,
+        candidates=candidates,
         dropped_for_cap=len(result.dropped_for_cap),
     )

@@ -4,7 +4,14 @@ MCP server that reads a repo and produces an evidence-cited (`file:line`-traceab
 
 ## Current status (update this section whenever a phase completes or work resumes)
 
-**Last updated:** 2026-10-20
+**Last updated:** 2026-10-25
+
+**Context packs for LLMs (2026-10-25)** (244 tests passing) — a new direction alongside the diagram, not a phase of the original build order. See `eval/cases.md` Case 6:
+- Goal: make RudhMap useful as a token-saving context source for coding agents, not only a diagram generator. The graph is the core asset; diagram and context pack are two renderers of it.
+- `src/rudhmap/context.py` (`build_context_pack`), MCP tool `get_context(repo_path, query, token_budget=6000, max_nodes=60)`, CLI `rudhmap context <repo> "<q>" [--budget N]`. Pack = deduped call-graph lines + source bodies cut to exact line ranges (ranked seeds-first then hop distance, greedy fit to the budget, hard-checked after rendering) + `file:start-end` refs for what didn't fit. Classes show only their header when their methods have their own snippets. Tokens estimated as chars/4.
+- `pipeline.build_view(..., merge_ambiguous=True)` seeds on the top 3 ambiguous candidates instead of stopping (context only; diagram/slice unchanged).
+- Tier-2 nodes now carry `end_line`; extractors bumped to `python@3`/`typescript@3`. `end_line` is excluded from slicer BM25 text (`_UNINDEXED_ATTRS`).
+- `eval/context_bench.py` + `eval/context_questions_knowledge_news_app.txt`: median whole-file/pack ratio 4.0× at budget 2000, 2.2× at 4000. **Size only — answer quality and a real with/without-`get_context` agent comparison are not measured yet.** That comparison is the next step before claiming savings anywhere.
 
 **Cross-file attribute-call resolution + two cache bugs fixed (2026-10-20)** (232 tests passing) — see `eval/cases.md` Case 5:
 - Python `from app.db import crud; crud.create_user()` (and `import a.b as x; x.f()`, `import a.b; a.b.f()`, class attributes like `User.create()`) now resolves. Extractor records `resolved_dotted_path` (built from what the local name is bound to — new `bound` field in the import table); `resolve._resolve_dotted_attribute_path` tries every (module file, qualname) split and connects only if exactly one names both a scanned file and an existing node. TS namespace imports (`import * as crud`) and attribute calls on named imports resolve the same way via `resolved_name`. Default imports stay unresolved. `Knowledge-News-App`: 47 → 81 edges, all verified; 7 cited lines spot-checked correct.

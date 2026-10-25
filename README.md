@@ -17,8 +17,9 @@ This repo currently implements **structural extraction, graph assembly, slicing,
 - Slicer: query-scoped subgraph for a plain-English question (BM25 seed + bounded weighted k-hop expansion, ambiguity detection)
 - IR + verifier: drops any node/edge whose `file:line` citation doesn't resolve on disk
 - Deterministic layered layout + draw.io renderer: every box and arrow carries its `file:line` evidence (shown on hover)
-- `scan` / `slice` / `diagram` CLI commands
-- An MCP server (`rudhmap-mcp`, stdio) exposing `scan`, `slice`, and `generate_diagram`
+- Context packs: a token-budgeted call graph plus the cited source of the most relevant functions, so an LLM can answer a question about a repo without reading whole files
+- `scan` / `slice` / `diagram` / `context` CLI commands
+- An MCP server (`rudhmap-mcp`, stdio) exposing `scan`, `slice`, `generate_diagram`, and `get_context`
 
 Not yet implemented: the abstraction LLM pass (diagrams are still one box per function/class/service), SVG/mermaid output, the `trace_edge` MCP tool, tier 3 (LLM extraction), and the eval harness. None of these exist in the code yet — don't infer them from the spec.
 
@@ -84,15 +85,26 @@ Turns a plain-English question into a scoped subgraph: BM25 picks seed nodes (in
 
 Open the file in draw.io desktop, [app.diagrams.net](https://app.diagrams.net), or the VS Code Draw.io extension.
 
+### Context packs (`src/rudhmap/context.py`)
+
+Turns the slice for a question into the smallest text an LLM needs to answer it, instead of having it grep and read whole files. A pack has three parts:
+
+1. **Call graph**: every edge in the slice, one line each, cited `file:line` (repeated calls between the same pair collapse to one line listing every site).
+2. **Source**: the bodies of the most relevant functions/classes, cut to their exact line ranges (tier-2 extractors record `end_line`), ranked seeds first and then by hop distance, and added until `token_budget` is reached. A class shows only its header when its methods have their own snippets; any single body is cut at 80 lines.
+3. **Also involved, not shown**: everything that didn't fit, as `file:start-end`, so the model can read exactly those lines if it needs them.
+
+An ambiguous query isn't a dead end here: the top 3 candidate areas are seeded together. Token counts are an estimate (~4 characters per token). Each pack also reports what reading every touched file whole would cost, for comparison; `eval/context_bench.py` runs a question list through this (see `eval/cases.md` Case 6 for current numbers and limits).
+
 ### CLI (`src/rudhmap/cli.py`)
 
 ```
 rudhmap scan <repo_path>
 rudhmap slice <repo_path> "<question>" [--max-nodes 60]
 rudhmap diagram <repo_path> [-q "<question>"] [--max-nodes 60] [-o out.drawio]
+rudhmap context <repo_path> "<question>" [--budget 6000] [--max-nodes 60]
 ```
 
-(`python -m rudhmap ...` works too.) `scan` runs all tiers, prints every extracted node/edge with its `file:line`, assembles, resolves and verifies the graph, and prints a summary. `slice` prints the scoped subgraph for a question. `diagram` writes a `.drawio` file of the whole repo, or of a slice with `-q`; the default output is `rudhmap.drawio` (or `rudhmap-<query>.drawio`) in the repo root.
+(`python -m rudhmap ...` works too.) `scan` runs all tiers, prints every extracted node/edge with its `file:line`, assembles, resolves and verifies the graph, and prints a summary. `slice` prints the scoped subgraph for a question. `diagram` writes a `.drawio` file of the whole repo, or of a slice with `-q`; the default output is `rudhmap.drawio` (or `rudhmap-<query>.drawio`) in the repo root. `context` prints a context pack to stdout (pipe it into a prompt) and its size stats to stderr.
 
 If a question is ambiguous, `slice`/`diagram` list candidate node ids; re-run with one of those ids as the query (e.g. `-q "app/api/user.py:create_user"`) to slice on it directly.
 
@@ -102,15 +114,16 @@ If a question is ambiguous, `slice`/`diagram` list candidate node ids; re-run wi
 rudhmap-mcp            # stdio transport
 ```
 
-Exposes three tools over stdio, built on the official `mcp` Python SDK (2.x):
+Exposes four tools over stdio, built on the official `mcp` Python SDK (2.x):
 
 | Tool | Arguments | Returns |
 |---|---|---|
 | `scan` | `repo_path` | The full verified graph: nodes (`id`, `kind`, evidence list) and edges (`src`, `dst`, `relation`, evidence), plus verifier drop counts |
 | `slice` | `repo_path`, `query`, `max_nodes=60` | `status: "ok"` with a verified subgraph, `"ambiguous"` with candidate subsystems, or `"no_match"` |
+| `get_context` | `repo_path`, `query`, `token_budget=6000`, `max_nodes=60` | `status: "ok"` with `context` (the markdown context pack) and size stats, or `"no_match"` |
 | `generate_diagram` | `repo_path`, `query=None`, `max_nodes=60`, `output_path=None` | Writes a `.drawio` file (whole repo, or a slice) and returns its path and counts; writes nothing if the query is ambiguous/unmatched |
 
-`scan` and `slice` are read-only. `generate_diagram` only ever writes a `.drawio` file (it refuses any other extension). In any tool, an exact node id as the query (e.g. a candidate `label` from an ambiguous result) slices on that node directly.
+`scan`, `slice` and `get_context` are read-only. `generate_diagram` only ever writes a `.drawio` file (it refuses any other extension). In any tool, an exact node id as the query (e.g. a candidate `label` from an ambiguous result) slices on that node directly.
 
 All ids and paths in results are relative to the repo root with forward slashes, so the same commit gives the same result regardless of checkout location or OS. Both CLI and server build graphs through the same `rudhmap.pipeline.build_assembly`.
 
@@ -127,8 +140,9 @@ Any other MCP client (e.g. VS Code) takes the same command as a stdio server.
 
 ```
 src/rudhmap/
-├── cli.py                     # scan / slice / diagram CLI entrypoint
-├── server.py                  # MCP server (stdio): scan / slice / generate_diagram
+├── cli.py                     # scan / slice / diagram / context CLI entrypoint
+├── server.py                  # MCP server (stdio): scan / slice / generate_diagram / get_context
+├── context.py                 # slice -> token-budgeted context pack for an LLM (shared by CLI + MCP)
 ├── pipeline.py                # shared extract -> assemble -> resolve -> (slice) -> verify
 ├── diagram.py                 # pipeline -> render -> write .drawio (shared by CLI + MCP)
 ├── paths.py                   # repo-relative ids/paths for anything leaving the process

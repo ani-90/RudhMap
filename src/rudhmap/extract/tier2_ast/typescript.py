@@ -21,7 +21,7 @@ TIER = 2
 CONFIDENCE = 1.0
 # Bump the version whenever this extractor's output changes, so cached
 # results from the old version are never served (see rudhmap.cache).
-_EXTRACTOR_NAME = "typescript@2"
+_EXTRACTOR_NAME = "typescript@3"
 
 _SKIP_DIRS = COMMON_SKIP_DIRS
 
@@ -192,7 +192,7 @@ def _process_file(ts_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
                 line=_line(node),
                 tier=TIER,
                 confidence=CONFIDENCE,
-                attrs={"name": name, "qualname": qualname},
+                attrs={"name": name, "qualname": qualname, "end_line": node.end_point[0] + 1},
             )
         )
         body = node.child_by_field_name("body")

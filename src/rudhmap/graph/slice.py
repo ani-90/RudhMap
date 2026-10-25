@@ -41,6 +41,9 @@ _AMBIGUITY_TOP_N = 10
 _AMBIGUITY_SCORE_RATIO = 0.5
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
+# Positional bookkeeping, not meaning: indexing `end_line:42` would make every
+# definition match queries containing "end", "line" or a number.
+_UNINDEXED_ATTRS = {"end_line"}
 
 
 @dataclass
@@ -81,6 +84,8 @@ def _node_text_blob(identity: str, evidence: list) -> str:
         if ev.subtype:
             parts.append(ev.subtype)
         for key in sorted(ev.attrs):
+            if key in _UNINDEXED_ATTRS:
+                continue
             val = ev.attrs[key]
             if isinstance(val, (str, int, float)):
                 parts.append(f"{key}:{val}")

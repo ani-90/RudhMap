@@ -201,3 +201,50 @@ gains 0, as expected: it uses `from x import y` throughout.
 Also tightened: Python module suffix matching had no path-separator
 boundary, so module `writer` could match `rewriter.py`. It now requires a
 boundary, and also accepts `pkg/__init__.py` for package imports.
+
+## Case 6: context packs — first token-spend numbers
+
+**Question:** can the slice serve as cheap context for an LLM answering a
+question about a repo, instead of grep-then-read-whole-files?
+
+**Built:** `rudhmap.context` (`get_context` MCP tool, `rudhmap context`
+CLI). A pack is the slice's call graph plus the source of the closest
+definitions cut to their exact line ranges, ranked and fit to a token
+budget; the rest is listed as `file:start-end`. Needed `end_line` on tier-2
+definition nodes (extractors bumped to `python@3`/`typescript@3`; `end_line`
+is kept out of the slicer's BM25 text so it can't match "line"/"end"/numbers).
+
+**Numbers** (`eval/context_bench.py` with
+`eval/context_questions_knowledge_news_app.txt`, 10 questions, all matched;
+"whole" = reading every file the slice touches in full):
+
+| budget | largest pack | median whole-file / pack |
+|---|---|---|
+| 2000 | 1989 | 4.0× |
+| 4000 | 3991 | 2.2× |
+| 8000 | 6197 | 1.8× |
+
+Bugs caught on the first real run: reference lines weren't counted against
+the budget (packs ran ~4% over; now the rendered whole is checked and the
+lowest-ranked snippets are demoted until it fits), and repeated calls
+between one pair were listed once per site.
+
+**What this does *not* show yet:**
+
+- **Whether the pack answers the question.** The ratio only measures size.
+  Seeds are still weak where Case 3 said they would be: "how does a user
+  sign up" seeds on `get_user_stats` and `scraper._fetch_and_extract`
+  alongside the right `UserCreateRequest`, because merging ambiguous
+  candidates trades precision for recall. Needs grading per question.
+- **A real agent baseline.** "Read the touched files whole" is a proxy; an
+  agent might read fewer files (cheaper than the proxy) or grep around
+  first (costlier). The honest comparison is the same questions answered by
+  Claude Code with and without `get_context`, counting tokens and grading
+  answers. Not done yet.
+- **Large files.** `Knowledge-News-App`'s files are small (~600 tokens each),
+  which caps the possible saving; the ratio should grow on repos with long
+  files, where a pack cuts one function out of a 1,000-line module.
+- **Misses.** Instance-method calls (`UploadStore().put()`), dynamic
+  dispatch and non-Python/TS code never reach a pack. The tool's
+  description tells the model to fall back to search when the pack doesn't
+  cover the question.

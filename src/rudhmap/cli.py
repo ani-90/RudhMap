@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from rudhmap.context import DEFAULT_TOKEN_BUDGET, build_context_pack
 from rudhmap.diagram import generate_diagram
 from rudhmap.graph.slice import SliceCandidate
 from rudhmap.ir.convert import graph_to_ir
@@ -101,6 +102,26 @@ def diagram_cmd(repo_path: str, query: str | None, max_nodes: int, output: str |
     return 0
 
 
+def context_cmd(repo_path: str, query: str, budget: int, max_nodes: int) -> int:
+    root = Path(repo_path).resolve()
+    if not root.is_dir():
+        print(f"not a directory: {repo_path}", file=sys.stderr)
+        return 2
+    pack = build_context_pack(root, query, budget, max_nodes)
+    if pack.status != "ok":
+        print(f"no match for query {query!r}", file=sys.stderr)
+        return 1
+    # The pack goes to stdout so it can be piped into a prompt; stats go to stderr.
+    sys.stdout.write(pack.text)
+    print(
+        f"~{pack.pack_tokens} tokens (budget {budget}): {len(pack.snippets)} snippets, "
+        f"{len(pack.references)} references, {pack.edges} edges | reading the "
+        f"{pack.baseline_files} touched files whole: ~{pack.baseline_tokens} tokens",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="rudhmap")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -121,6 +142,12 @@ def main() -> None:
         "--output", "-o", help="output .drawio path (default: rudhmap[-<query>].drawio in the repo root)"
     )
 
+    context_p = sub.add_parser("context", help="Token-budgeted context pack (call graph + cited source) for a question")
+    context_p.add_argument("repo_path")
+    context_p.add_argument("query")
+    context_p.add_argument("--budget", type=int, default=DEFAULT_TOKEN_BUDGET, help="approximate token budget")
+    context_p.add_argument("--max-nodes", type=int, default=60)
+
     args = parser.parse_args()
     if args.command == "scan":
         scan(args.repo_path)
@@ -128,6 +155,8 @@ def main() -> None:
         slice_cmd(args.repo_path, args.query, args.max_nodes)
     elif args.command == "diagram":
         sys.exit(diagram_cmd(args.repo_path, args.query, args.max_nodes, args.output))
+    elif args.command == "context":
+        sys.exit(context_cmd(args.repo_path, args.query, args.budget, args.max_nodes))
 
 
 if __name__ == "__main__":

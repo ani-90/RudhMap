@@ -1,0 +1,12 @@
+# Questions a developer new to Knowledge-News-App might ask.
+# Used with: python eval/context_bench.py <path-to-Knowledge-News-App> eval/context_questions_knowledge_news_app.txt
+how does a user sign up and get stored in the database
+how are news articles fetched and summarized
+how does the feed endpoint decide which articles to return
+where are embeddings created and stored
+how does the pipeline run get triggered and tracked
+how does vector similarity search work
+what happens when an article detail is requested
+how is article content scraped from a url
+how are articles bookmarked by a user
+how is the qdrant collection initialized
