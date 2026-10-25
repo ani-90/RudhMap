@@ -17,11 +17,24 @@ This repo currently implements **structural extraction, graph assembly, slicing,
 - Slicer: query-scoped subgraph for a plain-English question (BM25 seed + bounded weighted k-hop expansion, ambiguity detection)
 - IR + verifier: drops any node/edge whose `file:line` citation doesn't resolve on disk
 - Deterministic layered layout + draw.io renderer: every box and arrow carries its `file:line` evidence (shown on hover)
-- Context packs: a token-budgeted call graph plus the cited source of the most relevant functions, so an LLM can answer a question about a repo without reading whole files
+- Context packs (experimental): a token-budgeted call graph plus the cited source of the most relevant functions, meant to give an LLM coding agent what it needs to answer a question about a repo without hunting through files
+- Two benchmark scripts: pack size vs. whole files, and real Claude Code runs with vs. without the `get_context` tool
 - `scan` / `slice` / `diagram` / `context` CLI commands
 - An MCP server (`rudhmap-mcp`, stdio) exposing `scan`, `slice`, `generate_diagram`, and `get_context`
 
-Not yet implemented: the abstraction LLM pass (diagrams are still one box per function/class/service), SVG/mermaid output, the `trace_edge` MCP tool, tier 3 (LLM extraction), and the eval harness. None of these exist in the code yet — don't infer them from the spec.
+Not yet implemented: the abstraction LLM pass (diagrams are still one box per function/class/service), SVG/mermaid output, the `trace_edge` MCP tool, tier 3 (LLM extraction), and a full eval harness. None of these exist in the code yet — don't infer them from the spec.
+
+### Results so far (context packs)
+
+Measured with real Claude Code runs (Sonnet, read-only tools), each question answered once without RudhMap and once with `get_context`. Token counts and cost are Claude Code's own usage report. Details and all 16 answers: [`eval/cases.md`](eval/cases.md) Case 7, `eval/agent_runs/`.
+
+| Repo | Questions | Turns (without → with) | Tokens (without → with) | Cost (without → with) |
+|---|---|---|---|---|
+| `Knowledge-News-App` (FastAPI) | 4 | 13 → 8 | 129,118 → 131,132 | $0.178 → $0.274 |
+| RudhMap itself | 4 | 15 → 9 | 172,310 → 190,413 | $0.251 → $0.355 |
+| **Total** | **8** | **28 → 17** | **301,428 → 321,545** | **$0.429 → $0.629** |
+
+All 16 answers were correct. **The tool cuts the agent's turns but does not yet save tokens or cost.** The cause is relevance: the slicer often seeds on the wrong functions (e.g. `graph_to_ir` for a question about the extraction cache), so packs carry irrelevant code and the agent still reads files itself. Where the pack did contain the right code (the draw.io layout question), it used 21% fewer tokens. Better seeding and smaller default packs are the current focus; until a benchmark shows otherwise, don't claim token savings.
 
 ## Pipeline (as built)
 
@@ -93,7 +106,17 @@ Turns the slice for a question into the smallest text an LLM needs to answer it,
 2. **Source**: the bodies of the most relevant functions/classes, cut to their exact line ranges (tier-2 extractors record `end_line`), ranked seeds first and then by hop distance, and added until `token_budget` is reached. A class shows only its header when its methods have their own snippets; any single body is cut at 80 lines.
 3. **Also involved, not shown**: everything that didn't fit, as `file:start-end`, so the model can read exactly those lines if it needs them.
 
-An ambiguous query isn't a dead end here: the top 3 candidate areas are seeded together. Token counts are an estimate (~4 characters per token). Each pack also reports what reading every touched file whole would cost, for comparison; `eval/context_bench.py` runs a question list through this (see `eval/cases.md` Case 6 for current numbers and limits).
+An ambiguous query isn't a dead end here: the top 3 candidate areas are seeded together. Token counts are an estimate (~4 characters per token).
+
+### Benchmarks (`eval/`)
+
+```
+python eval/context_bench.py <repo> <questions.txt> [--budget N] [--show-files]
+python eval/agent_bench.py <repo> "<question>" [--model sonnet] [--out DIR]
+```
+
+- `context_bench.py` compares each pack's size with reading every file the slice touches in full (median 2.2× smaller at a 4,000-token budget on `Knowledge-News-App`, Case 6). This is a size comparison only: a real agent reads far fewer files than that, so it overstates any saving.
+- `agent_bench.py` is the real test: it runs Claude Code headless (`claude -p`) twice on the same question, with and without `get_context`, and prints turns, tokens and cost from Claude Code's own usage report, saving both answers. It needs the `claude` CLI and spends real usage (a few cents per question on Sonnet). When benchmarking a repo against itself, pass `--out` outside the repo so the second run can't read the first run's answer.
 
 ### CLI (`src/rudhmap/cli.py`)
 
@@ -163,6 +186,12 @@ src/rudhmap/
 └── render/
     ├── layout.py               # deterministic layered layout
     └── drawio.py               # IR + layout -> .drawio XML
+
+eval/
+├── cases.md                    # findings log: what was tested, what broke, what it showed
+├── context_bench.py            # pack size vs. whole files, per question
+├── agent_bench.py              # real Claude Code runs, with vs. without get_context
+└── agent_runs/                 # saved answers from agent_bench.py
 ```
 
 ## Testing
@@ -172,11 +201,14 @@ pip install -e ".[dev]"
 pytest
 ```
 
-232 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, all three identity-resolution passes, the slicer, the IR verifier, layout and draw.io rendering (including byte-identical output under shuffled input), the `diagram` CLI command, and the MCP server (driven through a real in-process MCP client).
+244 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, all three identity-resolution passes, the slicer, the IR verifier, layout and draw.io rendering (including byte-identical output under shuffled input), context packs (exact line ranges, budget enforcement, checkout-location independence), the `diagram` CLI command, and the MCP server (driven through a real in-process MCP client).
 
 ## Known limits
 
 - **Recursive functions produce self-loop edges in the raw graph.** Tier 2's call-edge extraction is exact: if a function genuinely calls itself (e.g. `tier2_ast/python.py:_flatten_callee`, `tier2_ast/typescript.py:_flatten_callee`, `tier0_iac/terraform.py:_iter_refs` — all real recursive helpers in this codebase itself), the graph gets a real self-loop edge citing the real `file:line` of the recursive call. This is expected, evidence-correct behavior, not a bug — confirmed by dogfooding `scan` against this repo (see [`eval/cases.md`](eval/cases.md)).
+
+- **The slicer's search is keyword-based and often picks the wrong starting functions** for plain-English questions (BM25 over names only). This limits slices, diagrams and context packs alike, and is why `get_context` doesn't yet save tokens (see "Results so far").
+- **Static analysis only.** Calls on object instances (`store.put()`), dynamic dispatch and default imports aren't resolved, and only Python/TypeScript code (plus IaC files) is read.
 
 ## Requirements
 
