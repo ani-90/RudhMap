@@ -6,3 +6,6 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .rudhmap_cache/
+
+# agent_bench raw outputs (session JSON and local MCP config with absolute paths)
+eval/agent_runs/**/*.json

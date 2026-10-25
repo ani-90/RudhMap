@@ -248,3 +248,45 @@ between one pair were listed once per site.
   dispatch and non-Python/TS code never reach a pack. The tool's
   description tells the model to fall back to search when the pack doesn't
   cover the question.
+
+## Case 7: real agent runs, with vs. without `get_context` — no token saving
+
+**Question:** Case 6's 2.2× compared a pack against reading every touched
+file whole. Does a real agent actually spend fewer tokens with the tool?
+
+**Method:** `eval/agent_bench.py` runs Claude Code headless (`claude -p`,
+Sonnet, Read/Grep/Glob only, no shell, no edits) inside `Knowledge-News-App`
+twice per question: with no MCP servers, and with RudhMap's `get_context`
+plus an instruction to call it first (default 6000-token budget). Tokens and
+cost are Claude Code's own `usage` report. Answers are in
+`eval/agent_runs/<question>/{without,with}.md`.
+
+| question | tokens without | tokens with | cost without | cost with | turns |
+|---|---|---|---|---|---|
+| feed endpoint | 38,274 | 32,358 | $0.055 | $0.086 | 4 / 2 |
+| article detail | 32,368 | 35,701 | $0.037 | $0.074 | 3 / 2 |
+| embeddings | 33,629 | 28,988 | $0.037 | $0.046 | 3 / 2 |
+| pipeline run | 24,847 | 34,085 | $0.048 | $0.068 | 3 / 2 |
+| **total** | **129,118** | **131,132** | **$0.178** | **$0.274** | **13 / 8** |
+
+(The first question's "with" run also paid a cold prompt cache for its
+changed system prompt; the other three ran warm.)
+
+**Result:** no token saving (+1.6%), ~54% higher cost, 5 fewer turns. All 8
+answers were correct with accurate citations; quality was roughly equal (the
+tool's "embeddings" answer skipped verifying the aggregator because the pack
+didn't include it).
+
+**Why Case 6 overstated it:**
+- The baseline agent doesn't read every touched file: it grepped and read 2-3
+  files in 3 turns. "All touched files whole" was far too generous a baseline.
+- The repo has a `CLAUDE.md` describing its architecture; both runs used it.
+- Packs fill their budget with partly irrelevant code (weak seeds, hub
+  callers), and new content is billed as cache writes (~12× a cache read),
+  so a 6k pack costs more than a few targeted reads.
+- ~20-25k tokens per run are Claude Code's own system prompt, paid either
+  way, so the code itself is a minority of the spend.
+
+**Not yet tested:** a large repo with long files and no CLAUDE.md, smaller
+budgets (2000), and better seeding. Until one of those shows a real saving,
+don't claim token savings for `get_context`.
