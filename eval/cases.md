@@ -290,3 +290,24 @@ didn't include it).
 **Not yet tested:** a large repo with long files and no CLAUDE.md, smaller
 budgets (2000), and better seeding. Until one of those shows a real saving,
 don't claim token savings for `get_context`.
+
+**Same test on RudhMap's own repo** (4 questions about its slicer, cross-file
+resolution, extraction cache and draw.io layout; answers written outside the
+repo during the runs so the second run couldn't read the first one's answer,
+then copied to `eval/agent_runs/rudhmap-self/`):
+
+| question | tokens without | tokens with | cost without | cost with | turns |
+|---|---|---|---|---|---|
+| slicer node selection | 41,264 | 41,913 | $0.061 | $0.097 | 4 / 2 |
+| cross-file resolution | 43,718 | 41,343 | $0.064 | $0.088 | 4 / 2 |
+| extraction cache reuse | 39,964 | 69,780 | $0.050 | $0.099 | 3 / 3 |
+| draw.io layout | 47,364 | 37,377 | $0.076 | $0.072 | 4 / 2 |
+| **total** | **172,310** | **190,413** | **$0.251** | **$0.355** | **15 / 9** |
+
+Same picture: +10.5% tokens, +41% cost, 6 fewer turns. The cache question
+shows the failure mode directly: the pack seeded on `ir/convert.py:graph_to_ir`
+and never included `cache.py` (Case 3's disconnected-`ExtractionCache`
+problem), so the agent paid for a 5.6k pack *and* then read `cache.py`
+itself. Answer quality: all correct, but the "with" slicer answer leaned on
+CLAUDE.md's prose ("CLAUDE.md describes this as...") where the "without" run
+read the code and cited exact constants.
