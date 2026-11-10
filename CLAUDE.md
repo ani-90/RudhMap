@@ -1,10 +1,24 @@
 # RudhMap — project instructions
 
-MCP server that reads a repo and produces an evidence-cited (`file:line`-traceable) architecture graph. Full spec: see memory `project_rudhmap_spec.md`. 13-phase build order, phases 1-7 have zero LLM calls — don't add LLM code until phase 8.
+**Direction (decided 2026-11-10):** a tool LLMs use to gather repo context with fewer tokens and fewer round trips per correct answer than their usual grep/read-whole-files, so even small models answer well. MCP server + CLI over one engine. The plan, step definitions and pass criteria are in `docs/plan.md`; the old 13-phase diagram build order (and its spec, which lived only in a memory file that no longer exists) is superseded. The diagram/draw.io code is frozen, not removed. No LLM calls in the engine or tools.
+
+Every step ends with a report in `eval/reports/` (goal + pass criteria written first, changes, eval suite, before/after results, RCA of every miss, decision). Ground truth is hand-written, never derived from RudhMap's output.
 
 ## Current status (update this section whenever a phase completes or work resumes)
 
-**Last updated:** 2026-10-25
+**Last updated:** 2026-11-10
+
+**Step 1 (engine correctness) PASSED (2026-11-10)**, branch `step1-engine-fixes` (259 tests). Report: `eval/reports/step1-engine.md`; suite: `python eval/engine_eval.py --label <name>`; ground truth: `eval/ground_truth/knowledge_news_app_calls.yaml` (145 hand-labelled sites, Knowledge-News-App @ `20d352e`).
+- Recall 55.9% → 99.3% (100% excl. the one `hard` dict-dispatch site), precision 100%. New edge kinds: `references` (callbacks, `Depends(get_db)`, `db.query(Model)`, decorator args, attributed to the decorated def) and `inherits`. Python type tracking from stated types (`x = Foo()`, `x: Foo`, `self.x = Foo()`) + inherited-method lookup (`resolve.resolve_typed_calls`). Scope-chain lookup for nested functions; `module` node per non-empty file for top-level code.
+- File discovery uses `git ls-files` when in a git work tree (respects `.gitignore`, never lists nested worktrees); `.claude` in `COMMON_SKIP_DIRS`. A stale `.claude/worktrees/context-pack` had doubled the self-scan and zeroed cross-file resolution.
+- Dockerfile extractor is now actually called by the pipeline (it never was).
+- Extractor versions: `python@5`, `typescript@4`. TS only got module nodes + scoping; types/references/inheritance are Python-only and unmeasured (no TS in eval repos yet).
+- Context pack budget is now a hard limit; its relevance got worse on hub-heavy questions (get_db hub) — deferred, the slicer is replaced in step 4.
+
+**Next up: Step 2 (engine serving)** — in-memory graph in the MCP server, incremental refresh, background index, cache out of the user's repo. See `docs/plan.md`.
+
+---
+*History below predates the 2026-11-10 direction change.*
 
 **Context packs for LLMs (2026-10-25)** (244 tests passing) — a new direction alongside the diagram, not a phase of the original build order. See `eval/cases.md` Case 6:
 - Goal: make RudhMap useful as a token-saving context source for coding agents, not only a diagram generator. The graph is the core asset; diagram and context pack are two renderers of it.
@@ -58,11 +72,13 @@ Phases 0-5 complete and merged to `main`:
 
 **Phase 5 slicer graded, 5 queries, average 1.8/3** (below the 2.5 bar for proceeding straight to phase 8) — see `eval/cases.md` Case 3. Two failure modes, both hub/graph-shape problems rather than slicer-logic bugs: (1) hub dilution — `ExtractionCache`'s methods disconnected from its class node, `EdgeRecord`/`EvidenceRecord` constructed almost everywhere; (2) BM25 document-length bias favoring a sparse dataclass over the real entry point (`main`). **Decision: not fixed at the slicer level** — phase 8 (abstraction/grouping) is the right place to solve this, not more BM25/k-hop tuning. Proceeding to phase 6 next per the existing build order (not phase 8 directly). Revisit Case 3 once phase 8 exists.
 
-**Next up:** Phase 8 — abstraction LLM pass (grouping per-function boxes into named components).
+~~Next up: Phase 8 — abstraction LLM pass~~ (superseded 2026-11-10, see `docs/plan.md`).
 
 Not started: abstraction LLM pass, the rest of the MCP surface (`trace_edge`, sampling), tier 3 LLM extraction, eval harness.
 
-## V1 public release target: through Phase 10
+## (Superseded 2026-11-10) V1 public release target: through Phase 10
+
+*Kept for history. The current plan and release criteria are in `docs/plan.md` (release = Step 7, only if the Step 5 benchmark passes).*
 
 Decided 2026-08-28. Phase 10 (full MCP surface) is the release bar, not earlier:
 - Phases 0-6 only produce graphs/slices — no usable output, no MCP server. Not a product.
@@ -82,4 +98,5 @@ So: **4 more phases after the current one (7→8→9→10)** stand between here 
 
 - At the start of a session, read this status section and just proceed — don't ask the user where the project stands.
 - After any commit that finishes or advances a phase, update the "Current status" section above (and the date) in the same turn.
+- After each step: write its report in `eval/reports/`, and keep raw eval output in `eval/results/`.
 - Also update the published "RudhMap, explained" interview-FAQ artifact whenever a phase completes: https://claude.ai/code/artifact/85d1a127-451e-4688-ab14-f9f8f5c0946b — update the pipeline strip, status pills, footer phase count, and add/revise Q&A sections covering the newly completed work.

@@ -25,6 +25,7 @@ def scan(repo_path: str) -> None:
         f"{len(result.dropped_edges)} edges dropped (no matching node), "
         f"{stats.resolved_same_scope} resolved via same-scope calls, "
         f"{stats.resolved_cross_file} resolved via cross-file calls, "
+        f"{stats.resolved_typed} resolved via stated types/inheritance, "
         f"{stats.resolved_containment} added via build-context containment"
     )
 

@@ -1,0 +1,112 @@
+{
+  "label": "after",
+  "git_head": "3d8b65a",
+  "ground_truth": {
+    "commit": "20d352e",
+    "sites_expected": 145,
+    "sites_found": 144,
+    "recall": 0.993,
+    "precision": 1.0,
+    "per_kind": {
+      "call": {
+        "expected": 93,
+        "found": 92,
+        "recall": 0.989,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      },
+      "reference": {
+        "expected": 28,
+        "found": 28,
+        "recall": 1.0,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      },
+      "param_reference": {
+        "expected": 11,
+        "found": 11,
+        "recall": 1.0,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      },
+      "inherits": {
+        "expected": 13,
+        "found": 13,
+        "recall": 1.0,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      }
+    },
+    "misses": [
+      {
+        "src": "app/pipeline/graph.py:run_all_agents_node.run_single",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent.run",
+        "kind": "call",
+        "line": 38,
+        "hard": true,
+        "code": "result = agent.run(state)"
+      }
+    ],
+    "extra": []
+  },
+  "unresolved_test_repo": {
+    "total": 5,
+    "by_cause": {
+      "method_on_variable": 3,
+      "through_import_unresolved (often an external library)": 2
+    },
+    "examples": {
+      "through_import_unresolved (often an external library)": [
+        "run.py:6  uvicorn.run",
+        "app/scheduler.py:32  asyncio.run"
+      ],
+      "method_on_variable": [
+        "app/db/qdrant.py:43  client.search",
+        "app/pipeline/graph.py:38  agent.run",
+        "app/services/tavily_client.py:15  _client.search"
+      ]
+    }
+  },
+  "determinism": {
+    "identical": true
+  },
+  "speed_s": {
+    "test_repo_cold": 0.44,
+    "test_repo_warm": 0.25
+  },
+  "graph_test_repo": {
+    "nodes": 134,
+    "edges": 144
+  },
+  "unresolved_rudhmap_src": {
+    "total": 4,
+    "by_cause": {
+      "bare_name_other": 2,
+      "through_import_unresolved (often an external library)": 1,
+      "method_on_variable": 1
+    },
+    "examples": {
+      "bare_name_other": [
+        "rudhmap/cache.py:64  compute",
+        "rudhmap/cache.py:73  compute"
+      ],
+      "through_import_unresolved (often an external library)": [
+        "rudhmap/extract/__init__.py:136  os.walk"
+      ],
+      "method_on_variable": [
+        "rudhmap/graph/resolve.py:173  super().__new__"
+      ]
+    }
+  },
+  "graph_rudhmap_src": {
+    "nodes": 224,
+    "edges": 377
+  },
+  "discovery": {
+    "repo_root_nodes": 244,
+    "src_only_nodes": 224,
+    "nodes_from_tool_folders": 0,
+    "repo_root_edges": 408,
+    "src_only_edges": 377
+  }
+}

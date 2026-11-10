@@ -1,0 +1,201 @@
+# Hand-labelled ground truth: every connection between Knowledge-News-App's
+# own Python definitions, at commit 20d352e. Written by reading every .py file
+# in full (1,749 lines), NOT generated from RudhMap's output -- a ground truth
+# derived from the tool would measure nothing.
+#
+# Only connections whose both ends are this repo's own functions/classes are
+# listed. Calls into libraries (sqlalchemy, fastapi, groq, ...) and builtins
+# are out of scope. Module-level variables that aren't definitions
+# (SessionLocal, settings, pipeline, _client) are not nodes, so calls *on*
+# them aren't listed either.
+#
+# kind:
+#   call             a direct call of a function, method or class (instantiation)
+#   reference        a function/class passed as a value (callback, background
+#                    task, db.query(Model), keyword arg) -- not called at that line
+#   param_reference  a reference inside a parameter default, e.g. Depends(get_db)
+#   inherits         class A(B)
+# hard: true marks connections no static rule can be expected to find
+# (the target depends on runtime values).
+#
+# src/dst are `file:qualname`; `file:<module>` is top-level code of that file.
+# lines are every call site of that pair (each line = one site).
+#
+# Amendment log (each change re-verified by reading the cited line):
+#   2026-11-10, after the step 1 "after-v1" run: added 9 real references the
+#   first labelling pass missed -- 8 `response_model=X` decorator arguments
+#   (attributed to the decorated route) and `StateGraph(PipelineState)`.
+#   Reported as ground-truth omissions in eval/reports/step1-engine.md.
+
+repo: Knowledge-News-App
+commit: 20d352e
+edges:
+  # --- app/api/user.py
+  - {src: "app/api/user.py:create_user", dst: "app/schemas/user.py:UserResponse", kind: reference, lines: [11]}
+  - {src: "app/api/user.py:get_user_stats", dst: "app/schemas/user.py:UserStatsResponse", kind: reference, lines: [17]}
+  - {src: "app/api/user.py:create_user", dst: "app/db/crud.py:create_user", kind: call, lines: [13]}
+  - {src: "app/api/user.py:create_user", dst: "app/schemas/user.py:UserResponse", kind: call, lines: [14]}
+  - {src: "app/api/user.py:create_user", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [12]}
+  - {src: "app/api/user.py:get_user_stats", dst: "app/db/crud.py:get_or_create_user", kind: call, lines: [19]}
+  - {src: "app/api/user.py:get_user_stats", dst: "app/db/crud.py:get_user_stats", kind: call, lines: [20]}
+  - {src: "app/api/user.py:get_user_stats", dst: "app/schemas/user.py:UserStatsResponse", kind: call, lines: [21]}
+  - {src: "app/api/user.py:get_user_stats", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [18]}
+
+  # --- app/api/debate.py
+  - {src: "app/api/debate.py:debate_message", dst: "app/schemas/debate.py:DebateResponse", kind: reference, lines: [12]}
+  - {src: "app/api/debate.py:debate_message", dst: "app/db/crud.py:get_article", kind: call, lines: [14]}
+  - {src: "app/api/debate.py:debate_message", dst: "app/services/groq_client.py:debate_reply", kind: call, lines: [17]}
+  - {src: "app/api/debate.py:debate_message", dst: "app/schemas/debate.py:DebateResponse", kind: call, lines: [23]}
+  - {src: "app/api/debate.py:debate_message", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [13]}
+
+  # --- app/api/quiz.py
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/schemas/quiz.py:QuizGenerateResponse", kind: reference, lines: [22]}
+  - {src: "app/api/quiz.py:submit_quiz", dst: "app/schemas/quiz.py:QuizSubmitResponse", kind: reference, lines: [67]}
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/db/crud.py:get_article", kind: call, lines: [24]}
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/services/groq_client.py:summarize", kind: call, lines: [29]}
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/db/crud.py:update_article_summary", kind: call, lines: [30]}
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/services/groq_client.py:generate_quiz", kind: call, lines: [33]}
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/db/crud.py:create_quiz_session", kind: call, lines: [37]}
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/schemas/quiz.py:QuizQuestion", kind: call, lines: [48]}
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/schemas/quiz.py:QuizOption", kind: call, lines: [50]}
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/schemas/quiz.py:QuizGenerateResponse", kind: call, lines: [59]}
+  - {src: "app/api/quiz.py:generate_quiz", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [23]}
+  - {src: "app/api/quiz.py:submit_quiz", dst: "app/db/crud.py:get_quiz_session", kind: call, lines: [69]}
+  - {src: "app/api/quiz.py:submit_quiz", dst: "app/db/crud.py:submit_quiz_session", kind: call, lines: [75]}
+  - {src: "app/api/quiz.py:submit_quiz", dst: "app/schemas/quiz.py:QuizAnswerBreakdown", kind: call, lines: [82]}
+  - {src: "app/api/quiz.py:submit_quiz", dst: "app/schemas/quiz.py:QuizSubmitResponse", kind: call, lines: [90]}
+  - {src: "app/api/quiz.py:submit_quiz", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [68]}
+
+  # --- app/api/feed.py
+  - {src: "app/api/feed.py:refresh_feed", dst: "app/schemas/feed.py:FeedRefreshResponse", kind: reference, lines: [20]}
+  - {src: "app/api/feed.py:get_feed", dst: "app/schemas/feed.py:FeedResponse", kind: reference, lines: [91]}
+  - {src: "app/api/feed.py:get_article_detail", dst: "app/schemas/feed.py:ArticleDetailResponse", kind: reference, lines: [132]}
+  - {src: "app/api/feed.py:refresh_feed", dst: "app/db/crud.py:get_last_successful_run", kind: call, lines: [27]}
+  - {src: "app/api/feed.py:refresh_feed", dst: "app/schemas/feed.py:FeedRefreshResponse", kind: call, lines: [36, 52]}
+  - {src: "app/api/feed.py:refresh_feed", dst: "app/schemas/feed.py:FeedRefreshRequest.resolved_domains", kind: call, lines: [39, 44]}
+  - {src: "app/api/feed.py:refresh_feed", dst: "app/db/crud.py:create_pipeline_run", kind: call, lines: [47]}
+  - {src: "app/api/feed.py:refresh_feed", dst: "app/db/crud.py:update_pipeline_run", kind: call, lines: [48]}
+  - {src: "app/api/feed.py:refresh_feed", dst: "app/api/feed.py:_run_pipeline_bg", kind: reference, lines: [50]}
+  - {src: "app/api/feed.py:refresh_feed", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [24]}
+  - {src: "app/api/feed.py:_run_pipeline_bg", dst: "app/pipeline/graph.py:run_pipeline", kind: call, lines: [58]}
+  - {src: "app/api/feed.py:_run_pipeline_bg", dst: "app/db/crud.py:update_pipeline_run", kind: call, lines: [64]}
+  - {src: "app/api/feed.py:get_run_status", dst: "app/db/crud.py:get_pipeline_run", kind: call, lines: [77]}
+  - {src: "app/api/feed.py:get_run_status", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [76]}
+  - {src: "app/api/feed.py:get_feed", dst: "app/db/crud.py:get_articles_by_domain", kind: call, lines: [101]}
+  - {src: "app/api/feed.py:get_feed", dst: "app/db/crud.py:get_all_recent_articles", kind: call, lines: [103]}
+  - {src: "app/api/feed.py:get_feed", dst: "app/schemas/feed.py:ArticleResponse", kind: call, lines: [106]}
+  - {src: "app/api/feed.py:get_feed", dst: "app/schemas/feed.py:FeedResponse", kind: call, lines: [120]}
+  - {src: "app/api/feed.py:get_feed", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [95]}
+  - {src: "app/api/feed.py:get_article_detail", dst: "app/db/crud.py:get_article", kind: call, lines: [135]}
+  - {src: "app/api/feed.py:get_article_detail", dst: "app/api/feed.py:_is_quality_content", kind: call, lines: [142, 144, 148]}
+  - {src: "app/api/feed.py:get_article_detail", dst: "app/services/scraper.py:enrich_content", kind: call, lines: [143]}
+  - {src: "app/api/feed.py:get_article_detail", dst: "app/db/models.py:Article", kind: reference, lines: [146]}
+  - {src: "app/api/feed.py:get_article_detail", dst: "app/schemas/feed.py:ArticleDetailResponse", kind: call, lines: [152]}
+  - {src: "app/api/feed.py:get_article_detail", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [133]}
+  - {src: "app/api/feed.py:summarize_article", dst: "app/db/crud.py:get_article", kind: call, lines: [168]}
+  - {src: "app/api/feed.py:summarize_article", dst: "app/services/groq_client.py:summarize", kind: call, lines: [173]}
+  - {src: "app/api/feed.py:summarize_article", dst: "app/db/crud.py:update_article_summary", kind: call, lines: [174]}
+  - {src: "app/api/feed.py:summarize_article", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [167]}
+  - {src: "app/api/feed.py:mark_article_read", dst: "app/db/crud.py:get_article", kind: call, lines: [185]}
+  - {src: "app/api/feed.py:mark_article_read", dst: "app/db/crud.py:mark_read", kind: call, lines: [188]}
+  - {src: "app/api/feed.py:mark_article_read", dst: "app/db/sqlite.py:get_db", kind: param_reference, lines: [183]}
+
+  # --- app/main.py
+  - {src: "app/main.py:lifespan", dst: "app/db/sqlite.py:init_db", kind: call, lines: [19]}
+  - {src: "app/main.py:<module>", dst: "app/main.py:lifespan", kind: reference, lines: [27]}
+
+  # --- app/config.py
+  - {src: "app/config.py:<module>", dst: "app/config.py:Settings", kind: call, lines: [35]}
+
+  # --- app/scheduler.py
+  - {src: "app/scheduler.py:_daily_refresh", dst: "app/db/crud.py:create_pipeline_run", kind: call, lines: [26]}
+  - {src: "app/scheduler.py:_daily_refresh", dst: "app/db/crud.py:update_pipeline_run", kind: call, lines: [27]}
+  - {src: "app/scheduler.py:_daily_refresh", dst: "app/pipeline/graph.py:run_pipeline", kind: call, lines: [32]}
+  - {src: "app/scheduler.py:start_scheduler", dst: "app/scheduler.py:_daily_refresh", kind: reference, lines: [45]}
+
+  # --- app/services/scraper.py
+  - {src: "app/services/scraper.py:enrich_content", dst: "app/services/scraper.py:_fetch_and_extract", kind: call, lines: [32]}
+
+  # --- app/services/groq_client.py
+  - {src: "app/services/groq_client.py:_call", dst: "app/services/groq_client.py:_call_messages", kind: call, lines: [58]}
+  - {src: "app/services/groq_client.py:summarize", dst: "app/services/groq_client.py:_call", kind: call, lines: [76]}
+  - {src: "app/services/groq_client.py:summarize", dst: "app/services/groq_client.py:_extract_json", kind: call, lines: [78]}
+  - {src: "app/services/groq_client.py:generate_quiz", dst: "app/services/groq_client.py:_call", kind: call, lines: [90]}
+  - {src: "app/services/groq_client.py:generate_quiz", dst: "app/services/groq_client.py:_extract_json", kind: call, lines: [92]}
+  - {src: "app/services/groq_client.py:generate_queries", dst: "app/services/groq_client.py:_call", kind: call, lines: [113]}
+  - {src: "app/services/groq_client.py:generate_queries", dst: "app/services/groq_client.py:_extract_json", kind: call, lines: [115]}
+  - {src: "app/services/groq_client.py:debate_reply", dst: "app/services/groq_client.py:_call_messages", kind: call, lines: [137]}
+
+  # --- app/db/qdrant.py
+  - {src: "app/db/qdrant.py:init_collection", dst: "app/db/qdrant.py:get_client", kind: call, lines: [31]}
+  - {src: "app/db/qdrant.py:search_similar", dst: "app/db/qdrant.py:get_client", kind: call, lines: [42]}
+  - {src: "app/db/qdrant.py:upsert_articles", dst: "app/db/qdrant.py:get_client", kind: call, lines: [53]}
+  - {src: "app/db/qdrant.py:get_by_domain", dst: "app/db/qdrant.py:get_client", kind: call, lines: [68]}
+  - {src: "app/db/qdrant.py:get_all_recent", dst: "app/db/qdrant.py:get_client", kind: call, lines: [82]}
+
+  # --- app/db/crud.py
+  - {src: "app/db/crud.py:get_or_create_user", dst: "app/db/models.py:User", kind: reference, lines: [14]}
+  - {src: "app/db/crud.py:get_or_create_user", dst: "app/db/models.py:User", kind: call, lines: [16]}
+  - {src: "app/db/crud.py:create_user", dst: "app/db/models.py:User", kind: reference, lines: [25]}
+  - {src: "app/db/crud.py:create_user", dst: "app/db/models.py:User", kind: call, lines: [31]}
+  - {src: "app/db/crud.py:bulk_insert_articles", dst: "app/db/models.py:Article", kind: reference, lines: [43]}
+  - {src: "app/db/crud.py:bulk_insert_articles", dst: "app/db/models.py:Article", kind: call, lines: [46]}
+  - {src: "app/db/crud.py:get_article", dst: "app/db/models.py:Article", kind: reference, lines: [68]}
+  - {src: "app/db/crud.py:update_article_summary", dst: "app/db/models.py:Article", kind: reference, lines: [72]}
+  - {src: "app/db/crud.py:get_articles_by_domain", dst: "app/db/models.py:Article", kind: reference, lines: [93]}
+  - {src: "app/db/crud.py:get_all_recent_articles", dst: "app/db/models.py:Article", kind: reference, lines: [102]}
+  - {src: "app/db/crud.py:create_pipeline_run", dst: "app/db/models.py:PipelineRun", kind: call, lines: [108]}
+  - {src: "app/db/crud.py:update_pipeline_run", dst: "app/db/models.py:PipelineRun", kind: reference, lines: [122]}
+  - {src: "app/db/crud.py:get_pipeline_run", dst: "app/db/models.py:PipelineRun", kind: reference, lines: [127]}
+  - {src: "app/db/crud.py:get_last_successful_run", dst: "app/db/models.py:PipelineRun", kind: reference, lines: [132]}
+  - {src: "app/db/crud.py:create_quiz_session", dst: "app/db/models.py:QuizSession", kind: call, lines: [142]}
+  - {src: "app/db/crud.py:submit_quiz_session", dst: "app/db/models.py:QuizSession", kind: reference, lines: [156]}
+  - {src: "app/db/crud.py:get_quiz_session", dst: "app/db/models.py:QuizSession", kind: reference, lines: [175]}
+  - {src: "app/db/crud.py:mark_read", dst: "app/db/models.py:ReadingHistory", kind: call, lines: [181]}
+
+  # --- app/pipeline/graph.py
+  - {src: "app/pipeline/graph.py:_build_graph", dst: "app/pipeline/state.py:PipelineState", kind: reference, lines: [57]}
+  - {src: "app/pipeline/graph.py:<module>", dst: "app/pipeline/agents/finance.py:FinanceAgent", kind: call, lines: [18]}
+  - {src: "app/pipeline/graph.py:<module>", dst: "app/pipeline/agents/politics.py:PoliticsAgent", kind: call, lines: [19]}
+  - {src: "app/pipeline/graph.py:<module>", dst: "app/pipeline/agents/ai_tech.py:AiTechAgent", kind: call, lines: [20]}
+  - {src: "app/pipeline/graph.py:<module>", dst: "app/pipeline/agents/law.py:LawAgent", kind: call, lines: [21]}
+  - {src: "app/pipeline/graph.py:<module>", dst: "app/pipeline/agents/health.py:HealthAgent", kind: call, lines: [22]}
+  - {src: "app/pipeline/graph.py:<module>", dst: "app/pipeline/agents/fashion.py:FashionAgent", kind: call, lines: [23]}
+  - {src: "app/pipeline/graph.py:<module>", dst: "app/pipeline/agents/dharma.py:DharmaAgent", kind: call, lines: [24]}
+  - {src: "app/pipeline/graph.py:<module>", dst: "app/pipeline/graph.py:_build_graph", kind: call, lines: [66]}
+  - {src: "app/pipeline/graph.py:run_all_agents_node", dst: "app/pipeline/graph.py:run_all_agents_node.run_single", kind: reference, lines: [43]}
+  - {src: "app/pipeline/graph.py:run_all_agents_node.run_single", dst: "app/pipeline/agents/base_agent.py:BaseAgent.run", kind: call, lines: [38], hard: true}
+  - {src: "app/pipeline/graph.py:_build_graph", dst: "app/pipeline/graph.py:run_all_agents_node", kind: reference, lines: [58]}
+  - {src: "app/pipeline/graph.py:_build_graph", dst: "app/pipeline/aggregator.py:aggregator_node", kind: reference, lines: [59]}
+
+  # --- app/pipeline/aggregator.py
+  - {src: "app/pipeline/aggregator.py:aggregator_node", dst: "app/db/qdrant.py:search_similar", kind: call, lines: [31]}
+  - {src: "app/pipeline/aggregator.py:aggregator_node", dst: "app/db/crud.py:bulk_insert_articles", kind: call, lines: [59]}
+  - {src: "app/pipeline/aggregator.py:aggregator_node", dst: "app/db/qdrant.py:upsert_articles", kind: call, lines: [79]}
+  - {src: "app/pipeline/aggregator.py:aggregator_node", dst: "app/db/crud.py:update_pipeline_run", kind: call, lines: [98]}
+
+  # --- app/pipeline/agents/base_agent.py
+  - {src: "app/pipeline/agents/base_agent.py:BaseAgent.run", dst: "app/pipeline/agents/base_agent.py:BaseAgent._fetch_all", kind: call, lines: [49]}
+  - {src: "app/pipeline/agents/base_agent.py:BaseAgent.run", dst: "app/services/scraper.py:enrich_content", kind: call, lines: [55]}
+  - {src: "app/pipeline/agents/base_agent.py:BaseAgent.run", dst: "app/pipeline/agents/base_agent.py:_is_quality", kind: call, lines: [56]}
+  - {src: "app/pipeline/agents/base_agent.py:BaseAgent.run", dst: "app/services/embedder.py:embed", kind: call, lines: [60]}
+  - {src: "app/pipeline/agents/base_agent.py:BaseAgent.run", dst: "app/pipeline/state.py:ArticleData", kind: call, lines: [63]}
+  - {src: "app/pipeline/agents/base_agent.py:BaseAgent._fetch_all", dst: "app/services/groq_client.py:generate_queries", kind: call, lines: [90]}
+  - {src: "app/pipeline/agents/base_agent.py:BaseAgent._fetch_all", dst: "app/services/tavily_client.py:search", kind: call, lines: [99]}
+  - {src: "app/pipeline/agents/base_agent.py:BaseAgent._fetch_all", dst: "app/pipeline/agents/base_agent.py:_normalise_url", kind: call, lines: [100, 111]}
+  - {src: "app/pipeline/agents/base_agent.py:BaseAgent._fetch_all", dst: "app/services/newsapi_client.py:get_india_headlines", kind: call, lines: [110]}
+
+  # --- inheritance
+  - {src: "app/pipeline/agents/finance.py:FinanceAgent", dst: "app/pipeline/agents/base_agent.py:BaseAgent", kind: inherits, lines: [4]}
+  - {src: "app/pipeline/agents/politics.py:PoliticsAgent", dst: "app/pipeline/agents/base_agent.py:BaseAgent", kind: inherits, lines: [4]}
+  - {src: "app/pipeline/agents/ai_tech.py:AiTechAgent", dst: "app/pipeline/agents/base_agent.py:BaseAgent", kind: inherits, lines: [4]}
+  - {src: "app/pipeline/agents/law.py:LawAgent", dst: "app/pipeline/agents/base_agent.py:BaseAgent", kind: inherits, lines: [4]}
+  - {src: "app/pipeline/agents/health.py:HealthAgent", dst: "app/pipeline/agents/base_agent.py:BaseAgent", kind: inherits, lines: [4]}
+  - {src: "app/pipeline/agents/fashion.py:FashionAgent", dst: "app/pipeline/agents/base_agent.py:BaseAgent", kind: inherits, lines: [4]}
+  - {src: "app/pipeline/agents/dharma.py:DharmaAgent", dst: "app/pipeline/agents/base_agent.py:BaseAgent", kind: inherits, lines: [4]}
+  - {src: "app/db/models.py:User", dst: "app/db/sqlite.py:Base", kind: inherits, lines: [9]}
+  - {src: "app/db/models.py:Article", dst: "app/db/sqlite.py:Base", kind: inherits, lines: [22]}
+  - {src: "app/db/models.py:ReadingHistory", dst: "app/db/sqlite.py:Base", kind: inherits, lines: [41]}
+  - {src: "app/db/models.py:QuizSession", dst: "app/db/sqlite.py:Base", kind: inherits, lines: [54]}
+  - {src: "app/db/models.py:PipelineRun", dst: "app/db/sqlite.py:Base", kind: inherits, lines: [73]}
+  - {src: "app/schemas/feed.py:ArticleDetailResponse", dst: "app/schemas/feed.py:ArticleResponse", kind: inherits, lines: [37]}

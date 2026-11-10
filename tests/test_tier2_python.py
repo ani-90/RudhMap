@@ -7,7 +7,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "tier2_ast"
 
 def test_defs_get_local_file_scoped_identity():
     nodes, _ = parse_python_ast(FIXTURE)
-    by_qualname = {n.attrs["qualname"]: n for n in nodes}
+    by_qualname = {n.attrs["qualname"]: n for n in nodes if n.kind != "module"}
 
     assert set(by_qualname) == {
         "Handler",
@@ -67,11 +67,13 @@ def test_call_edges_carry_callee_chain_as_a_list():
     assert local_call.src == f"{local_call.file}:handle_post"
 
 
-def test_decorator_call_is_captured_at_enclosing_scope():
+def test_decorator_call_is_attributed_to_the_decorated_definition():
+    # The decorator runs at module scope, but what it says (`@app.route(...)`,
+    # `response_model=X`) describes handle_post, so that's where it's attributed.
     _, edges = parse_python_ast(FIXTURE)
     calls = [e for e in edges if "callee_chain" in e.attrs]
     deco_call = next(e for e in calls if e.attrs["callee_chain"] == ["app", "route"])
-    assert deco_call.src == deco_call.file  # decorator runs at module scope, not inside handle_post
+    assert deco_call.src == f"{deco_call.file}:handle_post"
     assert deco_call.line == 16
 
 

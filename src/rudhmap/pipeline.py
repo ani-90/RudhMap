@@ -8,7 +8,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from rudhmap.cache import ExtractionCache
+from rudhmap.extract import shared_file_listing
 from rudhmap.extract.tier0_iac.compose import parse_compose
+from rudhmap.extract.tier0_iac.dockerfile import parse_dockerfile
 from rudhmap.extract.tier0_iac.k8s import parse_k8s
 from rudhmap.extract.tier0_iac.terraform import parse_terraform
 from rudhmap.extract.tier1_rules.engine import parse_tier1_rules
@@ -19,6 +21,7 @@ from rudhmap.graph.resolve import (
     resolve_build_context_containment,
     resolve_cross_file_calls,
     resolve_same_scope_calls,
+    resolve_typed_calls,
 )
 from rudhmap.graph.slice import SliceCandidate, slice_graph
 from rudhmap.ir.convert import graph_to_ir
@@ -28,6 +31,7 @@ from rudhmap.paths import Relativizer
 EXTRACTORS = [
     ("terraform", parse_terraform),
     ("compose", parse_compose),
+    ("dockerfile", parse_dockerfile),
     ("k8s", parse_k8s),
     ("tier1", parse_tier1_rules),
     ("python", parse_python_ast),
@@ -49,6 +53,7 @@ class AssemblyStats:
     resolved_same_scope: int
     resolved_cross_file: int
     resolved_containment: int
+    resolved_typed: int = 0
 
 
 def build_assembly(repo_path: str, *, verbose: bool) -> AssemblyStats:
@@ -56,18 +61,19 @@ def build_assembly(repo_path: str, *, verbose: bool) -> AssemblyStats:
 
     all_nodes = []
     all_edges = []
-    for source_name, extractor in EXTRACTORS:
-        if source_name in _CACHEABLE:
-            nodes, edges = extractor(repo_path, cache=cache)
-        else:
-            nodes, edges = extractor(repo_path)
-        if verbose:
-            for n in nodes:
-                print(f"[node:{source_name}] {n.kind:<10} {n.identity:<40} {n.file}:{n.line}")
-            for e in edges:
-                print(f"[edge:{source_name}] {e.src} -> {e.dst}  {e.file}:{e.line}")
-        all_nodes.extend(nodes)
-        all_edges.extend(edges)
+    with shared_file_listing():
+        for source_name, extractor in EXTRACTORS:
+            if source_name in _CACHEABLE:
+                nodes, edges = extractor(repo_path, cache=cache)
+            else:
+                nodes, edges = extractor(repo_path)
+            if verbose:
+                for n in nodes:
+                    print(f"[node:{source_name}] {n.kind:<10} {n.identity:<40} {n.file}:{n.line}")
+                for e in edges:
+                    print(f"[edge:{source_name}] {e.src} -> {e.dst}  {e.file}:{e.line}")
+            all_nodes.extend(nodes)
+            all_edges.extend(edges)
     cache.flush()
 
     result = assemble_graph(all_nodes, all_edges)
@@ -80,6 +86,15 @@ def build_assembly(repo_path: str, *, verbose: bool) -> AssemblyStats:
     result = resolve_cross_file_calls(result)
     resolved_cross_file = before_cross_file - len(result.dropped_edges)
 
+    before_typed = len(result.dropped_edges)
+    result = resolve_typed_calls(result)
+    resolved_typed = before_typed - len(result.dropped_edges)
+
+    # A `references` edge is emitted for every bare name passed as an
+    # argument; the ones that matched no definition are ordinary variables,
+    # not missed connections, so they don't count as dropped.
+    result.dropped_edges = [e for e in result.dropped_edges if e.attrs.get("relation") != "references"]
+
     before_containment_edges = result.graph.number_of_edges()
     result = resolve_build_context_containment(result)
     resolved_containment = result.graph.number_of_edges() - before_containment_edges
@@ -91,6 +106,7 @@ def build_assembly(repo_path: str, *, verbose: bool) -> AssemblyStats:
         resolved_same_scope=resolved_same_scope,
         resolved_cross_file=resolved_cross_file,
         resolved_containment=resolved_containment,
+        resolved_typed=resolved_typed,
     )
 
 

@@ -57,7 +57,7 @@ def test_python_and_typescript_defs_record_end_line(tmp_path):
 
 def test_end_line_is_not_indexed_for_search(tmp_path):
     (tmp_path / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
-    node = parse_python_ast(tmp_path)[0][0]
+    node = next(n for n in parse_python_ast(tmp_path)[0] if n.kind == "function")
 
     blob = _node_text_blob(node.identity, [node])
 

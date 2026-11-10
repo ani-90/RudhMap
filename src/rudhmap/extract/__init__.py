@@ -17,12 +17,40 @@ its own repo (see eval/cases.md, "test file exclusion"). This intentionally
 does NOT catch test files that live alongside source with only a naming
 convention (`foo.test.ts`, `test_foo.py` outside a dedicated directory) --
 only directory names, matching every other entry in this set.
+
+Tool folders (`.claude`) are skipped too: Claude Code keeps git worktrees
+under `.claude/worktrees/`, which are full copies of the repo. Scanning one
+duplicated every node, and the duplicates made every Python import
+ambiguous, so cross-file resolution silently dropped to zero.
+
+When the scanned path is inside a git work tree, the file list comes from
+git itself (tracked + untracked-but-not-ignored), so anything the repo's own
+`.gitignore` excludes is never read either. Outside git, the pruned
+os.walk() below is the fallback.
 """
 from __future__ import annotations
 
 import os
+import subprocess
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
+
+# One build runs every extractor over the same tree; each used to ask git for
+# the file list again (~60ms per call on Windows, 7 calls per build). Inside
+# `shared_file_listing()` the first answer is reused for the rest of the build.
+_listing = threading.local()
+
+
+@contextmanager
+def shared_file_listing():
+    previous = getattr(_listing, "cache", None)
+    _listing.cache = {}
+    try:
+        yield
+    finally:
+        _listing.cache = previous
 
 COMMON_SKIP_DIRS = frozenset(
     {
@@ -39,8 +67,43 @@ COMMON_SKIP_DIRS = frozenset(
         "__tests__",
         "spec",
         "specs",
+        ".claude",
     }
 )
+
+
+def _git_listed_files(repo_path: Path) -> list[Path] | None:
+    """Files git considers part of the work tree under repo_path, or None if
+    repo_path isn't in a git work tree (or git isn't available). Nested
+    repositories and worktrees show up as a single `dir/` entry, which is
+    skipped, so their contents are never listed."""
+    cache = getattr(_listing, "cache", None)
+    key = str(repo_path)
+    if cache is not None and key in cache:
+        return cache[key]
+    files = _run_git_ls_files(repo_path)
+    if cache is not None:
+        cache[key] = files
+    return files
+
+
+def _run_git_ls_files(repo_path: Path) -> list[Path] | None:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(repo_path), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+            capture_output=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    files = []
+    for rel in proc.stdout.decode("utf-8", errors="replace").split("\0"):
+        if not rel or rel.endswith("/"):
+            continue
+        files.append(Path(rel))
+    return files
 
 
 def iter_files(repo_path: Path, skip_dirs: frozenset[str]) -> Iterator[Path]:
@@ -59,6 +122,17 @@ def iter_files(repo_path: Path, skip_dirs: frozenset[str]) -> Iterator[Path]:
     os.walk()'s dirnames list can be pruned in place *before* it recurses,
     which is the fix.
     """
+    repo_path = Path(repo_path)
+    listed = _git_listed_files(repo_path)
+    if listed is not None:
+        for rel in sorted(listed):
+            if any(part in skip_dirs for part in rel.parts[:-1]):
+                continue
+            path = repo_path / rel
+            if path.is_file():  # tracked but deleted on disk -> skip
+                yield path
+        return
+
     for dirpath, dirnames, filenames in os.walk(repo_path):
         dirnames[:] = [d for d in dirnames if d not in skip_dirs]
         for filename in filenames:

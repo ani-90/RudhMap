@@ -76,6 +76,9 @@ class ContextPack:
     references: list[Reference] = field(default_factory=list)
     edges: int = 0
     pack_tokens: int = 0
+    # Dense slices: call-graph lines / references cut to stay within budget.
+    omitted_edges: int = 0
+    omitted_references: int = 0
     # What reading every file the slice touches, whole, would cost.
     baseline_tokens: int = 0
     baseline_files: int = 0
@@ -140,6 +143,8 @@ def _render(pack: ContextPack, edge_lines: list[str]) -> str:
         out.append("")
         out.append("## Call graph (caller -> callee [relation @ file:line])")
         out.extend(edge_lines)
+    if pack.omitted_edges:
+        out.append(f"(+{pack.omitted_edges} more connections farther from the seeds, not shown)")
     if pack.snippets:
         out.append("")
         out.append("## Source (most relevant first)")
@@ -160,6 +165,8 @@ def _render(pack: ContextPack, edge_lines: list[str]) -> str:
                 f"{r.file}:{r.start}" if r.end in (None, r.start) else f"{r.file}:{r.start}-{r.end}"
             )
             out.append(f"- {r.node_id} ({r.kind}) {where}")
+    if pack.omitted_references:
+        out.append(f"(+{pack.omitted_references} more definitions farther from the seeds, not listed)")
     return "\n".join(out) + "\n"
 
 
@@ -187,13 +194,18 @@ def pack_from_view(
 
     # Repeated calls between the same pair collapse to one line citing every site.
     call_sites: dict[tuple[str, str, str, str], list[int]] = {}
+    edge_rank: dict[tuple[str, str, str, str], int] = {}
     for e in ir.edges:
         key = (rel(e.src), rel(e.dst), edge_relation(e.evidence), rel(e.evidence.file))
         call_sites.setdefault(key, []).append(e.evidence.line or 0)
-    edge_lines = [
-        f"- {src} -> {dst} [{relation} @ {file}:{','.join(str(n) for n in sorted(lines))}]"
-        for (src, dst, relation, file), lines in sorted(call_sites.items())
-    ]
+        rank = min(hops.get(e.src, unreachable), hops.get(e.dst, unreachable))
+        edge_rank[key] = min(rank, edge_rank.get(key, rank))
+
+    def edge_line(key: tuple[str, str, str, str]) -> str:
+        src, dst, relation, file = key
+        return f"- {src} -> {dst} [{relation} @ {file}:{','.join(str(n) for n in sorted(call_sites[key]))}]"
+
+    edge_lines = [edge_line(key) for key in sorted(call_sites)]
 
     starts_by_file: dict[str, list[int]] = {}
     for node in ir.nodes:
@@ -239,6 +251,20 @@ def pack_from_view(
         s = pack.snippets.pop()
         pack.references.append(Reference(s.node_id, s.kind, s.file, s.start, s.end, s.hops))
         pack.references.sort(key=lambda r: (r.hops, r.node_id))
+        pack.text = _render(pack, edge_lines)
+
+    # A dense slice can overflow on its call graph and reference list alone
+    # (no snippets left to demote). The budget is a hard limit, so cut the
+    # farthest references, then the farthest connections, and say how many.
+    kept_edges = sorted(call_sites, key=lambda k: (edge_rank[k], k))
+    while estimate_tokens(pack.text) > token_budget and (pack.references or kept_edges):
+        if pack.references:
+            pack.references.pop()
+            pack.omitted_references += 1
+        else:
+            kept_edges.pop()
+            pack.omitted_edges += 1
+        edge_lines = [edge_line(key) for key in sorted(kept_edges)]
         pack.text = _render(pack, edge_lines)
     pack.pack_tokens = estimate_tokens(pack.text)
 

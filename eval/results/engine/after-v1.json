@@ -1,0 +1,172 @@
+{
+  "label": "after-v1",
+  "git_head": "3d8b65a",
+  "ground_truth": {
+    "commit": "20d352e",
+    "sites_expected": 136,
+    "sites_found": 135,
+    "recall": 0.993,
+    "precision": 0.938,
+    "per_kind": {
+      "call": {
+        "expected": 93,
+        "found": 92,
+        "recall": 0.989,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      },
+      "reference": {
+        "expected": 19,
+        "found": 19,
+        "recall": 1.0,
+        "recall_excl_hard": 1.0,
+        "extra": 9
+      },
+      "param_reference": {
+        "expected": 11,
+        "found": 11,
+        "recall": 1.0,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      },
+      "inherits": {
+        "expected": 13,
+        "found": 13,
+        "recall": 1.0,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      }
+    },
+    "misses": [
+      {
+        "src": "app/pipeline/graph.py:run_all_agents_node.run_single",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent.run",
+        "kind": "call",
+        "line": 38,
+        "hard": true,
+        "code": "result = agent.run(state)"
+      }
+    ],
+    "extra": [
+      {
+        "src": "app/api/debate.py:<module>",
+        "dst": "app/schemas/debate.py:DebateResponse",
+        "kind": "reference",
+        "line": 12,
+        "code": "@router.post(\"/message\", response_model=DebateResponse)"
+      },
+      {
+        "src": "app/api/feed.py:<module>",
+        "dst": "app/schemas/feed.py:ArticleDetailResponse",
+        "kind": "reference",
+        "line": 132,
+        "code": "@router.get(\"/{article_id}\", response_model=ArticleDetailResponse)"
+      },
+      {
+        "src": "app/api/feed.py:<module>",
+        "dst": "app/schemas/feed.py:FeedRefreshResponse",
+        "kind": "reference",
+        "line": 20,
+        "code": "@router.post(\"/refresh\", response_model=FeedRefreshResponse)"
+      },
+      {
+        "src": "app/api/feed.py:<module>",
+        "dst": "app/schemas/feed.py:FeedResponse",
+        "kind": "reference",
+        "line": 91,
+        "code": "@router.get(\"\", response_model=FeedResponse)"
+      },
+      {
+        "src": "app/api/quiz.py:<module>",
+        "dst": "app/schemas/quiz.py:QuizGenerateResponse",
+        "kind": "reference",
+        "line": 22,
+        "code": "@router.post(\"/generate\", response_model=QuizGenerateResponse)"
+      },
+      {
+        "src": "app/api/quiz.py:<module>",
+        "dst": "app/schemas/quiz.py:QuizSubmitResponse",
+        "kind": "reference",
+        "line": 67,
+        "code": "@router.post(\"/submit\", response_model=QuizSubmitResponse)"
+      },
+      {
+        "src": "app/api/user.py:<module>",
+        "dst": "app/schemas/user.py:UserResponse",
+        "kind": "reference",
+        "line": 11,
+        "code": "@router.post(\"\", response_model=UserResponse, status_code=201)"
+      },
+      {
+        "src": "app/api/user.py:<module>",
+        "dst": "app/schemas/user.py:UserStatsResponse",
+        "kind": "reference",
+        "line": 17,
+        "code": "@router.get(\"/stats\", response_model=UserStatsResponse)"
+      },
+      {
+        "src": "app/pipeline/graph.py:_build_graph",
+        "dst": "app/pipeline/state.py:PipelineState",
+        "kind": "reference",
+        "line": 57,
+        "code": "builder = StateGraph(PipelineState)"
+      }
+    ]
+  },
+  "unresolved_test_repo": {
+    "total": 5,
+    "by_cause": {
+      "method_on_variable": 3,
+      "through_import_unresolved (often an external library)": 2
+    },
+    "examples": {
+      "through_import_unresolved (often an external library)": [
+        "run.py:6  uvicorn.run",
+        "app/scheduler.py:32  asyncio.run"
+      ],
+      "method_on_variable": [
+        "app/db/qdrant.py:43  client.search",
+        "app/pipeline/graph.py:38  agent.run",
+        "app/services/tavily_client.py:15  _client.search"
+      ]
+    }
+  },
+  "determinism": {
+    "identical": true
+  },
+  "speed_s": {
+    "test_repo_cold": 1.09,
+    "test_repo_warm": 0.86
+  },
+  "graph_test_repo": {
+    "nodes": 134,
+    "edges": 144
+  },
+  "unresolved_rudhmap_src": {
+    "total": 3,
+    "by_cause": {
+      "bare_name_other": 2,
+      "through_import_unresolved (often an external library)": 1
+    },
+    "examples": {
+      "bare_name_other": [
+        "rudhmap/cache.py:64  compute",
+        "rudhmap/cache.py:73  compute"
+      ],
+      "through_import_unresolved (often an external library)": [
+        "rudhmap/extract/__init__.py:108  os.walk"
+      ]
+    }
+  },
+  "graph_rudhmap_src": {
+    "nodes": 220,
+    "edges": 370
+  },
+  "discovery": {
+    "repo_root_nodes": 240,
+    "src_only_nodes": 220,
+    "nodes_from_tool_folders": 0,
+    "repo_root_edges": 401,
+    "src_only_edges": 370
+  }
+}

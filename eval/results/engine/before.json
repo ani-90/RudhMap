@@ -1,0 +1,574 @@
+{
+  "label": "before",
+  "git_head": "3d8b65a",
+  "ground_truth": {
+    "commit": "20d352e",
+    "sites_expected": 136,
+    "sites_found": 81,
+    "recall": 0.596,
+    "precision": 1.0,
+    "per_kind": {
+      "call": {
+        "expected": 93,
+        "found": 81,
+        "recall": 0.871,
+        "recall_excl_hard": 0.88,
+        "extra": 0
+      },
+      "reference": {
+        "expected": 19,
+        "found": 0,
+        "recall": 0.0,
+        "recall_excl_hard": 0.0,
+        "extra": 0
+      },
+      "param_reference": {
+        "expected": 11,
+        "found": 0,
+        "recall": 0.0,
+        "recall_excl_hard": 0.0,
+        "extra": 0
+      },
+      "inherits": {
+        "expected": 13,
+        "found": 0,
+        "recall": 0.0,
+        "recall_excl_hard": 0.0,
+        "extra": 0
+      }
+    },
+    "misses": [
+      {
+        "src": "app/api/debate.py:debate_message",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 13,
+        "hard": false,
+        "code": "def debate_message(request: DebateRequest, db: Session = Depends(get_db)):"
+      },
+      {
+        "src": "app/api/feed.py:get_article_detail",
+        "dst": "app/db/models.py:Article",
+        "kind": "reference",
+        "line": 146,
+        "hard": false,
+        "code": "db.query(ArticleModel).filter_by(id=article_id).update({\"raw_content\": raw_content})"
+      },
+      {
+        "src": "app/api/feed.py:get_article_detail",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 133,
+        "hard": false,
+        "code": "def get_article_detail(article_id: int, db: Session = Depends(get_db)):"
+      },
+      {
+        "src": "app/api/feed.py:get_feed",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 95,
+        "hard": false,
+        "code": "db: Session = Depends(get_db),"
+      },
+      {
+        "src": "app/api/feed.py:get_run_status",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 76,
+        "hard": false,
+        "code": "def get_run_status(run_id: str, db: Session = Depends(get_db)):"
+      },
+      {
+        "src": "app/api/feed.py:mark_article_read",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 183,
+        "hard": false,
+        "code": "db: Session = Depends(get_db),"
+      },
+      {
+        "src": "app/api/feed.py:refresh_feed",
+        "dst": "app/api/feed.py:_run_pipeline_bg",
+        "kind": "reference",
+        "line": 50,
+        "hard": false,
+        "code": "background_tasks.add_task(_run_pipeline_bg, run_id, request.user_id, domains)"
+      },
+      {
+        "src": "app/api/feed.py:refresh_feed",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 24,
+        "hard": false,
+        "code": "db: Session = Depends(get_db),"
+      },
+      {
+        "src": "app/api/feed.py:refresh_feed",
+        "dst": "app/schemas/feed.py:FeedRefreshRequest.resolved_domains",
+        "kind": "call",
+        "line": 39,
+        "hard": false,
+        "code": "domains=request.resolved_domains(),"
+      },
+      {
+        "src": "app/api/feed.py:refresh_feed",
+        "dst": "app/schemas/feed.py:FeedRefreshRequest.resolved_domains",
+        "kind": "call",
+        "line": 44,
+        "hard": false,
+        "code": "domains = request.resolved_domains()"
+      },
+      {
+        "src": "app/api/feed.py:summarize_article",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 167,
+        "hard": false,
+        "code": "def summarize_article(article_id: int, db: Session = Depends(get_db)):"
+      },
+      {
+        "src": "app/api/quiz.py:generate_quiz",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 23,
+        "hard": false,
+        "code": "def generate_quiz(request: QuizGenerateRequest, db: Session = Depends(get_db)):"
+      },
+      {
+        "src": "app/api/quiz.py:submit_quiz",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 68,
+        "hard": false,
+        "code": "def submit_quiz(request: QuizSubmitRequest, db: Session = Depends(get_db)):"
+      },
+      {
+        "src": "app/api/user.py:create_user",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 12,
+        "hard": false,
+        "code": "def create_user(request: UserCreateRequest, db: Session = Depends(get_db)):"
+      },
+      {
+        "src": "app/api/user.py:get_user_stats",
+        "dst": "app/db/sqlite.py:get_db",
+        "kind": "param_reference",
+        "line": 18,
+        "hard": false,
+        "code": "def get_user_stats(user_id: int = Query(1), db: Session = Depends(get_db)):"
+      },
+      {
+        "src": "app/config.py:<module>",
+        "dst": "app/config.py:Settings",
+        "kind": "call",
+        "line": 35,
+        "hard": false,
+        "code": "settings = Settings()"
+      },
+      {
+        "src": "app/db/crud.py:bulk_insert_articles",
+        "dst": "app/db/models.py:Article",
+        "kind": "reference",
+        "line": 43,
+        "hard": false,
+        "code": "existing = db.query(Article).filter(Article.url == a[\"url\"]).first()"
+      },
+      {
+        "src": "app/db/crud.py:create_user",
+        "dst": "app/db/models.py:User",
+        "kind": "reference",
+        "line": 25,
+        "hard": false,
+        "code": "existing = db.query(User).filter(User.email == email).first()"
+      },
+      {
+        "src": "app/db/crud.py:get_all_recent_articles",
+        "dst": "app/db/models.py:Article",
+        "kind": "reference",
+        "line": 102,
+        "hard": false,
+        "code": "return db.query(Article).order_by(Article.fetched_at.desc()).limit(limit).all()"
+      },
+      {
+        "src": "app/db/crud.py:get_article",
+        "dst": "app/db/models.py:Article",
+        "kind": "reference",
+        "line": 68,
+        "hard": false,
+        "code": "return db.query(Article).filter(Article.id == article_id).first()"
+      },
+      {
+        "src": "app/db/crud.py:get_articles_by_domain",
+        "dst": "app/db/models.py:Article",
+        "kind": "reference",
+        "line": 93,
+        "hard": false,
+        "code": "db.query(Article)"
+      },
+      {
+        "src": "app/db/crud.py:get_last_successful_run",
+        "dst": "app/db/models.py:PipelineRun",
+        "kind": "reference",
+        "line": 132,
+        "hard": false,
+        "code": "db.query(PipelineRun)"
+      },
+      {
+        "src": "app/db/crud.py:get_or_create_user",
+        "dst": "app/db/models.py:User",
+        "kind": "reference",
+        "line": 14,
+        "hard": false,
+        "code": "user = db.query(User).filter(User.id == user_id).first()"
+      },
+      {
+        "src": "app/db/crud.py:get_pipeline_run",
+        "dst": "app/db/models.py:PipelineRun",
+        "kind": "reference",
+        "line": 127,
+        "hard": false,
+        "code": "return db.query(PipelineRun).filter(PipelineRun.run_id == run_id).first()"
+      },
+      {
+        "src": "app/db/crud.py:get_quiz_session",
+        "dst": "app/db/models.py:QuizSession",
+        "kind": "reference",
+        "line": 175,
+        "hard": false,
+        "code": "return db.query(QuizSession).filter(QuizSession.id == session_id).first()"
+      },
+      {
+        "src": "app/db/crud.py:submit_quiz_session",
+        "dst": "app/db/models.py:QuizSession",
+        "kind": "reference",
+        "line": 156,
+        "hard": false,
+        "code": "session = db.query(QuizSession).filter(QuizSession.id == session_id).first()"
+      },
+      {
+        "src": "app/db/crud.py:update_article_summary",
+        "dst": "app/db/models.py:Article",
+        "kind": "reference",
+        "line": 72,
+        "hard": false,
+        "code": "db.query(Article).filter(Article.id == article_id).update({"
+      },
+      {
+        "src": "app/db/crud.py:update_pipeline_run",
+        "dst": "app/db/models.py:PipelineRun",
+        "kind": "reference",
+        "line": 122,
+        "hard": false,
+        "code": "db.query(PipelineRun).filter(PipelineRun.run_id == run_id).update(kwargs)"
+      },
+      {
+        "src": "app/db/models.py:Article",
+        "dst": "app/db/sqlite.py:Base",
+        "kind": "inherits",
+        "line": 22,
+        "hard": false,
+        "code": "class Article(Base):"
+      },
+      {
+        "src": "app/db/models.py:PipelineRun",
+        "dst": "app/db/sqlite.py:Base",
+        "kind": "inherits",
+        "line": 73,
+        "hard": false,
+        "code": "class PipelineRun(Base):"
+      },
+      {
+        "src": "app/db/models.py:QuizSession",
+        "dst": "app/db/sqlite.py:Base",
+        "kind": "inherits",
+        "line": 54,
+        "hard": false,
+        "code": "class QuizSession(Base):"
+      },
+      {
+        "src": "app/db/models.py:ReadingHistory",
+        "dst": "app/db/sqlite.py:Base",
+        "kind": "inherits",
+        "line": 41,
+        "hard": false,
+        "code": "class ReadingHistory(Base):"
+      },
+      {
+        "src": "app/db/models.py:User",
+        "dst": "app/db/sqlite.py:Base",
+        "kind": "inherits",
+        "line": 9,
+        "hard": false,
+        "code": "class User(Base):"
+      },
+      {
+        "src": "app/main.py:<module>",
+        "dst": "app/main.py:lifespan",
+        "kind": "reference",
+        "line": 27,
+        "hard": false,
+        "code": "lifespan=lifespan,"
+      },
+      {
+        "src": "app/pipeline/agents/ai_tech.py:AiTechAgent",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent",
+        "kind": "inherits",
+        "line": 4,
+        "hard": false,
+        "code": "class AiTechAgent(BaseAgent):"
+      },
+      {
+        "src": "app/pipeline/agents/dharma.py:DharmaAgent",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent",
+        "kind": "inherits",
+        "line": 4,
+        "hard": false,
+        "code": "class DharmaAgent(BaseAgent):"
+      },
+      {
+        "src": "app/pipeline/agents/fashion.py:FashionAgent",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent",
+        "kind": "inherits",
+        "line": 4,
+        "hard": false,
+        "code": "class FashionAgent(BaseAgent):"
+      },
+      {
+        "src": "app/pipeline/agents/finance.py:FinanceAgent",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent",
+        "kind": "inherits",
+        "line": 4,
+        "hard": false,
+        "code": "class FinanceAgent(BaseAgent):"
+      },
+      {
+        "src": "app/pipeline/agents/health.py:HealthAgent",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent",
+        "kind": "inherits",
+        "line": 4,
+        "hard": false,
+        "code": "class HealthAgent(BaseAgent):"
+      },
+      {
+        "src": "app/pipeline/agents/law.py:LawAgent",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent",
+        "kind": "inherits",
+        "line": 4,
+        "hard": false,
+        "code": "class LawAgent(BaseAgent):"
+      },
+      {
+        "src": "app/pipeline/agents/politics.py:PoliticsAgent",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent",
+        "kind": "inherits",
+        "line": 4,
+        "hard": false,
+        "code": "class PoliticsAgent(BaseAgent):"
+      },
+      {
+        "src": "app/pipeline/graph.py:<module>",
+        "dst": "app/pipeline/agents/ai_tech.py:AiTechAgent",
+        "kind": "call",
+        "line": 20,
+        "hard": false,
+        "code": "\"ai_tech\": AiTechAgent(),"
+      },
+      {
+        "src": "app/pipeline/graph.py:<module>",
+        "dst": "app/pipeline/agents/dharma.py:DharmaAgent",
+        "kind": "call",
+        "line": 24,
+        "hard": false,
+        "code": "\"dharma\": DharmaAgent(),"
+      },
+      {
+        "src": "app/pipeline/graph.py:<module>",
+        "dst": "app/pipeline/agents/fashion.py:FashionAgent",
+        "kind": "call",
+        "line": 23,
+        "hard": false,
+        "code": "\"fashion\": FashionAgent(),"
+      },
+      {
+        "src": "app/pipeline/graph.py:<module>",
+        "dst": "app/pipeline/agents/finance.py:FinanceAgent",
+        "kind": "call",
+        "line": 18,
+        "hard": false,
+        "code": "\"finance\": FinanceAgent(),"
+      },
+      {
+        "src": "app/pipeline/graph.py:<module>",
+        "dst": "app/pipeline/agents/health.py:HealthAgent",
+        "kind": "call",
+        "line": 22,
+        "hard": false,
+        "code": "\"health\": HealthAgent(),"
+      },
+      {
+        "src": "app/pipeline/graph.py:<module>",
+        "dst": "app/pipeline/agents/law.py:LawAgent",
+        "kind": "call",
+        "line": 21,
+        "hard": false,
+        "code": "\"law\": LawAgent(),"
+      },
+      {
+        "src": "app/pipeline/graph.py:<module>",
+        "dst": "app/pipeline/agents/politics.py:PoliticsAgent",
+        "kind": "call",
+        "line": 19,
+        "hard": false,
+        "code": "\"politics\": PoliticsAgent(),"
+      },
+      {
+        "src": "app/pipeline/graph.py:<module>",
+        "dst": "app/pipeline/graph.py:_build_graph",
+        "kind": "call",
+        "line": 66,
+        "hard": false,
+        "code": "pipeline = _build_graph()"
+      },
+      {
+        "src": "app/pipeline/graph.py:_build_graph",
+        "dst": "app/pipeline/aggregator.py:aggregator_node",
+        "kind": "reference",
+        "line": 59,
+        "hard": false,
+        "code": "builder.add_node(\"aggregator\", aggregator_node)"
+      },
+      {
+        "src": "app/pipeline/graph.py:_build_graph",
+        "dst": "app/pipeline/graph.py:run_all_agents_node",
+        "kind": "reference",
+        "line": 58,
+        "hard": false,
+        "code": "builder.add_node(\"run_all_agents\", run_all_agents_node)"
+      },
+      {
+        "src": "app/pipeline/graph.py:run_all_agents_node",
+        "dst": "app/pipeline/graph.py:run_all_agents_node.run_single",
+        "kind": "reference",
+        "line": 43,
+        "hard": false,
+        "code": "loop.run_in_executor(None, run_single, domain)"
+      },
+      {
+        "src": "app/pipeline/graph.py:run_all_agents_node.run_single",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent.run",
+        "kind": "call",
+        "line": 38,
+        "hard": true,
+        "code": "result = agent.run(state)"
+      },
+      {
+        "src": "app/scheduler.py:start_scheduler",
+        "dst": "app/scheduler.py:_daily_refresh",
+        "kind": "reference",
+        "line": 45,
+        "hard": false,
+        "code": "_daily_refresh,"
+      },
+      {
+        "src": "app/schemas/feed.py:ArticleDetailResponse",
+        "dst": "app/schemas/feed.py:ArticleResponse",
+        "kind": "inherits",
+        "line": 37,
+        "hard": false,
+        "code": "class ArticleDetailResponse(ArticleResponse):"
+      }
+    ],
+    "extra": []
+  },
+  "unresolved_test_repo": {
+    "total": 16,
+    "by_cause": {
+      "caller_is_module_level": 10,
+      "method_on_variable": 5,
+      "through_import_unresolved (often an external library)": 1
+    },
+    "examples": {
+      "caller_is_module_level": [
+        "run.py:6  uvicorn.run",
+        "app/config.py:35  Settings",
+        "app/pipeline/graph.py:18  FinanceAgent",
+        "app/pipeline/graph.py:19  PoliticsAgent",
+        "app/pipeline/graph.py:20  AiTechAgent",
+        "app/pipeline/graph.py:21  LawAgent"
+      ],
+      "through_import_unresolved (often an external library)": [
+        "app/scheduler.py:32  asyncio.run"
+      ],
+      "method_on_variable": [
+        "app/api/feed.py:39  request.resolved_domains",
+        "app/api/feed.py:44  request.resolved_domains",
+        "app/db/qdrant.py:43  client.search",
+        "app/pipeline/graph.py:38  agent.run",
+        "app/services/tavily_client.py:15  _client.search"
+      ]
+    }
+  },
+  "determinism": {
+    "identical": true
+  },
+  "speed_s": {
+    "test_repo_cold": 1.12,
+    "test_repo_warm": 0.27
+  },
+  "graph_test_repo": {
+    "nodes": 102,
+    "edges": 81
+  },
+  "unresolved_rudhmap_src": {
+    "total": 48,
+    "by_cause": {
+      "nested_or_enclosing_scope": 36,
+      "method_on_variable": 6,
+      "caller_is_module_level": 3,
+      "bare_name_other": 2,
+      "through_import_unresolved (often an external library)": 1
+    },
+    "examples": {
+      "bare_name_other": [
+        "rudhmap/cache.py:64  compute",
+        "rudhmap/cache.py:73  compute"
+      ],
+      "caller_is_module_level": [
+        "rudhmap/cli.py:163  main",
+        "rudhmap/server.py:284  main",
+        "rudhmap/__main__.py:4  main"
+      ],
+      "nested_or_enclosing_scope": [
+        "rudhmap/context.py:218  add_reference",
+        "rudhmap/context.py:233  add_reference",
+        "rudhmap/extract/tier1_rules/engine.py:234  compute",
+        "rudhmap/extract/tier2_ast/python.py:83  scope_identity",
+        "rudhmap/extract/tier2_ast/python.py:91  emit_import",
+        "rudhmap/extract/tier2_ast/python.py:98  emit_import"
+      ],
+      "method_on_variable": [
+        "rudhmap/context.py:222  files.lines",
+        "rudhmap/context.py:246  files.lines",
+        "rudhmap/pipeline.py:71  cache.flush",
+        "rudhmap/extract/tier1_rules/engine.py:232  cache.get_or_compute",
+        "rudhmap/extract/tier2_ast/python.py:243  cache.get_or_compute",
+        "rudhmap/extract/tier2_ast/typescript.py:248  cache.get_or_compute"
+      ],
+      "through_import_unresolved (often an external library)": [
+        "rudhmap/extract/__init__.py:62  os.walk"
+      ]
+    }
+  },
+  "graph_rudhmap_src": {
+    "nodes": 169,
+    "edges": 244
+  },
+  "discovery": {
+    "repo_root_nodes": 361,
+    "src_only_nodes": 169,
+    "nodes_from_tool_folders": 175,
+    "repo_root_edges": 363,
+    "src_only_edges": 244
+  }
+}

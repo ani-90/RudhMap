@@ -7,7 +7,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "tier2_ast"
 
 def test_defs_get_local_file_scoped_identity():
     nodes, _ = parse_typescript_ast(FIXTURE)
-    by_qualname = {n.attrs["qualname"]: n for n in nodes}
+    by_qualname = {n.attrs["qualname"]: n for n in nodes if n.kind != "module"}
 
     assert set(by_qualname) == {
         "Handler",
@@ -110,4 +110,4 @@ def test_tsx_files_are_parsed_with_the_tsx_grammar(tmp_path):
         "function Widget() {\n  return <div>hi</div>;\n}\n"
     )
     nodes, _ = parse_typescript_ast(tmp_path)
-    assert [n.attrs["qualname"] for n in nodes] == ["Widget"]
+    assert [n.attrs["qualname"] for n in nodes if n.kind != "module"] == ["Widget"]

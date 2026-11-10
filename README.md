@@ -201,14 +201,14 @@ pip install -e ".[dev]"
 pytest
 ```
 
-244 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, all three identity-resolution passes, the slicer, the IR verifier, layout and draw.io rendering (including byte-identical output under shuffled input), context packs (exact line ranges, budget enforcement, checkout-location independence), the `diagram` CLI command, and the MCP server (driven through a real in-process MCP client).
+259 tests currently pass, covering every extractor (base + edge-case fixtures), the tier 1 rule engine, the cache, graph assembly, all three identity-resolution passes, the slicer, the IR verifier, layout and draw.io rendering (including byte-identical output under shuffled input), context packs (exact line ranges, budget enforcement, checkout-location independence), the `diagram` CLI command, and the MCP server (driven through a real in-process MCP client).
 
 ## Known limits
 
 - **Recursive functions produce self-loop edges in the raw graph.** Tier 2's call-edge extraction is exact: if a function genuinely calls itself (e.g. `tier2_ast/python.py:_flatten_callee`, `tier2_ast/typescript.py:_flatten_callee`, `tier0_iac/terraform.py:_iter_refs` — all real recursive helpers in this codebase itself), the graph gets a real self-loop edge citing the real `file:line` of the recursive call. This is expected, evidence-correct behavior, not a bug — confirmed by dogfooding `scan` against this repo (see [`eval/cases.md`](eval/cases.md)).
 
 - **The slicer's search is keyword-based and often picks the wrong starting functions** for plain-English questions (BM25 over names only). This limits slices, diagrams and context packs alike, and is why `get_context` doesn't yet save tokens (see "Results so far").
-- **Static analysis only.** Calls on object instances (`store.put()`), dynamic dispatch and default imports aren't resolved, and only Python/TypeScript code (plus IaC files) is read.
+- **Static analysis only.** Python calls on objects resolve when the file states the type (`s = Store()`, `s: Store`, `self.s = Store()`) or the method is inherited; dynamic dispatch (a value pulled from a dict, a function received as a parameter) and default imports don't. TypeScript has no type tracking yet. Only Python/TypeScript code (plus IaC files) is read. Measured against a hand-labelled ground truth in [`eval/reports/step1-engine.md`](eval/reports/step1-engine.md).
 
 ## Requirements
 

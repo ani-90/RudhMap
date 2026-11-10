@@ -196,7 +196,7 @@ def test_identical_files_both_appear_in_the_assembled_graph(tmp_path):
 
     for _ in range(2):  # cold, then warm from the flushed cache
         graph = build_assembly(str(tmp_path), verbose=False).result.graph
-        assert sorted(n.rsplit("pkg", 1)[1] for n in graph.nodes) == [
+        assert sorted(n.rsplit("pkg", 1)[1] for n in graph.nodes if n.endswith(":helper")) == [
             str(Path("/a.py")) + ":helper",
             str(Path("/b.py")) + ":helper",
         ]

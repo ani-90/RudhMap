@@ -21,7 +21,7 @@ TIER = 2
 CONFIDENCE = 1.0
 # Bump the version whenever this extractor's output changes, so cached
 # results from the old version are never served (see rudhmap.cache).
-_EXTRACTOR_NAME = "typescript@3"
+_EXTRACTOR_NAME = "typescript@4"
 
 _SKIP_DIRS = COMMON_SKIP_DIRS
 
@@ -83,6 +83,20 @@ def _process_file(ts_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
     # exported name, or None when it can't be resolved to a single
     # exported name (namespace import, default import)}.
     import_table: dict[str, dict[str, str | None]] = {}
+
+    # Top-level code needs a caller node, same as the Python visitor.
+    if source.strip():
+        nodes.append(
+            EvidenceRecord(
+                kind="module",
+                identity=file_str,
+                file=file_str,
+                line=1,
+                tier=TIER,
+                confidence=CONFIDENCE,
+                attrs={"name": ts_file.stem, "qualname": ""},
+            )
+        )
 
     def scope_identity(scope_stack: list[str]) -> str:
         return f"{file_str}:{'.'.join(scope_stack)}" if scope_stack else file_str
