@@ -152,3 +152,31 @@ def test_trace_tree_depth_ignores_indirection_hops(tmp_path):
     # only the last hop is a real call level, so embed is within the default depth 3.
     index = _repo(tmp_path)
     assert "embed" in views.trace(index, "refresh")
+
+
+def test_absolute_paths_from_grep_output_resolve(tmp_path):
+    index = _repo(tmp_path)
+    absolute = str(tmp_path / "app" / "crud.py")
+    assert views.show(index, absolute).startswith("app/crud.py")
+    assert views.show(index, absolute + ":get_item").startswith("app/crud.py:4-5")
+
+
+def test_mcp_server_exposes_the_four_tools_and_answers(tmp_path, monkeypatch):
+    import anyio
+    from mcp import Client
+
+    from rudhmap.server import mcp
+
+    _repo(tmp_path)
+    monkeypatch.setenv("RUDHMAP_REPO", str(tmp_path))
+
+    async def run():
+        async with Client(mcp) as client:
+            tools = {t.name for t in (await client.list_tools()).tools}
+            result = await client.call_tool("show", {"symbol": "refresh"})
+            return tools, result
+
+    tools, result = anyio.run(run)
+    assert tools == {"find_symbol", "show", "trace", "repo_map"}
+    text = "".join(getattr(c, "text", "") for c in result.content)
+    assert "HTTP route: POST /api/items/refresh" in text

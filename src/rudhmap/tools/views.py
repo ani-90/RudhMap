@@ -204,6 +204,11 @@ def resolve(index: RepoIndex, ref: str) -> tuple[Symbol | None, list[Symbol]]:
     ref = _clean_path(ref)
     if not ref:
         return None, []
+    # Absolute paths (copied from Grep/Read output) -> repo-relative.
+    # Windows drive letters make `C:/x/a.py:func` contain two colons.
+    root = str(index.root).replace("\\", "/")
+    if ref.lower().startswith(root.lower() + "/"):
+        ref = ref[len(root) + 1:]
     exact = index.by_id.get(ref)
     if exact is not None:
         return exact, []
