@@ -1,0 +1,59 @@
+{
+  "answer": "**Where `SECRET_KEY` is used**\n\n- `backend/app/core/config.py:23`: it's a required `str` field on `Settings`. It's loaded from the top-level `../.env` (`config.py:18`).\n- `backend/app/core/security.py:25`: it signs the access-token JWT in `jwt.encode(...)`.\n- `backend/app/api/deps.py:33`: it decodes and verifies the bearer token on authenticated requests.\n- `backend/app/utils.py:112`: it signs the password-reset token.\n- `backend/app/utils.py:121`: it verifies the password-reset token.\n\n**What happens if it's `\"changethis\"`**\n\nThe `_enforce_non_default_secrets` model validator (`config.py:79-81`) runs when `Settings` is built, which happens at import or startup. It calls `_check_default_secret(\"SECRET_KEY\", ...)`, defined at `config.py:68-77`. The result depends on `FASTAPI_ENV`:\n\n- **`FASTAPI_ENV == \"development\"`** (`config.py:74-75`): it only emits a `warnings.warn(...)` and the app starts.\n- **Anything else, including unset** (`config.py:76-77`): it raises `ValueError('The value of SECRET_KEY is \"changethis\", for security, please change it, at least for deployments.')`. Pydantic wraps this in a validation error, so the app fails to start.\n\nThe same check also applies to the `DATABASE_URL` password and `FIRST_SUPERUSER_PASSWORD` (`config.py:82-86`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "cost_usd": 0.0203582,
+  "duration_ms": 9384,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2643,
+    "cache_read": 16642,
+    "output": 811,
+    "context": 2649,
+    "total": 20102
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "SECRET_KEY|changethis",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend",
+        "output_mode": "content"
+      },
+      "result_chars": 769,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\config.py",
+        "offset": 15,
+        "limit": 75
+      },
+      "result_chars": 2838,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-5",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 11.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "access-tokens": true,
+      "reset-tokens": true,
+      "changethis": true,
+      "other-secrets": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true
+  }
+}

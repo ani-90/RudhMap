@@ -1,0 +1,96 @@
+{
+  "answer": "**No, the daily refresh is not running when the API server starts.** The scheduler code exists, but nothing calls it.\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:43-53` `start_scheduler()` registers a `CronTrigger(hour, minute)` job (`daily_refresh`) for `_daily_refresh` and calls `scheduler.start()`.\n- `app/scheduler.py:15-40` `_daily_refresh()` creates a pipeline run row for `user_id=1` and runs `run_pipeline` across `DOMAINS`.\n- `app/config.py:31-32` defines `schedule_hour = 7` and `schedule_minute = 0`. The comment on line 30 says 01:30 UTC, which doesn't match those defaults. The README (`README.md:138-139`) suggests `SCHEDULE_HOUR=1` and `SCHEDULE_MINUTE=30`. Also, `CronTrigger` here has no timezone, so it uses the process's local time zone.\n\n**What's missing:**\n- `app/main.py:17-20` the FastAPI `lifespan` only calls `init_db()` before `yield`. It never calls `start_scheduler()`.\n- `app/main.py:41-44` only registers the feed, quiz, user, and debate routers.\n- A repo-wide search for `start_scheduler` and `stop_scheduler` finds only their definitions in `app/scheduler.py`. Nothing imports or calls them. `stop_scheduler` is also never called.\n\n**Result:** The `apscheduler` dependency (`requirements.txt:35`) is installed, but the cron job is never registered and the `BackgroundScheduler` never starts. Scheduled refreshes won't happen on the API server. The only way a refresh runs is a manual `POST /api/feed/refresh` (`app/api/feed.py:20`), which is subject to the 2-hour cooldown (`app/api/feed.py:17`).\n\n**To fix:** call `start_scheduler(settings.schedule_hour, settings.schedule_minute)` in the `lifespan` startup block after `init_db()`, and call `stop_scheduler()` after the `yield`. Also decide on a timezone for the cron trigger, and reconcile the 01:30 UTC comment with the 07:00 default.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "cost_usd": 0.0027930300000000006,
+  "duration_ms": 11355,
+  "tokens": {
+    "input": 6,
+    "cache_write": 8072,
+    "cache_read": 22953,
+    "output": 1897,
+    "context": 8078,
+    "total": 32928
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "schedule|cron|setInterval|node-cron|setTimeout|refresh",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true,
+        "glob": "!**/node_modules/**"
+      },
+      "result_chars": 7328,
+      "is_error": false
+    },
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "**/*.{ts,js,py,json,yaml,yml}",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e"
+      },
+      "result_chars": 946,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\scheduler.py"
+      },
+      "result_chars": 1895,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\main.py"
+      },
+      "result_chars": 1244,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\config.py"
+      },
+      "result_chars": 1306,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|scheduler",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 798,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

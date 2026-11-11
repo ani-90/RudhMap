@@ -1,0 +1,92 @@
+{
+  "answer": "**Generation** (`POST /api/quiz/generate`, `app/api/quiz.py:22-64`)\n1. It loads the article and returns 404 if it's missing (`quiz.py:24-26`).\n2. If the article has no summary, it makes one with `groq_client.summarize` on the raw content and saves it (`quiz.py:28-31`). `summarize` truncates the raw content to 4000 characters (`groq_client.py:75`).\n3. It calls `groq_client.generate_quiz(article.summary)` (`quiz.py:33`). The questions are generated from the summary, not the full article.\n4. `generate_quiz` sends the summary to the Groq LLM (`groq_client.py:88-90`). The system prompt asks for exactly 3 multiple-choice questions as a JSON array. Each item has `question`, `options` A\u2013D, `answer` and `explanation` (`groq_client.py:28-35`).\n5. The reply is stripped of markdown fences and parsed. The result is capped at 3 questions, and any parse failure returns `[]` (`groq_client.py:91-97`). An empty result gives a 422 (`quiz.py:34-35`).\n6. The full questions, including answers, are stored with `crud.create_quiz_session` (`quiz.py:37-43`). The response builds `QuizQuestion` objects from `question`, `options` and `explanation` only. It does not include `answer` (`quiz.py:45-57`). Note that `explanation` is sent to the client at generation time.\n\n**Scoring** (`POST /api/quiz/submit`, `quiz.py:67-96`)\n1. It returns 404 if the session doesn't exist and 409 if it was already submitted (`quiz.py:69-73`).\n2. `crud.submit_quiz_session` does the scoring (`app/db/crud.py:155-171`). It reloads the stored questions from `questions_json` and compares answers by question index. `user_answers` is a dict keyed by `str(i)`. The comparison is case-insensitive (`crud.py:160-163`).\n3. `correct_count` is the number of matches. `score = correct / len(questions)`, or 0.0 if there are no questions (`crud.py:165-167`). The session also stores the answers and `submitted_at` (`crud.py:164,168`).\n4. The endpoint recomputes the same comparison to build a per-question breakdown with `your_answer`, `correct_answer`, `is_correct` and `explanation` (`quiz.py:78-88`). It returns the score rounded to 3 decimals, plus `correct_count` and `total_questions` (`quiz.py:90-96`).\n\nCorrectness is therefore decided on the server against the stored answers. A question the user skipped counts as wrong, because a missing answer defaults to `\"\"` (`quiz.py:80`, `crud.py:162`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "cost_usd": 0.0378989,
+  "duration_ms": 24185,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4734,
+    "cache_read": 25069,
+    "output": 1644,
+    "context": 4742,
+    "total": 31455
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "quiz",
+        "-i": true,
+        "output_mode": "count",
+        "glob": "!node_modules"
+      },
+      "result_chars": 550,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\quiz.py"
+      },
+      "result_chars": 3454,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "quiz",
+        "-i": true,
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\groq_client.py"
+      },
+      "result_chars": 201,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def submit_quiz_session",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py",
+        "output_mode": "content",
+        "-A": 35
+      },
+      "result_chars": 1480,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\groq_client.py",
+        "offset": 26,
+        "limit": 90
+      },
+      "result_chars": 3691,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-5",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 26.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "summary-first": true,
+      "generate": true,
+      "answers-hidden": true,
+      "scoring": true,
+      "groq-retry": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

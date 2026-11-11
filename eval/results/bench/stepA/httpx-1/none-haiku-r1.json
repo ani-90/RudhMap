@@ -1,0 +1,92 @@
+{
+  "answer": "**Entry point.** `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` against the client default (`:904-908`), sets the timeout, builds auth, and calls `_send_handling_auth` (`:914`). That calls `_send_handling_redirects` (`:942`).\n\n**The loop.** `_send_handling_redirects` (`:964`) runs a `while True` loop:\n- It enforces `max_redirects` and raises `TooManyRedirects` (`:971-974`).\n- It sends one hop via `_send_single_request` (`:979`).\n- If the response has no redirect `Location`, it returns (`:985-986`).\n- Otherwise it builds the next request (`:988`) and, when following, reads the response body and loops (`:991-992`). When not following, it sets `response.next_request` and returns (`:994-995`).\n\n**Building the redirect request.** `_build_redirect_request` (`:475`) composes the new request from four helpers:\n\n- **Method** (`_redirect_method`, `:494`): 303 becomes GET, and 302 becomes GET, unless the method is HEAD (`:502-508`). A 301 turns POST into GET (`:512-513`). Other codes, such as 307 and 308, keep the method.\n- **URL** (`_redirect_url`, `:517`): reads `Location`, resolves relative URLs against the request URL (`:537-538`), and carries over the fragment if the new URL has none (`:541-542`).\n- **Headers** (`_redirect_headers`, `:546`):\n  - On a cross-origin redirect, `Authorization` is stripped unless the hop is a direct HTTP\u2192HTTPS upgrade (`:552-556`). `Host` is updated (`:559`).\n  - When the method changed to GET, `Content-Length` and `Transfer-Encoding` are removed (`:561-565`).\n  - `Cookie` is always removed (`:569`). The new request gets cookies from the client's jar instead (`_build_redirect_request`, `:484`).\n- **Body** (`_redirect_stream`, `:573`): returns `None` when the method switched to GET (`:579-580`). Otherwise it reuses `request.stream`, so the body is replayed on 307/308 and other non-GET-converting redirects.\n\n**Async.** `AsyncClient.send` and `_send_handling_redirects` (`:1594`, `:1679`) mirror this logic. I did not trace them line by line.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "cost_usd": 0.00288493,
+  "duration_ms": 15644,
+  "tokens": {
+    "input": 10,
+    "cache_write": 7955,
+    "cache_read": 37043,
+    "output": 1845,
+    "context": 7965,
+    "total": 46853
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def send\\(|def _send_handling_redirects|def _build_redirect_request|def _redirect_method|def _redirect_headers|def _redirect_stream|def rewind_body|_redirect_stream",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 741,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 475,
+        "limit": 120
+      },
+      "result_chars": 5016,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 964,
+        "limit": 70
+      },
+      "result_chars": 2573,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 920,
+        "limit": 43
+      },
+      "result_chars": 1387,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 879,
+        "limit": 40
+      },
+      "result_chars": 1425,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 17.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "answer": "**Short answer:** As the code stands, only URL-level dedup actually runs. The semantic dedup and the Qdrant write are dead code, because `embedder.embed` is a stub.\n\n**Flow for one article**\n\n1. **Fetch (search).** Each domain agent calls Groq to generate queries, falling back to hardcoded ones (`app/pipeline/agents/base_agent.py:89-95`). It then pulls results from Tavily (`base_agent.py:97-104`) and NewsAPI headlines (`base_agent.py:108-115`). NewsAPI returns `description + content` as the body (`app/services/newsapi_client.py:23-32`).\n\n2. **Dedup #1: URL normalisation and in-run set.** `_normalise_url` strips tracking params such as `utm_*` and `fbclid` (`base_agent.py:13-25`). Duplicates within one agent's fetch are dropped via `seen_urls` (`base_agent.py:86, 101-102, 112-113`). This is per-agent only, so two agents can return the same URL.\n\n3. **Enrich and quality filter.** If the body is under 300 chars, trafilatura re-scrapes the page, capped at 8000 chars (`app/services/scraper.py:28-36`). Articles must pass `_is_quality`: at least 40 words and an average of 5+ words per line (`base_agent.py:28-36, 56-58`).\n\n4. **Embed.** `embedder.embed` returns `[]` unconditionally (`app/services/embedder.py:4-5`). `content_hash` (SHA-256 of the URL) is computed (`base_agent.py:61`) but never stored or read.\n\n5. **Aggregation.** The LangGraph fan-in merges all agents' articles (`app/pipeline/graph.py:48-53`).\n   - **Pass 1, semantic dedup** (`app/pipeline/aggregator.py:29-38`): skipped, because `if article.embedding:` is always false. Even if it ran, the threshold is 0.85 (`app/config.py:28`).\n   - **Pass 2, insert:** `bulk_insert_articles` checks for an existing URL (`app/db/crud.py:43-45`). The `unique` constraint on `url` (`app/db/models.py:27`) is the backstop, and a race-condition IntegrityError is caught and rolled back (`crud.py:58-63`). `duplicate_count` is updated from the shortfall (`aggregator.py:60`).\n   - **Pass 3, Qdrant upsert** (`aggregator.py:64-82`): builds no points, since embeddings are empty. Nothing reaches Qdrant.\n\n6. **Persist run stats.** `update_pipeline_run` records `persisted_count` and `duplicate_count` (`aggregator.py:98-106`).\n\n**Gap to flag:** Qdrant is never populated, so the semantic-dedup pass has nothing to compare against. Implementing `embed()` (for example with sentence-transformers, 384-dim to match `qdrant.py:35`) would activate both Pass 1 and Pass 3.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 13,
+  "cost_usd": 0.00483108,
+  "duration_ms": 19379,
+  "tokens": {
+    "input": 10,
+    "cache_write": 14140,
+    "cache_read": 55658,
+    "output": 2891,
+    "context": 14150,
+    "total": 72699
+  },
+  "tool_calls": [
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "**/*.{ts,js,py,tsx,jsx,mjs}"
+      },
+      "result_chars": 879,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "dedup|duplicate|hash|fetch|insert|save|store",
+        "-i": true,
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 709,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\newsapi_client.py"
+      },
+      "result_chars": 2056,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\scraper.py"
+      },
+      "result_chars": 1182,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py"
+      },
+      "result_chars": 4784,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py"
+      },
+      "result_chars": 7598,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\qdrant.py"
+      },
+      "result_chars": 2724,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\graph.py"
+      },
+      "result_chars": 2932,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\agents\\base_agent.py"
+      },
+      "result_chars": 4734,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\embedder.py"
+      },
+      "result_chars": 131,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "similarity_threshold|articles_per_source",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\config.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 77,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "content_hash|unique|Unique",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 559,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 24.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": false,
+      "semantic": false,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [
+      "embedder.embed is a stub returning [], so semantic dedup and the Qdrant upsert never run; the key describes embeddings of title plus first 500 chars driving a working semantic dedup and Qdrant upsert",
+      "Only URL-level dedup actually runs"
+    ],
+    "major_false_claim": true,
+    "correct": false
+  }
+}

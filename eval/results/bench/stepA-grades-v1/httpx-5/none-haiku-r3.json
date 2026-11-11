@@ -1,0 +1,113 @@
+{
+  "answer": "**Short answer:** `text` never touches the raw wire bytes. It works on `.content`, which is already decompressed, and then decodes that with a charset chosen from the headers, falling back to a default.\n\n**1. Decompression (happens before `text`)**\n- `text` reads `self.content` (`httpx/_models.py:636-639`), which is only populated after `read()` assigns `self._content = b\"\".join(self.iter_bytes())` (`_models.py:876-882`).\n- `iter_bytes` pulls raw chunks from `iter_raw()` and runs each through `decoder.decode(...)`, then flushes the decoder at the end (`_models.py:884-905`).\n- The decoder comes from `_get_content_decoder()` (`_models.py:699-722`). It reads every `Content-Encoding` value, maps each through `SUPPORTED_DECODERS`, and ignores unknown names. One decoder is used directly, several are wrapped in `MultiDecoder`, and none gives `IdentityDecoder`.\n\n**2. Charset selection**\n- `encoding` (`_models.py:653-672`) applies these priorities:\n  1. An explicit `.encoding = ...` setter value (`_models.py:675-686`).\n  2. The `charset=` parameter from `Content-Type`, via `charset_encoding` (`_models.py:689-697`) and `_parse_content_type_charset` (`_models.py:85-90`), which uses the `email.message` parser.\n  3. `default_encoding`: a string is used as-is, or a callable is given the content bytes for autodetection (`_models.py:667-670`).\n  4. Fallback to `\"utf-8\"`.\n- A charset name is only accepted if `codecs.lookup` recognises it (`_is_known_encoding`, `_models.py:56-64`). Unknown names fall through to the default.\n\n**3. Decoding to str**\n- `text` returns `\"\"` for empty content. Otherwise it creates `TextDecoder(encoding=self.encoding or \"utf-8\")` and joins `decode(content)` with `flush()` (`_models.py:642-650`).\n- `TextDecoder` wraps `codecs.getincrementaldecoder(encoding)(errors=\"replace\")` (`httpx/_decoders.py:306-318`), so invalid byte sequences become U+FFFD instead of raising.\n\n**Caveat:** if the body has not been read yet, `.content` raises `ResponseNotRead` (`_models.py:637-638`), so `text` cannot be used on an unread streamed response.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "cost_usd": 0.00295326,
+  "duration_ms": 15907,
+  "tokens": {
+    "input": 10,
+    "cache_write": 6733,
+    "cache_read": 45066,
+    "output": 2310,
+    "context": 6743,
+    "total": 54119
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def text|def content|def encoding|def _get_content_decoder|charset_normalizer|codecs|decode\\(",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 5513,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class Response",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 168,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 634,
+        "limit": 90
+      },
+      "result_chars": 3668,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_decoders.py",
+        "offset": 296,
+        "limit": 30
+      },
+      "result_chars": 851,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "_get_content_decoder\\(\\)|self\\._content = |def _is_known_encoding|def _parse_content_type_charset|def iter_bytes|def read\\(self\\)",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 658,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 56,
+        "limit": 35
+      },
+      "result_chars": 1268,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 876,
+        "limit": 30
+      },
+      "result_chars": 1447,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 17.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": false,
+      "setter": false
+    },
+    "fact_score": 0.4,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false
+  }
+}

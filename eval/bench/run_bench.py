@@ -62,7 +62,7 @@ ANSWER TO GRADE:
 {answer}
 >>>
 
-For each fact, decide whether the answer states it (in any wording; partial credit is not allowed, a fact is either clearly stated or not).
+For each fact, decide whether the answer states it (in any wording). For a fact with a MUST STATE line, judge only that line: the answer must clearly say it; the context is there to help you understand it, not extra requirements. Secondary details inside a fact (exact default values, the full list of fields, exception class names, line numbers) are not required unless the fact is only about that detail. A fact is not stated if the answer only hints at it, says it didn't check it, or gets its main point wrong.
 Then list any claims in the answer that are false about the code as described by the key, and decide whether any of them is MAJOR (would mislead someone relying on the answer about the thing asked). Do not penalise extra true detail or claims the key doesn't cover unless they contradict it.
 
 Reply with ONLY a JSON object, no markdown:
@@ -237,32 +237,40 @@ def cmd_run(args) -> int:
 
 # ------------------------------------------------------------------ grading
 
-def grade_one(q: dict, path: Path, model: str) -> dict:
-    record = json.loads(path.read_text(encoding="utf-8"))
-    facts = "\n".join(
-        f"- {f['id']} ({'critical' if f['critical'] else 'supporting'}): {' '.join(f['text'].split())}"
-        f"  [{f['where']}]" for f in q["facts"]
-    )
-    prompt = GRADER_PROMPT.format(question=q["question"], facts=facts, answer=record["answer"])
+def _grade_once(prompt: str, model: str) -> dict:
     proc = subprocess.run(
         ["claude", "-p", prompt, "--output-format", "json", "--model", model, "--tools", "",
          "--strict-mcp-config", "--no-session-persistence", "--setting-sources", ""],
         capture_output=True, text=True, encoding="utf-8", timeout=600, cwd=tempfile.gettempdir(),
     )
     raw = json.loads(proc.stdout)["result"].strip()
-    if raw.startswith("```"):
-        raw = raw.strip("`").removeprefix("json").strip()
-    verdict = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
-    hit = {f["id"]: bool(verdict["facts"].get(f["id"], False)) for f in q["facts"]}
+    return json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
+
+
+def grade_one(q: dict, path: Path, model: str, votes: int = 3) -> dict:
+    """Majority of `votes` independent grader runs, per fact and for the false-claim flag."""
+    record = json.loads(path.read_text(encoding="utf-8"))
+    facts = "\n".join(
+        f"- {f['id']} ({'critical' if f['critical'] else 'supporting'}): "
+        + (f"MUST STATE: {f['must']}  (context: {' '.join(f['text'].split())})" if f.get("must")
+           else " ".join(f["text"].split()))
+        + f"  [{f['where']}]"
+        for f in q["facts"]
+    )
+    prompt = GRADER_PROMPT.format(question=q["question"], facts=facts, answer=record["answer"])
+    verdicts = [_grade_once(prompt, model) for _ in range(votes)]
+    hit = {f["id"]: sum(bool(v["facts"].get(f["id"], False)) for v in verdicts) * 2 > votes for f in q["facts"]}
+    major = sum(bool(v.get("major_false_claim")) for v in verdicts) * 2 > votes
     critical_ok = all(hit[f["id"]] for f in q["facts"] if f["critical"])
     record["grade"] = {
-        "grader": model,
+        "grader": f"{model} x{votes}",
         "facts": hit,
         "fact_score": round(sum(hit.values()) / len(hit), 3),
         "critical_ok": critical_ok,
-        "false_claims": verdict.get("false_claims", []),
-        "major_false_claim": bool(verdict.get("major_false_claim")),
-        "correct": critical_ok and not verdict.get("major_false_claim"),
+        "false_claims": [c for v in verdicts for c in v.get("false_claims", [])],
+        "major_false_claim": major,
+        "correct": critical_ok and not major,
+        "unanimous": len({(tuple(sorted(v["facts"].items())), bool(v.get("major_false_claim"))) for v in verdicts}) == 1,
     }
     path.write_text(json.dumps(record, indent=2), encoding="utf-8")
     return record["grade"]

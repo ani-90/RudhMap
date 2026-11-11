@@ -1,0 +1,83 @@
+{
+  "answer": "## DigestAuth in httpx\n\n**Mechanism.** `DigestAuth` (`httpx/_auth.py:175`) is a generator-based `Auth` subclass. `auth_flow` yields the request, receives the response, and yields a second, authenticated request if the server challenges it.\n\n1. **Pre-emptive header.** If a previous challenge is cached in `_last_challenge`, the flow adds an `Authorization` header before the first send (`_auth.py:194-197`).\n2. **Challenge detection.** It yields the request and waits for the response (`_auth.py:199`). It proceeds only on a 401 with a `WWW-Authenticate: Digest ...` header (`_auth.py:201-212`).\n3. **Parse and retry.** `_parse_challenge` extracts realm, nonce, algorithm, opaque, and qop (`_auth.py:214`, `224-253`). It resets `_nonce_count` (`_auth.py:215`), builds the header (`_auth.py:217`), and yields the request again (`_auth.py:222`).\n4. **Response computation.** `_build_auth_header` follows RFC 2617/7616. It computes HA1 and HA2 with the algorithm's hash, including the `-sess` variants (`_auth.py:255-301`). The client nonce is a SHA-1 of nonce count, server nonce, time, and random bytes (`_auth.py:303-309`).\n\n**Limitations.** Only `qop=auth` is supported. `auth-int` raises `NotImplementedError` (`_auth.py:336-337`, with a TODO at `_auth.py:267`). `DigestAuth` does not set `requires_request_body` or `requires_response_body`, so both default to `False` (`_auth.py:35-36`).\n\n**How the client drives it.** `Client.send` resolves the auth object and calls `_send_handling_auth` (`_client.py:912`). That method, at `_client.py:930-962`, runs the loop:\n\n- `auth.sync_auth_flow(request)` creates the generator (`_client.py:937`). The default implementation wraps `auth_flow` (`_auth.py:62-85`).\n- `next(auth_flow)` gets the first request. Each iteration sends it through `_send_handling_redirects` (`_client.py:939-946`).\n- `auth_flow.send(response)` feeds the response back. `StopIteration` means the flow is done, and the response is returned (`_client.py:949-951`).\n- Otherwise the response body is read so the connection can be reused, and the response is appended to history (`_client.py:953-956`). The loop then sends the new request.\n- `finally` closes the generator (`_client.py:961-962`).\n\nThe async path mirrors this at `_client.py:1645-1677`, using `async_auth_flow` and `asend`.\n\n**State.** `_last_challenge` and `_nonce_count` live on the `DigestAuth` instance, not the generator. Reusing one instance across requests therefore reuses the challenge and increments the nonce count (`_auth.py:272`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "cost_usd": 0.0025758400000000002,
+  "duration_ms": 13170,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6356,
+    "cache_read": 22154,
+    "output": 2165,
+    "context": 6362,
+    "total": 30681
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|_build_auth_header|sync_auth_flow|async_auth_flow|requires_request_body|requires_response_body",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2759,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def _send_handling_auth|def _send_handling_redirects|auth_flow\\(|build_request|def _build_request_auth|def _build_auth",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2959,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 170
+      },
+      "result_chars": 6986,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 35
+      },
+      "result_chars": 1199,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

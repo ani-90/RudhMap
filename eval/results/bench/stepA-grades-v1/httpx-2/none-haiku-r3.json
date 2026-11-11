@@ -1,0 +1,73 @@
+{
+  "answer": "Changing `BaseTransport.handle_request` affects the sync transport implementations and the sync `Client` call path. It does not directly affect the async path.\n\n**Subclasses that implement or override it**\n- `HTTPTransport` (`httpx/_transports/default.py:135`) defines it at `default.py:230`. It forwards to the httpcore pool at `default.py:250`, so the request is translated there.\n- `WSGITransport` (`httpx/_transports/wsgi.py:44`) defines it at `wsgi.py:91`.\n- `MockTransport` (`httpx/_transports/mock.py:15`) inherits from both `AsyncBaseTransport` and `BaseTransport`, and defines it at `mock.py:19`. It is affected, and its async method is not.\n\n**Not affected**\n- `ASGITransport` (`httpx/_transports/asgi.py:63`) extends only `AsyncBaseTransport`.\n- `AsyncHTTPTransport` (`default.py:279`) uses `handle_async_request`.\n\n**Call sites**\n- `Client._send_single_request` at `httpx/_client.py:1014` is the only in-library caller. It gets the transport from `_transport_for_url` and calls `transport.handle_request(request)`.\n- `AsyncClient` does not call it.\n\n**Docs and docstrings (not code, but they show the signature)**\n- The base docstring example at `httpx/_transports/base.py:48` calls `transport.handle_request(req)`.\n- `docs/advanced/transports.md` (lines 174, 185, 204, 228, 285) shows custom transport examples. Line 285 still uses an older `(method, url, headers, stream, extensions)` signature, so it may already be out of date.\n- `CHANGELOG.md:297` and `:307` describe the older signature and the newer single-argument signature.\n\n**Summary:** Edit `base.py:26`, `default.py:230`, `wsgi.py:91`, `mock.py:19`, and `_client.py:1014`. Also update the docstring at `base.py:48` and the examples in `docs/advanced/transports.md`. `ASGITransport` and `AsyncHTTPTransport` are not affected.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "cost_usd": 0.00179723,
+  "duration_ms": 11492,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3825,
+    "cache_read": 20363,
+    "output": 1656,
+    "context": 3831,
+    "total": 25850
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "handle_request",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "glob": "!**/tests/**",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2204,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "^class \\w+\\(",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 3887,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 1000,
+        "limit": 20
+      },
+      "result_chars": 782,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": false,
+      "httpcore": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true
+  }
+}

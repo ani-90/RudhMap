@@ -1,0 +1,80 @@
+{
+  "answer": "**Application callers of `crud.get_user_by_email`** (tests excluded). The definition is at `backend\\app\\crud.py:34`, and every caller passes keyword arguments `session=` and `email=`.\n\n**Internal caller**\n- `backend\\app\\crud.py:46`, in `authenticate()`: if no user is found, it runs a dummy password verify to prevent timing attacks and returns `None`. Otherwise it checks the password hash and returns the user.\n\n**Route callers, `backend\\app\\api\\routes\\users.py`**\n- `:61`, `create_user`: only truthiness is checked. A match returns 400 for a duplicate email.\n- `:90`, `update_user_me`: returns 409 if a match exists with a different `id`.\n- `:151`, `register_user` (signup): only truthiness is checked. A match returns 400.\n- `:204`, `update_user` (admin): returns 409 if a match exists with a different `id`.\n\n**Route callers, `backend\\app\\api\\routes\\login.py`**\n- `:58`, `recover_password`: sends a reset email only if a user exists, using `user.email`. The response is the same either way, to prevent enumeration.\n- `:85`, `reset_password`: needs the user object. It returns 400 if the user is missing or `user.is_active` is false, then calls `crud.update_user`.\n- `:109`, `recover_password_html_content`: returns 404 if the user is missing. Otherwise it reads `user.email` to build the email.\n\n**Implications for a signature change**\n- Renaming `email` or `session` breaks all 9 app call sites. It also breaks the test callers at `backend\\tests\\utils\\user.py:39` and `backend\\tests\\api\\routes\\test_users.py:55, 74, 112, 496`.\n- Callers depend on the return value being a `User` or `None`, using truthiness, `.id`, `.email`, and `.is_active`. Changing it to raise on a miss, or to return a tuple, would require edits at every site.\n- Changing the return type to something else would also affect `crud.authenticate`, which relies on `None` for its timing-safe branch.\n\nI only grepped and read the call sites. I did not run the test suite.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "cost_usd": 0.00237172,
+  "duration_ms": 12510,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5848,
+    "cache_read": 19402,
+    "output": 2015,
+    "context": 5854,
+    "total": 27271
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\users.py",
+        "offset": 55,
+        "limit": 215
+      },
+      "result_chars": 6303,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "offset": 50,
+        "limit": 70
+      },
+      "result_chars": 2624,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 25
+      },
+      "result_chars": 1140,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 14.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true
+  }
+}

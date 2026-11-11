@@ -1,0 +1,134 @@
+{
+  "answer": "**Configuration**\n- `Timeout` is defined at `httpx/_config.py:72`. It has four fields: `connect`, `read`, `write` and `pool` (`_config.py:127-130`).\n- The default is `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` (`_config.py:246`).\n- `Timeout.as_dict()` (`_config.py:132`) turns the config into a plain dict.\n\n**Client to network layer**\n1. `BaseClient.__init__` takes `timeout=DEFAULT_TIMEOUT_CONFIG` and stores `self._timeout = Timeout(timeout)` (`_client.py:196,212`). The `timeout` property setter is at `_client.py:257-259`.\n2. Per-request overrides use the `USE_CLIENT_DEFAULT` sentinel (`_client.py:104-107`). Passing `timeout=None` disables the timeout. Omitting `timeout` falls back to the client's value.\n3. `build_request` (`_client.py:371-377`) resolves the timeout. It puts `timeout.as_dict()` into `request.extensions[\"timeout\"]`, unless the extension is already set.\n4. `_set_timeout(request)` (`_client.py:584-591`) does the same for requests that were built elsewhere. Both `Client.send` (`_client.py:910`) and `AsyncClient.send` (`_client.py:1625`) call it.\n5. The request then goes through auth and redirects to the transport. In `httpx/_transports/default.py`, the transport passes the request, extensions included, to httpcore. httpcore reads `extensions[\"timeout\"]` and applies the four limits to connection-pool acquisition, connect, write and read. I did not open the call sites in `default.py` (only the exception-mapping lines), so the exact line where the extensions are forwarded is unconfirmed.\n\n**Exceptions**\n- httpcore raises its own timeout exceptions. `map_httpcore_exceptions()` (`default.py:96`) translates them using the table at `default.py:78-82`. It picks the most specific match (`default.py:109-110`). The mapping is applied in the sync and async handlers (`default.py:126, 227, 249, 270, 371, 393`).\n- The hierarchy is in `httpx/_exceptions.py:7-11`:\n  - `TimeoutException` (`_exceptions.py:132`, a subclass of `TransportError`)\n    - `ConnectTimeout` (`:140`)\n    - `ReadTimeout` (`:146`)\n    - `WriteTimeout` (`:152`)\n    - `PoolTimeout` (`:158`)\n- Catching `httpx.TimeoutException` covers all four.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "cost_usd": 0.0476496,
+  "duration_ms": 24099,
+  "tokens": {
+    "input": 12,
+    "cache_write": 4936,
+    "cache_read": 43216,
+    "output": 2356,
+    "context": 4948,
+    "total": 50520
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "glob": "{_client.py,_config.py,_exceptions.py,_transports/default.py}",
+        "head_limit": 120
+      },
+      "result_chars": 16,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "count",
+        "glob": "*.py"
+      },
+      "result_chars": 273,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "timeout|Timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "output_mode": "content"
+      },
+      "result_chars": 3851,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "timeout|Timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_config.py",
+        "output_mode": "content"
+      },
+      "result_chars": 1877,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "Timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_exceptions.py",
+        "output_mode": "content"
+      },
+      "result_chars": 487,
+      "is_error": false
+    },
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "httpx/**/*.py",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6"
+      },
+      "result_chars": 463,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "Timeout|def map_httpcore_exceptions|as_dict",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "glob": "{_transports/default.py,_config.py}",
+        "output_mode": "content"
+      },
+      "result_chars": 16,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "Timeout|map_httpcore_exceptions|def as_dict",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\default.py",
+        "output_mode": "content"
+      },
+      "result_chars": 831,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def as_dict",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_config.py",
+        "output_mode": "content"
+      },
+      "result_chars": 53,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 25.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": true,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

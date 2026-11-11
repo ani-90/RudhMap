@@ -1,0 +1,96 @@
+{
+  "answer": "**No. The daily refresh is defined but never started when the API server boots.**\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:43-53` defines `start_scheduler()`, which adds a `CronTrigger` job (`daily_refresh`) and calls `scheduler.start()`.\n- `app/scheduler.py:15-40` defines `_daily_refresh()`, which creates a pipeline run for `user_id=1` and runs `run_pipeline` across all `DOMAINS`.\n- The schedule defaults to 07:00 (`app/config.py:31-32`), and the comment there says this is 01:30 UTC.\n\n**What's missing:**\n- The server's startup hook is `lifespan` in `app/main.py:17-20`. It only calls `init_db()` and yields. It does not import or call `start_scheduler`.\n- `app/main.py:41-44` includes the routers, and none of them start the scheduler.\n- A repo-wide search for `start_scheduler` finds only its definition at `app/scheduler.py:43`. Nothing calls it, so the job is never registered or started.\n- `stop_scheduler()` (`app/scheduler.py:56-58`) is also never called, so there is no shutdown hook either.\n\n**Effect:** The API serves requests normally, but no scheduled refresh runs unless something calls `start_scheduler()`. Feed content only updates through whatever manual pipeline trigger the API exposes.\n\n**To fix:** Call `start_scheduler(settings.schedule_hour, settings.schedule_minute)` inside `lifespan` after `init_db()`, and call `stop_scheduler()` after the `yield`. I haven't made this change. Also, `README.md:146` describes the scheduler as running, so that line is out of date.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "cost_usd": 0.00203788,
+  "duration_ms": 12041,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4740,
+    "cache_read": 29108,
+    "output": 1596,
+    "context": 4748,
+    "total": 35452
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "schedule|cron|setInterval|node-cron|setTimeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "!**/node_modules/**"
+      },
+      "result_chars": 888,
+      "is_error": false
+    },
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "**/*.{ts,js,json}",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e"
+      },
+      "result_chars": 13,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\scheduler.py"
+      },
+      "result_chars": 1895,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|lifespan|on_event|startup|shutdown",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1134,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\config.py"
+      },
+      "result_chars": 1306,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\main.py"
+      },
+      "result_chars": 1244,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 15.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [
+      "The answer implies the schedule defaults come from config (app/config.py:31-32) and suggests passing settings.schedule_hour/minute, without stating these settings are currently unused by any code; it says the schedule defaults to 07:00 in config, which is not what start_scheduler uses (it has its own defaults)."
+    ],
+    "major_false_claim": false,
+    "correct": true
+  }
+}

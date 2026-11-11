@@ -1,0 +1,23 @@
+{
+  "note": "Hand grades of 18 step A answers (20%), made by reading each answer against questions.yaml (amended key). correct = all critical facts' main point stated and no major false claim.",
+  "grades": {
+    "kna-1/none-haiku-r1": {"correct": false, "why": "does not say what run_pipeline does (agents then aggregator); says it did not read graph.py"},
+    "kna-1/none-sonnet-r2": {"correct": false, "why": "same: pipeline contents not described"},
+    "kna-2/none-haiku-r1": {"correct": false, "why": "fetch: no mention of Groq-generated queries / hardcoded fallback; otherwise excellent incl. embed stub"},
+    "kna-2/none-sonnet-r1": {"correct": false, "why": "describes semantic dedup as active (hedged only for Railway); fetch also missing query source"},
+    "tpl-1/none-sonnet-r1": {"correct": true, "why": "token fact stated (JWT exp+sub, HS256, SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES); only the 8-day default value missing"},
+    "tpl-1/none-haiku-r2": {"correct": true, "why": "all critical facts"},
+    "tpl-4/none-haiku-r1": {"correct": false, "why": "never says the backend rejects the token (get_current_user / 403); explicitly did not check backend"},
+    "tpl-4/none-sonnet-r3": {"correct": false, "why": "backend rejection only implied ('rejected by the backend'), no where/how; borderline, graded false"},
+    "httpx-1/none-sonnet-r1": {"correct": false, "why": "never states redirects are off by default"},
+    "httpx-4/none-haiku-r1": {"correct": true, "why": "challenge flow stated (401 + Digest header -> parse -> header -> retry); only the list of parsed fields missing"},
+    "httpx-5/none-haiku-r1": {"correct": true, "why": "text fact stated (TextDecoder, encoding or utf-8, errors=replace, from .content); only ResponseNotRead missing"},
+    "kna-3/none-haiku-r1": {"correct": true, "why": "not-started stated with evidence"},
+    "tpl-2/none-sonnet-r1": {"correct": true, "why": "all 8 callers"},
+    "httpx-2/none-haiku-r2": {"correct": true, "why": "implementers + call site"},
+    "kna-5/none-sonnet-r1": {"correct": true, "why": "all critical facts"},
+    "httpx-3/none-haiku-r1": {"correct": true, "why": "all critical facts"},
+    "tpl-5/none-haiku-r2": {"correct": true, "why": "all facts"},
+    "tpl-3/none-haiku-r1": {"correct": true, "why": "http fact's main point stated (generated client DELETE, token from localStorage via main.tsx auth callback as Authorization header); Bearer prefix / exact URL missing"}
+  }
+}

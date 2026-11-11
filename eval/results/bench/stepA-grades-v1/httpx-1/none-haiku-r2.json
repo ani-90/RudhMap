@@ -1,0 +1,92 @@
+{
+  "answer": "**Flow:** `Client.send()` (`httpx/_client.py:879`) calls `_send_handling_auth` (`:930`), which calls `_send_handling_redirects` (`:964`). The redirect loop is in `_send_handling_redirects`:\n\n1. It checks `len(history) > self.max_redirects` and raises `TooManyRedirects` (`:971`).\n2. It sends one request via `_send_single_request` (`:979`, `:1001`), which does not follow redirects.\n3. If `response.has_redirect_location` is false, it returns the response (`:985`).\n4. Otherwise it builds the next request with `_build_redirect_request` (`:988`), appends the response to `history` (`:989`), then either reads the body and loops when `follow_redirects` is true (`:991-992`), or sets `response.next_request` and returns (`:994-995`).\n\n**`_build_redirect_request`** (`:475`) assembles the new request from four helpers:\n\n- **Method** (`_redirect_method`, `:494`): 303 becomes GET unless the method is HEAD (`:502`). 302 becomes GET unless HEAD (`:507`). 301 turns POST into GET (`:512`). Other methods and status codes are kept.\n- **URL** (`_redirect_url`, `:517`): parses `Location`, fills in the host for host-less absolute forms, resolves relative locations against the request URL (`:537-538`), and carries over the original fragment if the new URL has none (`:541`).\n- **Headers** (`_redirect_headers`, `:546`): copies the original headers. If the origin changes, it drops `Authorization` unless the redirect is a direct HTTP\u2192HTTPS upgrade (`:552-556`), and it sets `Host` to the new netloc (`:559`). If the method changed to GET, it drops `Content-Length` and `Transfer-Encoding` (`:561-565`). It always drops `Cookie` (`:569`), since the client's cookie jar supplies cookies for the new request.\n- **Body** (`_redirect_stream`, `:573`): returns `None` when the method was rewritten to GET (`:579-580`). Otherwise it reuses `request.stream` (`:582`), so a body is only resent when the method is preserved (for example, 307/308).\n\nThe new request also gets a fresh `Cookies(self.cookies)` (`:484`) and the original request's extensions (`:491`).\n\n**Caveat:** I did not read the `_same_origin` and `_is_https_redirect` helpers, so I have not verified their exact criteria. The async client mirrors this logic at `:1594` and `:1679`, which I did not trace.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "cost_usd": 0.0021270300000000002,
+  "duration_ms": 13648,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4277,
+    "cache_read": 30283,
+    "output": 1936,
+    "context": 4285,
+    "total": 36504
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def send|def _send_handling_redirects|def _build_redirect_request|def _redirect_method|def _redirect_headers|def _redirect_stream|def rewind_body",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 664,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def _redirect|def _build_redirect|rewind",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 369,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 475,
+        "limit": 110
+      },
+      "result_chars": 4641,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 964,
+        "limit": 70
+      },
+      "result_chars": 2573,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 915,
+        "limit": 48
+      },
+      "result_chars": 1532,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 16.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true
+  }
+}

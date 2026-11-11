@@ -1,0 +1,52 @@
+{
+  "answer": "Changing `BaseTransport.handle_request` (`httpx/_transports/base.py:26`, currently `(self, request: Request) -> Response`) affects the following non-test code.\n\n**Subclasses that override it**\n- `HTTPTransport` at `httpx/_transports/default.py:135`. Its override is at `:230`.\n- `WSGITransport` at `httpx/_transports/wsgi.py:44`. Its override is at `httpx/_transports/wsgi.py:91`.\n- `MockTransport` at `httpx/_transports/mock.py:15`. It inherits from both `AsyncBaseTransport` and `BaseTransport`, and its override is at `httpx/_transports/mock.py:19`. It also defines the async variant, so check that one separately.\n\n**Call sites**\n- `httpx/_client.py:1014`: `Client._send_single_request` calls `transport.handle_request(request)`. This is the main production caller. The transport comes from `_transport_for_url`, which is typed `BaseTransport` (`httpx/_client.py:760`).\n- `httpx/_transports/default.py:250`: `HTTPTransport.handle_request` calls `self._pool.handle_request(req)`. This is httpcore's `ConnectionPool`, not `BaseTransport`, so it isn't affected unless the signature change is meant to flow through to httpcore.\n- `httpx/_transports/base.py:48`: a docstring example that calls `transport.handle_request(req)`. It would need updating.\n\n**Related code that isn't affected**\n- `httpx/_client.py:652-749` only uses `BaseTransport` as a type annotation for `mounts` and `transport`. Those lines only need changes if the type itself changes.\n- `AsyncBaseTransport.handle_async_request` is a separate method and is unaffected.\n\n**Docs**\n- `docs/advanced/transports.md` has example subclasses that override `handle_request` (`:174`, `:185`, `:204`, `:228`). They also call it at `:206` and `:231`.\n- `docs/advanced/transports.md:285` shows an old-style signature, `(method, url, headers, stream, extensions)`.\n- `CHANGELOG.md` lines 297 and 307 are historical entries and don't need updating.\n\n**Outside the repo**\nThird-party custom transports that subclass `BaseTransport` would also break. Examples are `httpx.BaseTransport` subclasses in user code and wrappers such as `respx` or `pytest-httpx`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 2,
+  "cost_usd": 0.0215312,
+  "duration_ms": 9625,
+  "tokens": {
+    "input": 4,
+    "cache_write": 2545,
+    "cache_read": 10532,
+    "output": 1029,
+    "context": 2549,
+    "total": 14110
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def handle_request|\\.handle_request\\(|\\(BaseTransport\\)|\\bBaseTransport\\b",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "glob": "!**/tests/**",
+        "output_mode": "content"
+      },
+      "result_chars": 3864,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 11.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": true,
+      "httpcore": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

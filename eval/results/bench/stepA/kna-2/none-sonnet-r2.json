@@ -1,0 +1,99 @@
+{
+  "answer": "Each of the 7 domain agents (`BaseAgent`) fetches articles. The aggregator then stores them. The checks run in this order.\n\n**Fetch (`app/pipeline/agents/base_agent.py`)**\n1. Tavily and NewsAPI results are pulled in `_fetch_all` (`:84-119`).\n2. **Dedup 1, URL normalisation:** `_normalise_url` strips UTM, `fbclid` and similar params (`:13-25`). The normalised URL replaces the original (`:103`, `:114`).\n3. **Dedup 2, per-agent `seen_urls`:** a normalised URL already in the set is dropped (`:101`, `:112`). This covers both sources within one agent only. Two different agents can still fetch the same URL.\n4. In `run()`, items without a URL or title are skipped (`:52`). The scraper enriches the content (`:55`). `_is_quality` then drops articles under 40 words or with fewer than 5 words per line (`:28-36`, `:56`).\n5. The embedding is computed (`:60`), and a SHA-256 `content_hash` of the URL is stored (`:61`). Nothing checks the hash later.\n\n**Aggregate (`app/pipeline/aggregator.py`)**\n6. **Dedup 3, semantic, Pass 1:** `search_similar` with a 0.85 threshold skips matches and counts them as duplicates (`:28-38`). This is effectively off right now. `embedder.embed` returns `[]` (`app/services/embedder.py:4-5`), so `if article.embedding` is always false (`:29`). If Qdrant errors, dedup is skipped for that article (`:36-37`).\n7. **Pass 2:** SQLite records are built with a fresh `qdrant_id` (`:43-57`) and passed to `bulk_insert_articles` (`:59`).\n8. **Dedup 4, URL-exact (`app/db/crud.py:40-64`):**\n   - A query for an existing `Article.url` skips the article if found (`:43-45`).\n   - The `UNIQUE` constraint on `url` (`app/db/models.py:27`) is the backstop. If a parallel agent inserted the same URL, the commit fails, the session rolls back, and the article is skipped (`:62-63`).\n9. `duplicate_count += len(clean) - len(inserted)` records what was dropped (`:60`).\n10. **Pass 3:** inserted articles that have embeddings are upserted to Qdrant (`:64-82`). With embeddings disabled this list is empty. A failed upsert only logs a warning, so SQLite and Qdrant can drift apart.\n\nIn practice, a stored article has passed URL normalisation, the per-agent set, and the SQLite URL check. The semantic layer is currently inactive.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "cost_usd": 0.052508,
+  "duration_ms": 21266,
+  "tokens": {
+    "input": 8,
+    "cache_write": 8116,
+    "cache_read": 31480,
+    "output": 1688,
+    "context": 8124,
+    "total": 41292
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "dedup|duplicate|seen|hash|exists|unique",
+        "-i": true,
+        "output_mode": "content",
+        "glob": "!node_modules",
+        "head_limit": 80
+      },
+      "result_chars": 7332,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py",
+        "limit": 90
+      },
+      "result_chars": 3853,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\agents\\base_agent.py",
+        "limit": 130
+      },
+      "result_chars": 4734,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def bulk_insert_articles",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py",
+        "output_mode": "content",
+        "-A": 25
+      },
+      "result_chars": 925,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def embed",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\embedder.py",
+        "output_mode": "content",
+        "-A": 8
+      },
+      "result_chars": 95,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 23.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [
+      "The answer says the embedding is computed and then a SHA-256 content_hash of the URL is stored; this is not covered by the key and unverified, but not contradicting it.",
+      "Says there are 7 domain agents; unverified by the key.",
+      "The answer says 'Each of the 7 domain agents' - the number 7 is not supported by the key, though likely minor.",
+      "It says the SHA-256 content_hash is of the URL; not covered by key."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

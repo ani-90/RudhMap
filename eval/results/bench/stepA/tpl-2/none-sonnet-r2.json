@@ -1,0 +1,71 @@
+{
+  "answer": "`get_user_by_email(*, session, email) -> User | None` is defined at `backend/app/crud.py:34`. It has 8 non-test callers, all using keyword arguments. Two other files that match, `tests/utils/user.py` and `tests/api/routes/test_users.py`, are tests.\n\n**`backend/app/crud.py`**\n- `:46`, in `authenticate`. It uses the result to check the password against `db_user.hashed_password` and to rehash it if needed. If the result is `None`, it verifies against a dummy hash for timing-attack protection (`:47-51`).\n\n**`backend/app/api/routes/users.py`** (these only need to know whether a user exists, or which one)\n- `:61`, in create user. If a user is returned, it raises 400 \"already exists\" (`:62-66`).\n- `:90`, in update own profile (`/me`). It raises 409 if the returned user's `id` differs from `current_user.id` (`:91-94`).\n- `:151`, in public signup. If a user is returned, it raises 400 (`:152-156`).\n- `:204`, in admin update of a user. It raises 409 if the returned user's `id` differs from `user_id` (`:205-208`).\n\n**`backend/app/api/routes/login.py`**\n- `:58`, in password-recovery. If a user is found, it sends a reset email using `user.email` (`:62-66`). If not, it returns the same response, which prevents email enumeration.\n- `:85`, in reset-password. If there is no user, it raises 400 \"Invalid token\". If `user.is_active` is false, it raises 400 \"Inactive user\". Otherwise it goes on to update the password (`:86-93`).\n- `:109`, in the HTML-content password-recovery route. If there is no user, it raises 404 (`:111-115`). Otherwise it builds a reset token and email.\n\n**Things to watch if you change the signature**\n- Every caller depends on the `None` return for \"not found\". Changing it to raise an exception would break all 8.\n- The callers in `users.py:90` and `:204` use `.id`, and `login.py:85` uses `.is_active`. Returning something other than a full `User` would break them.\n- The test callers (`tests/utils/user.py:39` and `test_users.py:55, 74, 112, 496`) also use the current signature, so you'd need to update them too.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "cost_usd": 0.028075299999999997,
+  "duration_ms": 14195,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3524,
+    "cache_read": 17573,
+    "output": 1221,
+    "context": 3530,
+    "total": 22324
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 28
+      },
+      "result_chars": 1264,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes",
+        "output_mode": "content",
+        "-A": 8
+      },
+      "result_chars": 4957,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 15.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

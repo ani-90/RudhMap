@@ -1,0 +1,88 @@
+{
+  "answer": "An article goes through these steps, in order. Dedup layers are numbered.\n\n**Fetch (`app/pipeline/agents/base_agent.py`)**\n1. `_fetch_all` pulls results from Tavily (`:99`) and NewsAPI (`:110`).\n2. **Dedup 1, URL normalisation.** `_normalise_url` strips tracking params such as utm_*, fbclid and ref (`:13-25`). The cleaned URL replaces the original (`:103`, `:114`).\n3. **Dedup 2, in-agent `seen_urls`.** A set of normalised URLs drops repeats within one agent's Tavily and NewsAPI results (`:86`, `:101-102`, `:112-113`). It is per agent, so two agents can still return the same URL.\n\n**Enrichment (`run`, `:51-74`)**\n4. Items with no URL or title are skipped (`:52`).\n5. `scraper.enrich_content` fetches the full text (`:55`).\n6. `_is_quality` rejects articles under 40 words or averaging under 5 words per line (`:28-36`, `:56`). This is a quality filter, not a dedup step.\n7. An embedding is computed from the title plus the first 500 characters (`:60`). A SHA-256 hash of the URL is stored as `content_hash` (`:61`). I found no code that checks that hash for duplicates.\n\n**Aggregation (`app/pipeline/aggregator.py`)**\n8. **Dedup 3, semantic.** Pass 1 queries Qdrant `search_similar` with threshold 0.85. Any match is skipped and counted as a duplicate (`:28-35`). If Qdrant errors, dedup is skipped and the article is kept (`:36-37`).\n   - Articles without an embedding skip this check (`:29`).\n   - `requirements.txt:28` and `decisions and tradeoffs.md:56` say embeddings are disabled on Railway, so this layer is inactive there.\n9. Pass 2 assigns a new `qdrant_id` UUID and builds the SQLite record (`:41-57`).\n10. **Dedup 4, URL-exact.** `crud.bulk_insert_articles` (`app/db/crud.py:40-64`) queries for an existing URL and skips it if found (`:43-45`). Each article is committed separately. If the `UNIQUE` constraint on `url` (`app/db/models.py:27`) fires, for example when two parallel agents race, it rolls back and skips (`:62-63`). The aggregator counts `len(clean) - len(inserted)` as duplicates (`:60`).\n11. Pass 3 upserts vectors to Qdrant only for rows that were actually inserted (`:63-79`). A Qdrant failure is logged and the article stays in SQLite only (`:81-82`).\n\nThe `summary` field is empty until later (`base_agent.py:70`). The summarising step is outside what I traced.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "cost_usd": 0.0491535,
+  "duration_ms": 20690,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7576,
+    "cache_read": 31035,
+    "output": 1573,
+    "context": 7584,
+    "total": 40192
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "dedup|duplicate|seen|hash|unique",
+        "-i": true,
+        "output_mode": "content",
+        "glob": "!node_modules",
+        "head_limit": 80
+      },
+      "result_chars": 6886,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py",
+        "limit": 85
+      },
+      "result_chars": 3560,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\agents\\base_agent.py",
+        "limit": 130
+      },
+      "result_chars": 4734,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def bulk_insert_articles",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py",
+        "output_mode": "content",
+        "-A": 25
+      },
+      "result_chars": 925,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 23.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": false,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [
+      "Semantic dedup is described as a working step that runs when embeddings exist; the answer says an embedding is computed from title plus first 500 chars and that it is inactive only because embeddings are disabled on Railway, rather than because embedder.embed() is a stub returning []",
+      "Pass 3 Qdrant upserts are described as happening for inserted rows, though no embeddings exist so upsert never happens",
+      "Presents semantic dedup as active in general and as disabled only on Railway, when embedder.embed() is a stub returning [] so it never runs in this code",
+      "Says a real embedding is computed from title plus first 500 characters, although embed() returns an empty list"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

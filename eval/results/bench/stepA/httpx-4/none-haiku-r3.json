@@ -1,0 +1,72 @@
+{
+  "answer": "**Overview:** `DigestAuth` is a generator-based `Auth` subclass (`httpx/_auth.py:175`). It sends the request unauthenticated, and only if the server answers with a Digest challenge does it retry with a computed `Authorization` header.\n\n**Flow in `auth_flow`** (`httpx/_auth.py:193-222`):\n1. If a previous challenge is cached, it attaches an `Authorization` header up front (lines 194-197), so later requests skip the 401 round-trip.\n2. It yields the request and receives the response (line 199).\n3. If the status isn't 401, or there's no `WWW-Authenticate: Digest` header, it returns and the response passes through (lines 201-212).\n4. Otherwise it parses the challenge (line 214), resets `_nonce_count` to 1 (line 215), builds the header (lines 217-219), forwards any response cookies (lines 220-221), and yields the request again for the retry.\n\n**Header computation** (`_build_auth_header`, lines 255-301):\n- Hash function is chosen from the algorithm name (line 258). The `-SESS` variants mix in the nonce and client nonce (lines 275-276).\n- HA1 = hash(user:realm:password), HA2 = hash(method:uri) (lines 263-268).\n- With qop, the response is hash(HA1:nonce:nc:cnonce:qop:HA2); without qop it follows RFC 2069 (lines 278-291).\n- The `nc` counter increments per request (line 272). The cnonce is a SHA-1 of count, nonce, time, and `os.urandom` (lines 303-309).\n\n**Limits:**\n- `auth-int` is not implemented (TODO at line 267; the qop is hardcoded to `auth` at line 297). The tests expect an error for it (`tests/client/test_auth.py:505`).\n- If the challenge has no `algorithm`, it defaults to MD5 (line 245).\n\n**How the client drives it:**\n- `Client._send_handling_auth` (`httpx/_client.py:930-962`) calls `auth.sync_auth_flow(request)` and advances it with `next()`. Each yielded request is sent through `_send_handling_redirects` (lines 942-946), and the response is fed back with `auth_flow.send(response)` (line 949).\n- If the flow finishes (`StopIteration`), that response is returned (lines 950-951). Otherwise the response is read and recorded in history, and the loop continues with the new request (lines 953-956).\n- `auth_flow.close()` runs in a `finally` block (line 962).\n- `AsyncClient` does the same via `async_auth_flow` / `asend` (`httpx/_client.py:1652-1677`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "cost_usd": 0.00217192,
+  "duration_ms": 10489,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5929,
+    "cache_read": 22002,
+    "output": 1531,
+    "context": 5935,
+    "total": 29468
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|digest_auth|_build_digest_header|auth_flow|sync_auth_flow|async_auth_flow",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 5855,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 150
+      },
+      "result_chars": 6278,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 35
+      },
+      "result_chars": 1199,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 12.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

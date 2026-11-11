@@ -1,0 +1,72 @@
+{
+  "answer": "**DigestAuth** (`httpx/_auth.py:175`) is a two-step `Auth` subclass. It caches the server's challenge and reuses it on later requests.\n\n**Flow** (`_auth.py:193-222`):\n1. If a challenge is cached, it builds an `Authorization` header up front and sends the request (`:194-197`, `:199` yields it).\n2. If the response is not a 401, or has no `WWW-Authenticate: Digest` header, the flow ends (`:201-212`).\n3. Otherwise it parses the challenge (`:214`, `_parse_challenge` at `:224`), resets `_nonce_count` to 1 (`:215`), builds the header, copies any response cookies onto the request, and yields the request again (`:217-222`).\n\n**Header computation** (`_build_auth_header`, `:255-301`):\n- HA1 = hash(user:realm:password), with an extra nonce/cnonce hash for `-sess` algorithms (`:263`, `:274-276`).\n- HA2 = hash(method:uri) (`:265-268`). `auth-int` is not implemented (`:267` TODO).\n- With qop, the response hash covers nc, cnonce, and qop; without qop it follows RFC 2069 (`:278-284`).\n- `nc` increments per request, and `cnonce` is a truncated SHA-1 of nonce count, nonce, time, and `os.urandom(8)` (`:270-272`, `:303-309`).\n\n**Client driving** (`httpx/_client.py:930-962`, `_send_handling_auth`):\n- `auth.sync_auth_flow(request)` creates the generator (`:937`). The base class defers to `auth_flow` (`_auth.py:62-74`).\n- The client primes it with `next()` (`:939`), then loops: send the request through redirect handling (`:942`), and `send(response)` into the generator (`:949`).\n- If the generator stops (`StopIteration`), that response is returned (`:950-951`). Otherwise the client reads the response body (`:954`), records it in history, and sends the next request.\n- `finally` calls `auth_flow.close()` (`:962`). The async path mirrors this at `_client.py:1652-1677`.\n\nTests for the sync flow and challenge handling are in `tests/test_auth.py` and `tests/client/test_auth.py`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "cost_usd": 0.0023777700000000004,
+  "duration_ms": 11341,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6681,
+    "cache_read": 21297,
+    "output": 1656,
+    "context": 6687,
+    "total": 29640
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|digest_auth|_build_digest|auth_flow|sync_auth_flow|async_auth_flow",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 5855,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 150
+      },
+      "result_chars": 6278,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 40
+      },
+      "result_chars": 1343,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

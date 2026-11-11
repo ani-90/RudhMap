@@ -1,0 +1,137 @@
+{
+  "answer": "**Flow for one article**\n\n1. **Fetch.** Each domain agent runs `BaseAgent.run` (`app/pipeline/agents/base_agent.py:44`). `_fetch_all` pulls candidates from Tavily and NewsAPI. Each URL goes through `_normalise_url`, which strips tracking params like `utm_*` and `fbclid` (`base_agent.py:13-25`). A `seen_urls` set drops repeats within that agent (`base_agent.py:86, 101-104, 112-115`). NewsAPI results are built at `newsapi_client.py:22-32`.\n\n2. **Enrich and quality-gate.** If the snippet is under 300 chars, trafilatura fetches the page and the longer text wins, capped at 8000 chars (`app/services/scraper.py:28-36`). Articles under 40 words or with short average line length are dropped (`base_agent.py:28-36, 55-58`).\n\n3. **Embed.** The title plus the first 500 chars of content are embedded (`base_agent.py:60`). A `content_hash` (SHA-256 of the URL) is computed at `base_agent.py:61`, but nothing reads it. It is dead code.\n\n4. **Merge.** `run_all_agents_node` concatenates all agents' output without deduplicating across domains (`app/pipeline/graph.py:42-53`).\n\n5. **Dedup pass 1, semantic.** The aggregator queries Qdrant for an existing vector with cosine \u2265 0.85 (`app/pipeline/aggregator.py:26-38`, `config.py:28`, `app/db/qdrant.py:39-48`). Matches are dropped. This only sees vectors already upserted in earlier runs, so two near-duplicates in the same batch both pass.\n\n6. **Dedup pass 2, URL-exact.** `crud.bulk_insert_articles` checks each URL with a SELECT before inserting (`app/db/crud.py:40-45`), and the `url` column is `unique=True` (`app/db/models.py:27`). Each row is committed individually, so later duplicates in the batch see earlier ones. An IntegrityError from a concurrent insert is caught and rolled back (`crud.py:58-63`). Only inserted rows are returned.\n\n7. **Store.** The article is written to SQLite with a fresh `qdrant_id` UUID (`aggregator.py:43-61`).\n\n8. **Upsert to Qdrant.** Only rows that were actually inserted are upserted, with their vector and payload (`aggregator.py:64-82`, `qdrant.py:51-64`). A Qdrant failure is logged and the article stays in SQLite only. Those articles then get no semantic dedup on later runs.\n\n9. **Record.** Counts go to the `PipelineRun` row (`aggregator.py:84-109`).\n\n**Gaps to know about**\n- No semantic dedup within a single batch (step 5).\n- `content_hash` is unused (step 3).\n- Pass 1 reports a duplicate for a similar article even when its URL is new, and it is not stored.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 12,
+  "cost_usd": 0.00445106,
+  "duration_ms": 19440,
+  "tokens": {
+    "input": 8,
+    "cache_write": 12904,
+    "cache_read": 37146,
+    "output": 2996,
+    "context": 12912,
+    "total": 53054
+  },
+  "tool_calls": [
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "**/*.{py,ts,js,tsx,jsx,go,rs,java,rb}"
+      },
+      "result_chars": 879,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "dedup|duplicate|hash|fetch|insert|store|save",
+        "-i": true,
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 709,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\newsapi_client.py"
+      },
+      "result_chars": 2056,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\scraper.py"
+      },
+      "result_chars": 1182,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py"
+      },
+      "result_chars": 4784,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py"
+      },
+      "result_chars": 7598,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\qdrant.py"
+      },
+      "result_chars": 2724,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\graph.py"
+      },
+      "result_chars": 2932,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\agents\\base_agent.py"
+      },
+      "result_chars": 4734,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "similarity_threshold|articles_per_source|unique|seen|url",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\config.py",
+        "-n": true,
+        "output_mode": "content"
+      },
+      "result_chars": 176,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "url|unique|UniqueConstraint|index",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\models.py",
+        "-n": true,
+        "output_mode": "content"
+      },
+      "result_chars": 238,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 22.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false
+  }
+}

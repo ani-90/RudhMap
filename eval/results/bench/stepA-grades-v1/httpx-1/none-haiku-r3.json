@@ -1,0 +1,91 @@
+{
+  "answer": "**Entry point.** `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` against the client default (`:904-908`), applies timeout and auth, then calls `_send_handling_auth` (`:914`). That calls `_send_handling_redirects` (`:942`), which holds the loop.\n\n**The loop.** `_send_handling_redirects` (`:964`) enforces `max_redirects` (`:971`), fires request hooks, and sends one hop via `_send_single_request` (`:979`). If the response has a Location header (`:985`), it builds the next request (`:988`) and appends the response to `history` (`:989`). With `follow_redirects` true it reads the response and loops (`:991-992`). Otherwise it stores the request in `response.next_request` and returns (`:994-995`).\n\n**Building the redirected request.** `_build_redirect_request` (`:475`) composes four pieces:\n\n- **Method** (`_redirect_method`, `:494`): 303 becomes GET unless the method is HEAD (`:502`). 302 becomes GET unless HEAD (`:507`). 301 becomes GET only for POST (`:512`). 307 and 308 leave the method unchanged, since no branch touches them.\n- **URL** (`_redirect_url`, `:517`): resolves relative and scheme-only Location values against the request URL (`:537-538`) and carries over the original fragment if the new URL has none (`:541`).\n- **Headers** (`_redirect_headers`, `:546`): copies the original headers. On a cross-origin redirect it drops `Authorization` unless the hop is a direct HTTP\u2192HTTPS upgrade (`:552-556`), and it rewrites `Host` (`:559`). When the method changes to GET it drops `Content-Length` and `Transfer-Encoding` (`:561-565`). It always drops `Cookie` (`:569`), and the new request gets cookies from the client jar (`:484`, `:489`).\n- **Body** (`_redirect_stream`, `:573`): returns `None` when the method switched to GET (`:579-580`). Otherwise it reuses `request.stream` (`:582`), so a 307/308 replays the original body.\n\n**Caveats.** The redirected request goes through `_send_single_request`, so the transport is re-selected for the new URL (`:1005`). Cookies from each response are extracted into the client jar (`:1022`). If the auth flow is active, `_send_handling_auth` can intercept the response between hops (`:947-956`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "cost_usd": 0.00229243,
+  "duration_ms": 15181,
+  "tokens": {
+    "input": 10,
+    "cache_write": 4777,
+    "cache_read": 40203,
+    "output": 1868,
+    "context": 4787,
+    "total": 46858
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def send|def _send_handling_redirects|def _build_redirect_request|def rebuild_method|def rebuild_auth|def _redirect_headers|def _redirect_stream|def _redirect_method",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 664,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 475,
+        "limit": 120
+      },
+      "result_chars": 5016,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 964,
+        "limit": 70
+      },
+      "result_chars": 2573,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 916,
+        "limit": 46
+      },
+      "result_chars": 1473,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 879,
+        "limit": 37
+      },
+      "result_chars": 1319,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 17.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "answer": "`get_user_by_email(*, session, email) -> User | None` is defined at `backend/app/crud.py:34`. It's keyword-only and returns the first `User` whose email matches, or `None`. Application code calls it from 8 places. Every call passes `session=` and `email=` by keyword.\n\n**`backend/app/crud.py`**\n- `:46` is in the authenticate function. If the result is `None`, it runs `verify_password` against `DUMMY_HASH` to prevent timing attacks (`:47-51`). Otherwise it uses `db_user.hashed_password` to verify the password (`:52`).\n\n**`backend/app/api/routes/login.py`**\n- `:58` is the password-recovery request. If a user exists, it generates a reset token and emails `user.email` (`:62-65`). If not, it does nothing, so the response doesn't reveal whether the email exists.\n- `:85` is the password reset. A missing user gives a 400 \"Invalid token\" (`:86-88`). An inactive user (`user.is_active`) gives a 400 \"Inactive user\" (`:89-90`). Otherwise the user is passed on to `crud.update_user`.\n- `:109` is the HTML-content password-recovery endpoint. A missing user gives a 404 (`:111-115`). Otherwise it generates a token and email (`:116-117`).\n\n**`backend/app/api/routes/users.py`**\n- `:61` is the create-user route. If a user exists, it returns a 400 \"already exists\" (`:62-66`).\n- `:90` is the update-own-profile route. It returns a 409 if `existing_user.id != current_user.id` (`:91-94`).\n- `:151` is the signup route. If a user exists, it returns a 400 (`:152-156`).\n- `:204` is the admin update-user route. It returns a 409 if `existing_user.id != user_id` (`:205-208`).\n\n**Summary of usage**\n- Six callers only need to know whether a user exists: `users.py:61`, `users.py:151`, `login.py:58`, `login.py:85`, `login.py:109`, and the not-found check in `crud.py:46`.\n- Two callers compare `.id` to detect an email collision with a different user: `users.py:90` and `users.py:204`.\n- Callers also read `.email` (`login.py:65`), `.is_active` (`login.py:89`) and `.hashed_password` (`crud.py:52`).\n\nChanging the keyword names or the `None` return would affect all of these. The tests also call it, at `tests/api/routes/test_users.py:55,74,112,496` and `tests/utils/user.py:39`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "cost_usd": 0.0302148,
+  "duration_ms": 15420,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4134,
+    "cache_read": 16868,
+    "output": 1198,
+    "context": 4140,
+    "total": 22206
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app",
+        "output_mode": "content",
+        "-A": 8,
+        "glob": "**/{crud,users,login}.py"
+      },
+      "result_chars": 6310,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 17.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "Summary says six callers only need to know whether a user exists, but login.py:85 also reads user.is_active and passes the user to crud.update_user, and crud.py:46 uses hashed_password, so the summary is slightly inconsistent (minor).",
+      "Summary says six callers only need to know whether a user exists, but login.py:65 reads user.email and login.py:85 checks is_active, and crud.py:46 uses hashed_password, so the grouping is internally inconsistent (minor)",
+      "Claims 'Application code calls it from 8 places' while listing 8 call sites; this is consistent with key (1+3+4), so not false",
+      "Summary says six callers only need to know whether a user exists, but login.py:85 also reads is_active and login.py:58 reads user.email, and the crud.py:46 caller uses hashed_password; the summary is slightly inconsistent, though not materially wrong.",
+      "Claims 8 call sites but lists 8 only by counting crud.py plus 3 login plus 4 users, which is consistent; no false count."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

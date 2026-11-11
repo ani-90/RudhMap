@@ -1,0 +1,84 @@
+{
+  "answer": "**Short answer:** Changing `BaseTransport.handle_request` affects three subclasses that override it, one call site in the client, and a docstring example. The async path is not affected.\n\n**Definition**\n- `httpx/_transports/base.py:26`: `BaseTransport.handle_request(self, request: Request) -> Response`. Its docstring example at `base.py:48` calls it directly. That's documentation only, but it would need updating.\n\n**Overrides (must match the new signature)**\n- `httpx/_transports/default.py:230`: `HTTPTransport.handle_request`. It inherits from `BaseTransport` at `default.py:135`.\n- `httpx/_transports/wsgi.py:91`: `WSGITransport.handle_request`. It inherits from `BaseTransport` at `wsgi.py:44`.\n- `httpx/_transports/mock.py:19`: `MockTransport.handle_request`. It inherits from `AsyncBaseTransport` and `BaseTransport` at `mock.py:15`.\n\n**Call sites**\n- `httpx/_client.py:1014`: `Client._send_single_request` calls `transport.handle_request(request)`. The transport comes from `_transport_for_url` at `_client.py:1005`. This is the only dispatch point in httpx that calls a sync transport.\n- `httpx/_transports/default.py:250`: `HTTPTransport.handle_request` calls `self._pool.handle_request(req)`. That is httpcore's pool API, not httpx's `BaseTransport`, so it is not affected by your change.\n\n**Not affected**\n- `ASGITransport` (`httpx/_transports/asgi.py:63`) and `AsyncHTTPTransport` (`default.py:279`) use the async `handle_async_request` path from `AsyncBaseTransport`.\n- `AsyncClient` does not call `BaseTransport.handle_request`.\n\n**Summary**\n- Update: `base.py`, `default.py`, `wsgi.py`, `mock.py`, `_client.py:1014`, and the `base.py:48` docstring.\n- Tests and any third-party transports that subclass `BaseTransport` would also break, but those are outside the scope of this question.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "cost_usd": 0.00167084,
+  "duration_ms": 10592,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2975,
+    "cache_read": 19624,
+    "output": 1758,
+    "context": 2981,
+    "total": 24363
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def handle_request|\\.handle_request\\(|class \\w+\\(.*Transport\\w*\\)|class BaseTransport",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1264,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "handle_request",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 137,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\base.py",
+        "offset": 14,
+        "limit": 40
+      },
+      "result_chars": 1543,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 1005,
+        "limit": 15
+      },
+      "result_chars": 599,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": false,
+      "httpcore": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "MockTransport inherits from AsyncBaseTransport and BaseTransport at mock.py:15 (plausible, consistent with key)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "answer": "`crud.get_user_by_email(*, session, email) -> User | None` is defined at `backend/app/crud.py:34`. Application code calls it from 8 places. Every caller passes keyword arguments and treats the result as an optional `User`.\n\n**`backend/app/crud.py`**\n- `crud.py:46`: `authenticate` uses it to look up the user. If the result is `None`, it runs a dummy password hash to avoid timing leaks (`crud.py:47-50`).\n\n**`backend/app/api/routes/users.py`**\n- `users.py:61`, `create_user`: an existence check. If a user is found, it returns a 400.\n- `users.py:90`, update own user: a uniqueness check. It returns a 409 if the email belongs to a different user (`existing_user.id != current_user.id`).\n- `users.py:151`, `register_user`: an existence check. If a user is found, it returns a 400.\n- `users.py:204`, admin update user: a uniqueness check. It returns a 409 if `existing_user.id != user_id`.\n\n**`backend/app/api/routes/login.py`**\n- `login.py:58`, `recover_password`: if a user exists, it sends the recovery email. It always returns the same response, to prevent email enumeration (`login.py:60-62`).\n- `login.py:85`, reset password: it looks up the user from the email in the reset token. It returns a 400 if the user is missing, and it also checks `user.is_active` (`login.py:86-89`).\n- `login.py:109`, `recover_password_html_content`: it returns a 404 if the user is missing. Otherwise it uses the user to build the email content.\n\n**Impact of changing the signature**\n- Five callers only test whether the result is truthy: `users.py:61`, `users.py:151`, `login.py:58`, `login.py:85` and `login.py:109`. Of these, `login.py:85` also reads `user.is_active`.\n- Two callers also read `.id`: `users.py:90` and `users.py:204`.\n- `crud.py:46` branches on `None` and passes the user on.\n- If the return type changes, for example to raise instead of returning `None`, all eight call sites need updating.\n- Test code also calls it. `backend/tests/utils/user.py:39` and several places in `backend/tests/api/routes/test_users.py` would need the same update.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 2,
+  "cost_usd": 0.024998799999999995,
+  "duration_ms": 10942,
+  "tokens": {
+    "input": 4,
+    "cache_write": 3789,
+    "cache_read": 11248,
+    "output": 871,
+    "context": 3793,
+    "total": 15912
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "output_mode": "content",
+        "-C": 4
+      },
+      "result_chars": 9019,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 12.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "Says application code calls it from 8 places and 'all eight call sites need updating' \u2014 consistent with key (1+4+3=8), so not false.",
+      "Says 'Five callers only test whether the result is truthy' while also saying login.py:85 reads user.is_active; minor internal inconsistency, not contradicted by key.",
+      "The answer says there are 8 call sites and that all eight need updating, which is consistent with the key. The impact summary says 'Five callers only test whether the result is truthy', but users.py:90 and 204 are also non-truthy-only; this is not contradicted by the key. No clear false claims."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

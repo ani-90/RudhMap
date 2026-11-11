@@ -1,0 +1,81 @@
+{
+  "answer": "**Application callers of `crud.get_user_by_email`** (tests excluded). It's defined at `backend/app/crud.py:34` and returns `User | None`.\n\n| Caller | Use of result |\n|---|---|\n| `backend/app/crud.py:46` (`authenticate`) | Returns `None` if missing. If missing, it still runs a dummy password check for timing safety (`crud.py:47-50`). Otherwise it verifies the password. |\n| `backend/app/api/routes/users.py:61` (`create_user`) | Existence check. If found, raises 400 \"already exists\" (`users.py:62-66`). |\n| `backend/app/api/routes/users.py:90` (`update_user_me`) | Conflict check. If found and the id differs from the current user, raises 409 (`users.py:91-94`). |\n| `backend/app/api/routes/users.py:151` (`register_user`) | Existence check. If found, raises 400 (`users.py:152-156`). |\n| `backend/app/api/routes/users.py:204` (`update_user`) | Conflict check. If found and the id differs from `user_id`, raises 409 (`users.py:205-208`). |\n| `backend/app/api/routes/login.py:58` (`recover_password`) | Truthy check to decide whether to send a reset email. Uses `user.email`. The response is the same either way, to prevent enumeration (`login.py:60-74`). |\n| `backend/app/api/routes/login.py:85` (`reset_password`) | Fetches the user to update. Raises 400 if missing or `not user.is_active` (`login.py:86-90`). |\n| `backend/app/api/routes/login.py:109` (`recover_password_html_content`) | Existence check. If missing, raises 404. Uses `user.email` (`login.py:111-118`). |\n\n**Implications for changing the signature**\n\n- Every caller passes `session=` and `email=` as keywords, and the function is keyword-only (`*`). Renaming either parameter, or making `session` or `email` optional, breaks all eight sites. The tests (`backend/tests/...`) also use keyword calls, so they break too.\n- Callers depend on the `User | None` return. Changing it to raise on not-found would break the `if user:` and `if not user:` branches in `users.py` and `login.py`, and would change the 404/400 responses.\n- `authenticate` relies on `None` for the timing-safe path, so it needs care if the return contract changes.\n- Callers in `users.py` and `login.py` read `.id`, `.email`, `.is_active`, and `.hashed_password` from the result. Any change to the `User` model would affect them.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "cost_usd": 0.00223518,
+  "duration_ms": 12777,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4914,
+    "cache_read": 20128,
+    "output": 2101,
+    "context": 4920,
+    "total": 27149
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\users.py",
+        "offset": 55,
+        "limit": 160
+      },
+      "result_chars": 5613,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "offset": 50,
+        "limit": 75
+      },
+      "result_chars": 2759,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 25
+      },
+      "result_chars": 1140,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

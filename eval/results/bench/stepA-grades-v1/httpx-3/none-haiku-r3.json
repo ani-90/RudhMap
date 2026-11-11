@@ -1,0 +1,94 @@
+{
+  "answer": "**Where it's defined:** `Timeout` in `httpx/_config.py` holds four optional floats: connect, read, write, pool (`_config.py:101-104`). A bare number sets all four; keyword args override individual fields (`_config.py:127-130`). The default is `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` (`_config.py:246`).\n\n**Path from Client to network:**\n\n1. **Client construction:** `Client.__init__` takes `timeout` (`_client.py:196`) and stores `self._timeout = Timeout(timeout)` (`_client.py:212`). A `timeout` property and setter expose it (`_client.py:254-259`).\n\n2. **Per-request resolution:** Each request method passes `timeout=USE_CLIENT_DEFAULT` down. `_client.py:371-377` uses the client's timeout unless the caller gave one. `_set_timeout` (`_client.py:584-591`) does the same for prebuilt requests and is called at `_client.py:910` and `_client.py:1625`. The result is stored as `request.extensions[\"timeout\"] = timeout.as_dict()`, skipped if the caller already set one.\n\n3. **Transport:** `HTTPTransport.handle_request` (`_transports/default.py:230-250`) converts the request to httpcore form and calls `self._pool.handle_request(req)`. The timeout travels in the request extensions. httpcore reads it and enforces each phase. That consumer code is not in this repo, so I did not verify its internals.\n\n**Exceptions when a timeout fires:**\n\nhttpcore raises its own timeout exceptions. `map_httpcore_exceptions` (`_transports/default.py:96-118`) catches them and re-raises the httpx equivalents. The mapping is at `_transports/default.py:78-82`:\n\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout`\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout`\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout`\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout`\n- `httpcore.TimeoutException` \u2192 `httpx.TimeoutException` (generic fallback)\n\nThe mapped exception is raised `from exc`, so the original is preserved as the cause (`_transports/default.py:118`).\n\nAll of these subclass `TimeoutException` (`_exceptions.py:132-161`), which derives from `TransportError`. Catch `httpx.TimeoutException` to handle any of them, or a specific subclass to tell the phases apart.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "cost_usd": 0.0027158800000000004,
+  "duration_ms": 14119,
+  "tokens": {
+    "input": 8,
+    "cache_write": 6314,
+    "cache_read": 35778,
+    "output": 2189,
+    "context": 6322,
+    "total": 44289
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 200
+      },
+      "result_chars": 8424,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "timeout|Timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\default.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 508,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_exceptions.py",
+        "offset": 130,
+        "limit": 60
+      },
+      "result_chars": 1259,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 580,
+        "limit": 15
+      },
+      "result_chars": 504,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def map_httpcore_exceptions|def handle_request|self._pool.handle_request|with map_httpcore|def __exit__|raise mapped_exc",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\default.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 473,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 16.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "config": true,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true
+  }
+}

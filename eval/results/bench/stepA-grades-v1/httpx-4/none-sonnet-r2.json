@@ -1,0 +1,72 @@
+{
+  "answer": "`DigestAuth` is a generator-based challenge/response handler. The client runs that generator in a loop.\n\n**DigestAuth (`httpx/_auth.py`)**\n- `DigestAuth` subclasses `Auth` (`_auth.py:175`). It stores the username and password as bytes, the last challenge, and a nonce count (`:187-191`).\n- `auth_flow` (`:193-222`) works in these steps:\n  1. If a challenge was cached from an earlier request, it pre-emptively sets the `Authorization` header (`:194-197`).\n  2. It then does `response = yield request` (`:199`), which hands the request to the client and waits for the response.\n  3. If the response isn't a 401 with `www-authenticate`, it returns (`:201-204`). It also returns if no `Digest ` header is present (`:206-212`).\n  4. Otherwise it parses the challenge, resets the nonce count to 1, and rebuilds the `Authorization` header (`:214-219`).\n  5. It copies any response cookies onto the request (`:220-221`) and yields the request again (`:222`).\n- `_parse_challenge` (`:224-253`) reads realm, nonce, algorithm, opaque and qop. A missing realm or nonce raises `ProtocolError`.\n- `_build_auth_header` (`:255-301`) does the digest computation:\n  - It picks the hash function from `_ALGORITHM_TO_HASH_FUNCTION` (`:176-185`).\n  - It computes HA1 from username:realm:password. For `-SESS` algorithms it rehashes with the nonce and cnonce (`:275-276`).\n  - It computes HA2 from method:path (`:266-268`). `auth-int` is not implemented (`:267`).\n  - The response hash uses the RFC 2069 form when there is no qop (`:281`) and the RFC 2617/7616 form otherwise (`:284`).\n  - It increments the nonce count and generates a random cnonce (`:270-272`, `:303-309`).\n\n**Client driving (`httpx/_client.py`)**\n- `Client._send_handling_auth` (`:930-962`) drives the generator:\n  1. It calls `auth.sync_auth_flow(request)` and `next()` to get the first request (`:937-939`).\n  2. It sends that request through `_send_handling_redirects` (`:942`).\n  3. It feeds the response back with `auth_flow.send(response)` (`:949`).\n  4. If the generator yields another request, it reads and closes the 401 response, appends it to `history`, and loops (`:953-956`).\n  5. On `StopIteration` it returns the final response (`:950-951`).\n- The async client does the same with `async_auth_flow`, `__anext__` and `asend` (`:1652-1677`).\n- `Auth.sync_auth_flow` and `async_auth_flow` (`_auth.py:62`, `:87`) wrap `auth_flow` by default.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "cost_usd": 0.0354394,
+  "duration_ms": 18280,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4689,
+    "cache_read": 18314,
+    "output": 1484,
+    "context": 4695,
+    "total": 24493
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|def _build_auth_header|def _parse_challenge|sync_auth_flow|def _build_request_auth",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "glob": "**/*.py",
+        "output_mode": "content",
+        "head_limit": 40
+      },
+      "result_chars": 2909,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 150
+      },
+      "result_chars": 6278,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 35
+      },
+      "result_chars": 1199,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 20.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true
+  }
+}

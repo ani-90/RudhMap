@@ -1,0 +1,97 @@
+{
+  "answer": "**Short answer:** The frontend treats \"logged in\" as \"an `access_token` exists in localStorage.\" It never checks whether the token is valid or unexpired. Expiry is handled reactively: a 401/403 from the API clears the token and sends the user to `/login`.\n\n**How it decides login state**\n- `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`). It is only a presence check.\n- The protected layout route uses this in `beforeLoad`. If it returns false, it redirects to `/login` (`frontend/src/routes/_layout.tsx:14-20`).\n- Login, signup, and password-recovery pages do the reverse and redirect logged-in users away (`frontend/src/routes/login.tsx:38`, `signup.tsx:45`).\n- Login stores the token with `localStorage.setItem` (`frontend/src/hooks/useAuth.ts:45`). The API client reads it on every request (`frontend/src/main.tsx:17-20`).\n\n**What happens on expired or invalid tokens**\n- The current-user query (`/users/me`) is enabled only when `isLoggedIn()` is true (`useAuth.ts:23-27`).\n- Every failed query or mutation goes through `handleApiError`. If the status is 401 or 403, it removes `access_token` and sets `window.location.href = \"/login\"` (`frontend/src/main.tsx:22-30`). It is wired into both the `QueryCache` and `MutationCache` (`main.tsx:31-38`).\n- Manual logout also removes the token and navigates to `/login` (`useAuth.ts:56-59`). It is triggered from the sidebar user menu (`frontend/src/components/Sidebar/User.tsx:44-55`).\n\n**Gaps**\n- A token that is present but expired still passes `isLoggedIn()`. The user sees the protected layout until a request fails, and then gets a hard redirect.\n- Only the presence of a non-null value is checked, so an empty string would also count as logged in.\n- Nothing refreshes the token. The 401/403 handler is the only recovery path.\n\nI only read the frontend. I did not check how the backend signs or expires tokens.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "cost_usd": 0.0029541100000000002,
+  "duration_ms": 13774,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7915,
+    "cache_read": 32881,
+    "output": 2083,
+    "context": 7923,
+    "total": 42887
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "token|login|logout|401|expire|isAuthenticated|localStorage|sessionStorage",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true,
+        "glob": "!**/node_modules/**"
+      },
+      "result_chars": 2249,
+      "is_error": false
+    },
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "**/*",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901"
+      },
+      "result_chars": 3178,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "localStorage|access_token|isLoggedIn|401|logout|UNAUTHORIZED|isAuthenticated",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2573,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\main.tsx"
+      },
+      "result_chars": 1698,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\routes\\_layout.tsx"
+      },
+      "result_chars": 1146,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\hooks\\useAuth.ts"
+      },
+      "result_chars": 1933,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 15.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "presence-only": true,
+      "route-guards": true,
+      "backend-rejects": false,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false
+  }
+}

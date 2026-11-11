@@ -1,0 +1,75 @@
+{
+  "answer": "**Short answer:** The frontend treats the user as logged in if an `access_token` exists in `localStorage`. It does not check whether the token is valid or unexpired. Expiry is detected only when an API call returns 401 or 403.\n\n**How it decides logged-in state**\n- `isLoggedIn()` returns true when `localStorage` has an `access_token` (`frontend/src/hooks/useAuth.ts:14-16`).\n- The `currentUser` query runs only when that check passes (`useAuth.ts:23-27`).\n- A successful login stores the token there (`useAuth.ts:41-46`). Logout removes it and navigates to `/login` (`useAuth.ts:56-59`).\n- The protected `_layout` route's `beforeLoad` redirects to `/login` when `isLoggedIn()` is false (`frontend/src/routes/_layout.tsx:14-19`).\n- The token is attached to requests through `client.setConfig({ auth: () => localStorage.getItem(\"access_token\") })` (`frontend/src/main.tsx:17-20`). I did not open the generated client to confirm the exact header format.\n\n**What happens when the token is expired or invalid**\n- A global handler in `main.tsx` is attached to both the `QueryCache` and `MutationCache` `onError` hooks (`main.tsx:22-37`).\n- For an `AxiosError` with status 401 or 403, it removes `access_token` and sets `window.location.href = \"/login\"` (`main.tsx:22-30`). This is a full page load.\n\n**Gaps**\n- Because `isLoggedIn()` only checks presence, a stale token still passes `beforeLoad`. The layout renders until a query or mutation fails with 401/403.\n- The handler covers only React Query calls. A direct service call outside a query or mutation would not trigger the redirect.\n- `isLoggedIn()` is evaluated once per `enabled` check, so the `currentUser` query does not re-run when the token changes unless its state is refreshed.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "cost_usd": 0.00169803,
+  "duration_ms": 10959,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3561,
+    "cache_read": 20323,
+    "output": 1564,
+    "context": 3567,
+    "total": 25454
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "token|login|logged|401|expired|Unauthorized|localStorage|cookie",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 1717,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\hooks\\useAuth.ts"
+      },
+      "result_chars": 1933,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\routes\\_layout.tsx"
+      },
+      "result_chars": 1146,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\main.tsx"
+      },
+      "result_chars": 1698,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": false,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "answer": "`DigestAuth` is a generator-based auth flow. The client drives it with a send loop.\n\n**Auth base class** (`httpx/_auth.py:26-100`)\n- `Auth.auth_flow` is a generator. It yields a `Request` and receives the `Response` back.\n- `sync_auth_flow` and `async_auth_flow` wrap it (`_auth.py:62`, `:87`). If `requires_request_body` is set (`_auth.py:35`), they read the body first.\n\n**DigestAuth** (`_auth.py:175`)\n- State is the credentials as bytes, `_last_challenge`, and `_nonce_count` (`_auth.py:187-191`).\n- `auth_flow` (`_auth.py:193-222`):\n  1. If a previous challenge is cached, it preemptively adds an `Authorization` header (`:194-197`). Otherwise the first request goes out unauthenticated.\n  2. It does `response = yield request` (`:199`).\n  3. If the response is not a 401 with `www-authenticate`, it returns (`:201-204`). It also returns if no `Digest ` challenge is present (`:206-212`).\n  4. Otherwise it parses the challenge with `_parse_challenge` and caches it in `_last_challenge`. It resets `_nonce_count` to 1 (`:214-215`) and rebuilds the `Authorization` header (`:217`). It copies any response cookies onto the request (`:220-221`), then yields the same request again (`:222`).\n- `_parse_challenge` (`:224-253`) reads the `realm`, `nonce`, `algorithm`, `opaque` and `qop` fields. A missing `realm` or `nonce` raises `ProtocolError`.\n- `_build_auth_header` (`:255-301`):\n  - It picks the hash function from `_ALGORITHM_TO_HASH_FUNCTION` (`:176-185`).\n  - It computes HA1 from `username:realm:password` and HA2 from `method:path`. `auth-int` is a TODO (`:267`).\n  - For `-SESS` algorithms, HA1 is rehashed with the nonce and cnonce (`:275-276`).\n  - The response hash is `HA1:nonce:nc:cnonce:qop:HA2` when qop is present. Without qop it is `HA1:nonce:HA2`, per RFC 2069 (`:279-284`).\n  - It increments `_nonce_count` each time (`:272`).\n- `_get_client_nonce` (`:303`) builds the cnonce from a SHA-1 over the count, nonce, time and `os.urandom`.\n\n**Client driver** (`httpx/_client.py:930-962`, sync; the async version is at `:1652-1677`)\n- `_send_handling_auth` calls `auth.sync_auth_flow(request)` and gets the first request with `next()` (`:937-939`).\n- It then loops:\n  1. It sends the request through `_send_handling_redirects` (`:942`).\n  2. It feeds the response in with `auth_flow.send(response)` (`:949`).\n  3. If the generator yields another request, the client records the response in `history`, reads it, and loops (`:953-956`).\n  4. If the generator raises `StopIteration`, that response is the final result (`:950-951`).\n- `auth_flow.close()` runs in a `finally` block (`:961-962`).\n\nFor a first request, that means one 401 round trip, then the authenticated retry. Later requests on the same `DigestAuth` instance send the cached challenge preemptively.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "cost_usd": 0.0383302,
+  "duration_ms": 23438,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4872,
+    "cache_read": 18702,
+    "output": 1696,
+    "context": 4878,
+    "total": 25276
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|def _build_auth_header|def _parse_challenge|_get_client_nonce|sync_auth_flow|async_auth_flow|requires_request_body",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "glob": "**/*.py",
+        "head_limit": 60
+      },
+      "result_chars": 3675,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 135
+      },
+      "result_chars": 5700,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 925,
+        "limit": 42
+      },
+      "result_chars": 1357,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 25.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": false,
+      "reuse": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

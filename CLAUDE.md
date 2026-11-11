@@ -6,7 +6,19 @@ Every step ends with a report in `eval/reports/` (goal + pass criteria written f
 
 ## Current status (update this section whenever a phase completes or work resumes)
 
-**Last updated:** 2026-11-10
+**Last updated:** 2026-11-11
+
+**Plan re-ordered 2026-11-11** (`docs/plan.md`): A baseline → B tools → C benchmark + iterate (max 3 rounds, stop rule) → D release. Cut from v1: diagrams, `get_context`, step 1b, local model, cross-layer links.
+
+**Step A (questions + baseline) PASSED (2026-11-11)**, branch `stepA-baseline` (off `step1-engine-fixes`). Report: `eval/reports/stepA-baseline.md`; harness: `python eval/bench/run_bench.py run|grade|report --label <name>`; questions/keys: `eval/bench/questions.yaml` (15 q, 3 repos: Knowledge-News-App `20d352e`, fastapi/full-stack-fastapi-template `aabb901`, encode/httpx `b5addb6`, cloned next to this repo); thresholds: `eval/THRESHOLDS.md` (committed before any RudhMap run).
+- Baseline, no tools beyond Read/Grep/Glob, 3 reps: Haiku 12/15 correct, median 35.5k tokens/question, 6 turns; Sonnet 12/15, 23.1k, 4 turns.
+- Cost ≈ turns × ~6.1k tokens (79% is cache reads of the re-sent system prompt/conversation); file contents read are ~16%. **A tool only saves tokens if it removes turns.**
+- 16 of 17 wrong runs stopped one hop short (never opened graph.py / embedder.py / backend deps.py). Step B `show` must list callees with signature + first doc line and inline tiny (≤3-line) bodies.
+- Step C targets: Haiku+RudhMap ≥12/15 correct and median ≤24,816 tokens/question. tpl-4 needs cross-layer links (cut from v1), expected loss.
+- Grading: Sonnet grader, 3-vote majority, critical facts judged on one-line `must`; 17/18 agreement with hand check (`eval/results/bench/stepA-handcheck.json`). Never accept a "major false claim" without reading the source (the key itself was wrong once: `embedder.embed()` is a stub returning `[]`).
+- Bench runs use `claude -p` on the user's subscription login; repos exported to `%LOCALAPPDATA%\Temp\rudhmap_bench\`.
+
+**Next up: Step B (the tools)** — `repo_map`, `find_symbol`, `show`, `trace`; graph in memory in the MCP server; TS JSX component edges. See `docs/plan.md` and the step B constraints at the end of the step A report.
 
 **Step 1 (engine correctness) PASSED (2026-11-10)**, branch `step1-engine-fixes` (259 tests). Report: `eval/reports/step1-engine.md`; suite: `python eval/engine_eval.py --label <name>`; ground truth: `eval/ground_truth/knowledge_news_app_calls.yaml` (145 hand-labelled sites, Knowledge-News-App @ `20d352e`).
 - Recall 55.9% → 99.3% (100% excl. the one `hard` dict-dispatch site), precision 100%. New edge kinds: `references` (callbacks, `Depends(get_db)`, `db.query(Model)`, decorator args, attributed to the decorated def) and `inherits`. Python type tracking from stated types (`x = Foo()`, `x: Foo`, `self.x = Foo()`) + inherited-method lookup (`resolve.resolve_typed_calls`). Scope-chain lookup for nested functions; `module` node per non-empty file for top-level code.
@@ -15,7 +27,7 @@ Every step ends with a report in `eval/reports/` (goal + pass criteria written f
 - Extractor versions: `python@5`, `typescript@4`. TS only got module nodes + scoping; types/references/inheritance are Python-only and unmeasured (no TS in eval repos yet).
 - Context pack budget is now a hard limit; its relevance got worse on hub-heavy questions (get_db hub) — deferred, the slicer is replaced in step 4.
 
-**Next up: Step 2 (engine serving)** — in-memory graph in the MCP server, incremental refresh, background index, cache out of the user's repo. See `docs/plan.md`.
+~~Next up: Step 2 (engine serving)~~ (folded into step B, 2026-11-11).
 
 ---
 *History below predates the 2026-11-10 direction change.*

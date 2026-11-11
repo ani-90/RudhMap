@@ -1,0 +1,52 @@
+{
+  "answer": "Changing `BaseTransport.handle_request` (`httpx/_transports/base.py:26`) affects the following.\n\n**Definition**\n- `httpx/_transports/base.py:26` is the base method. Its docstring example at `:48` also calls `transport.handle_request(req)`.\n\n**Subclasses that override it**\n- `HTTPTransport` (`httpx/_transports/default.py:135`) overrides it at `default.py:230`.\n- `WSGITransport` (`httpx/_transports/wsgi.py:44`) overrides it at `wsgi.py:91`.\n- `MockTransport` (`httpx/_transports/mock.py:15`) overrides it at `mock.py:19`. It inherits from both `AsyncBaseTransport` and `BaseTransport`, so it also has an async counterpart to keep consistent.\n\n**Call sites**\n- `httpx/_client.py:1014` is in `Client._send_single_request`, where `transport.handle_request(request)` is the main dispatch point. The transport comes from `_transport_for_url` (`_client.py:760`), so it could be any `BaseTransport`, including user-supplied ones.\n- `httpx/_transports/default.py:250` calls `self._pool.handle_request(req)`. That is httpcore's `ConnectionPool`, not `BaseTransport`, so it isn't affected unless httpcore changes too.\n\n**Not affected**\n- `AsyncBaseTransport`, `ASGITransport` and `AsyncHTTPTransport` use `handle_async_request`, which is a separate method.\n- `Client` type hints (`_client.py:652-760`) only reference the type, so they need no change unless the signature change touches the types.\n\n**Non-code references**\n- `docs/advanced/transports.md` has custom transports at lines 174, 185, 204 and 228. The call at line 206 is `self._wrapper.handle_request(request)`, and the one at line 231 is `transport.handle_request(request)`.\n- `docs/advanced/transports.md:285` shows an old-style signature, `(self, method, url, headers, stream, extensions)`, which is already out of date.\n- `CHANGELOG.md:297-320` documents earlier signature changes.\n\nAny third-party `BaseTransport` subclasses, such as those in mounts or `transport=` arguments (`_client.py:659`, `:697`), would also break.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 2,
+  "cost_usd": 0.022991200000000003,
+  "duration_ms": 13566,
+  "tokens": {
+    "input": 4,
+    "cache_write": 3060,
+    "cache_read": 10532,
+    "output": 969,
+    "context": 3064,
+    "total": 14565
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def handle_request|\\.handle_request\\(|BaseTransport",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "glob": "!**/tests/**",
+        "output_mode": "content"
+      },
+      "result_chars": 4951,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 15.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": true,
+      "httpcore": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

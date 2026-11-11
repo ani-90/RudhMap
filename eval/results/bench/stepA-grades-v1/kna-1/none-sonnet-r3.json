@@ -1,0 +1,68 @@
+{
+  "answer": "`refresh_feed()` is the `POST /api/feed/refresh` handler (`app/api/feed.py:20-52`). It starts a feed-refresh pipeline run, but only if the last successful run is old enough.\n\n**What it does**\n1. **Cooldown check (27\u201342).**\n   - It calls `crud.get_last_successful_run(db)`.\n   - If that run finished less than 2 hours ago (`_REFRESH_COOLDOWN_SECONDS`, line 17), it returns immediately.\n   - The response has `status=\"skipped\"`, the old `run_id`, `cooldown_remaining_seconds` and `last_refreshed_minutes_ago`.\n   - A naive `finished_at` is treated as UTC (30\u201331).\n2. **Otherwise (44\u201352):**\n   - It resolves the domains with `request.resolved_domains()` and generates a UUID `run_id`.\n   - It calls `crud.create_pipeline_run(...)`, then `crud.update_pipeline_run(..., status=\"running\")`.\n   - It queues `_run_pipeline_bg` with FastAPI's `BackgroundTasks` (50).\n   - It returns `FeedRefreshResponse(status=\"running\", run_id, domains)` right away (52).\n\n**What it calls**\n- `crud.get_last_successful_run`, `crud.create_pipeline_run` and `crud.update_pipeline_run`.\n- `request.resolved_domains()`.\n- `background_tasks.add_task`.\n\n**After it returns**\n- FastAPI runs `_run_pipeline_bg` (55\u201372) once the response has been sent.\n- That function imports `run_pipeline` from `app.pipeline.graph` and awaits `run_pipeline(run_id, user_id, domains)` (56\u201358). I didn't open that module, so I can't say what the pipeline does internally.\n- If the pipeline raises, the handler opens a new `SessionLocal` session. It marks the run `failed`, stores the error in `error_log` as JSON, and sets `finished_at` (59\u201372). Then it closes the session.\n- The client can poll `GET /api/feed/status/{run_id}` (75\u201388). That returns the status, `persisted_count`, `duplicate_count`, the timestamps and the errors.\n- Once the run has finished, `GET /api/feed` (91) returns the articles.\n\n**Caveats**\n- The cooldown only counts successful runs. A failed run doesn't block a retry.\n- Nothing stops two refreshes from overlapping. A run that is still `running` isn't checked, so a second request within that window can start another run.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "cost_usd": 0.0374432,
+  "duration_ms": 12395,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5912,
+    "cache_read": 14632,
+    "output": 1232,
+    "context": 5918,
+    "total": 21782
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def refresh_feed",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "output_mode": "content"
+      },
+      "result_chars": 42,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\feed.py"
+      },
+      "result_chars": 7516,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "refresh_feed",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "output_mode": "content"
+      },
+      "result_chars": 42,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 15.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false
+  }
+}

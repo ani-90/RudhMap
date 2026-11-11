@@ -1,0 +1,61 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:20-52`) is the `POST /api/feed/refresh` handler. It starts a background news-ingestion run, unless the last successful run finished less than two hours ago.\n\n**What it does, in order:**\n\n1. **Cooldown check** (lines 27-42): It loads the last successful pipeline run with `crud.get_last_successful_run` (line 27). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, line 17) ago, it returns early with `status=\"skipped\"`, the remaining cooldown, and minutes since the last refresh. No new run is created.\n2. **Setup** (lines 44-48): It resolves domains via `request.resolved_domains()`, generates a UUID4 `run_id`, then calls `crud.create_pipeline_run` and `crud.update_pipeline_run(..., status=\"running\")`.\n3. **Schedule work** (line 50): It queues `_run_pipeline_bg(run_id, user_id, domains)` with FastAPI's `background_tasks.add_task`.\n4. **Return** (line 52): It returns `FeedRefreshResponse` with `status=\"running\"` and the `run_id`.\n\n**What happens after it returns:**\n\n- The HTTP response goes back to the client immediately. The `run_id` can be polled through `GET /api/feed/status/{run_id}` (lines 75-88).\n- FastAPI then runs `_run_pipeline_bg` (lines 55-72). It lazily imports `run_pipeline` from `app.pipeline.graph` and awaits it (lines 56-58).\n- If `run_pipeline` raises, the handler opens a new `SessionLocal` session and marks the run `status=\"failed\"` with the error and a `finished_at` timestamp (lines 59-72).\n- Nothing in this file marks a run as successful. Completion and the `finished_at` value on success must be set inside `run_pipeline`. I did not open `app/pipeline/graph.py` to confirm this, so I can't say whether a run that returns normally always gets a final status.\n\n**Caveats:**\n\n- The cooldown is only checked against the last *successful* run, so a run that fails does not block an immediate retry.\n- The cooldown check and run creation are not atomic. Two concurrent refresh requests could both pass the check before either run is recorded.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "cost_usd": 0.0016288000000000001,
+  "duration_ms": 9017,
+  "tokens": {
+    "input": 4,
+    "cache_write": 4116,
+    "cache_read": 12170,
+    "output": 1367,
+    "context": 4120,
+    "total": 17657
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "refresh_feed",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 42,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\feed.py"
+      },
+      "result_chars": 7516,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 12.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "The cooldown is only checked against the last successful run, so a run that fails does not block an immediate retry (key says status success or partial count; minor imprecision)"
+    ],
+    "major_false_claim": false,
+    "correct": false
+  }
+}
