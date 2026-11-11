@@ -111,10 +111,22 @@ Run-to-run variance is moderate.
 | Tool calls (Read / Grep / Glob) | 154 / 91 / 11 | 70 / 96 / 2 |
 | Reads of a whole file (no offset/limit) | 73 of 154 (47%) | 12 of 70 (17%) |
 
-**Cost is roughly turns × 6k tokens.** Every turn re-sends Claude Code's ~6k-token system prompt
-plus the conversation so far. The file contents the model actually reads are only about 16% of
-the total. Haiku costs more than Sonnet because it takes more turns (median 6 vs 4) and reads
-whole files three times as often, not because it reads bigger files.
+**Cost is driven by the number of model calls.** Every call to the model re-sends Claude Code's
+system prompt and tool definitions plus the conversation so far, about **6,430 fixed tokens per call**.
+That figure was measured afterwards with a trivial 1-call run (2 + 3,206 + 3,223 tokens, then
+6,429 all from cache). The file contents the model actually reads are only about 16% of the total.
+Haiku costs more than Sonnet because it makes more calls and reads whole files three times as often,
+not because it reads bigger files.
+
+**Correction (added after the report):** "turns" in the tables above is Claude Code's `num_turns`.
+It is **not** the number of model calls. A re-run of kna-1/Haiku had `num_turns: 3` but only
+**2 model calls**: one that requested Grep and Read in parallel, and one that answered. Its tokens
+split as ~12.9k fixed (2 × 6.43k), ~3.4k tool results and requests, and ~1.3k output.
+The "~6.1k tokens per turn" figure is total ÷ num_turns, so it mixes the fixed overhead with
+content. The harness now records `model_calls` (distinct model replies) per run. Step A's runs
+predate that change, so step C re-runs the plain-Haiku baseline alongside the RudhMap arm with
+the same harness. The conclusion is unchanged: a tool saves tokens by removing model calls, and
+2 calls (gather, answer) is the floor, about 13k tokens.
 
 ## 5. RCA
 
@@ -214,8 +226,8 @@ Step C targets (from `eval/THRESHOLDS.md`, with the numbers filled in):
 - **No regressions:** no question where plain Haiku is correct and RudhMap is wrong in all 3 runs.
 
 Design constraints for step B, derived from the RCA:
-1. **Cut turns.** One call should answer what currently takes 2-3 Grep/Read rounds. Each removed
-   turn saves about 6k tokens; a 1-2k-token tool result is cheap in comparison.
+1. **Cut model calls.** One tool call should answer what currently takes 2-3 Grep/Read rounds. Each
+   removed model call saves about 6.4k fixed tokens; a 1-2k-token tool result is cheap in comparison.
 2. **`show` must go one hop further than the model would.** Callees and callers with signature +
    first doc line, and full bodies when they are tiny (≤3 lines), so stubs like `embed() -> []`
    are visible.

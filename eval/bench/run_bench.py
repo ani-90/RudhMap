@@ -141,6 +141,7 @@ def _result_text(content) -> str:
 def parse_stream(lines: list[str]) -> dict:
     calls: dict[str, dict] = {}
     order: list[str] = []
+    message_ids: list[str] = []  # one per model call; parallel tool requests share one
     result: dict = {}
     for line in lines:
         try:
@@ -149,9 +150,13 @@ def parse_stream(lines: list[str]) -> dict:
             continue
         kind = event.get("type")
         if kind == "assistant":
+            message_id = event.get("message", {}).get("id")
+            if message_id and message_id not in message_ids:
+                message_ids.append(message_id)
             for block in event.get("message", {}).get("content", []):
                 if block.get("type") == "tool_use":
-                    calls[block["id"]] = {"tool": block["name"], "input": block.get("input", {}), "result_chars": 0}
+                    calls[block["id"]] = {"tool": block["name"], "input": block.get("input", {}), "result_chars": 0,
+                                          "model_call": len(message_ids)}
                     order.append(block["id"])
         elif kind == "user":
             content = event.get("message", {}).get("content", [])
@@ -178,7 +183,8 @@ def parse_stream(lines: list[str]) -> dict:
         "answer": result.get("result", ""),
         "is_error": result.get("is_error", not result),
         "subtype": result.get("subtype"),
-        "turns": result.get("num_turns", 0),
+        "turns": result.get("num_turns", 0),  # Claude Code's count; not the number of model calls
+        "model_calls": len(message_ids),
         "cost_usd": result.get("total_cost_usd", 0.0),
         "duration_ms": result.get("duration_ms"),
         "tokens": tokens,
@@ -324,6 +330,7 @@ def summarize(records: list[dict]) -> dict:
                 "total": statistics.median(r["tokens"]["total"] for r in runs),
                 "context": statistics.median(r["tokens"]["context"] for r in runs),
                 "turns": statistics.median(r["turns"] for r in runs),
+                "model_calls": statistics.median(r["model_calls"] for r in runs) if all("model_calls" in r for r in runs) else None,
                 "tool_calls": statistics.median(len(r["tool_calls"]) for r in runs),
                 "result_chars": statistics.median(sum(c["result_chars"] for c in r["tool_calls"]) for r in runs),
                 "cost": sum(r["cost_usd"] for r in runs),
@@ -338,6 +345,8 @@ def summarize(records: list[dict]) -> dict:
             "median_total": statistics.median(v["total"] for v in rows.values()),
             "median_context": statistics.median(v["context"] for v in rows.values()),
             "median_turns": statistics.median(v["turns"] for v in rows.values()),
+            "median_model_calls": statistics.median(v["model_calls"] for v in rows.values())
+            if all(v["model_calls"] is not None for v in rows.values()) else None,
             "sum_total": sum(r["tokens"]["total"] for runs in per_q.values() for r in runs),
             "cost": sum(v["cost"] for v in rows.values()),
         }
@@ -346,11 +355,12 @@ def summarize(records: list[dict]) -> dict:
 
 def cmd_report(args) -> int:
     summary = summarize(load_records(args.label))
-    print(f"{'arm/model':<18}{'correct':>9}{'facts':>7}{'med total':>11}{'med ctx':>9}{'med turns':>10}{'sum total':>11}{'cost $':>8}")
+    print(f"{'arm/model':<18}{'correct':>9}{'facts':>7}{'med total':>11}{'med new':>9}{'med turns':>10}{'med calls':>10}{'sum total':>11}{'cost $':>8}")
     for (arm, model), s in summary.items():
         fs = f"{s['fact_score']:.2f}" if s["fact_score"] is not None else "-"
         print(f"{arm + '/' + model:<18}{str(s['correct']) + '/' + str(s['graded_questions']):>9}{fs:>7}"
               f"{s['median_total']:>11.0f}{s['median_context']:>9.0f}{s['median_turns']:>10.0f}"
+              f"{(s['median_model_calls'] if s['median_model_calls'] is not None else float('nan')):>10.0f}"
               f"{s['sum_total']:>11}{s['cost']:>8.2f}")
     print()
     for (arm, model), s in summary.items():
