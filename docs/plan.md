@@ -56,16 +56,39 @@ Measure the problem before building the solution.
   variance reported, RCA of every wrong answer and of where tokens go.
 
 ### Step B: The tools
-Four outputs, each an MCP tool and a CLI command, compact text, token-budgeted:
-- `repo_map`: main modules and symbols with one-line signatures, most-connected first.
-- `find_symbol`: fuzzy name/keyword search returning names + locations, not code.
-- `show`: one symbol at `signature` / `skeleton` / `full` detail, plus callers/callees
-  as one-liners, module constants it uses, and what couldn't be resolved.
-- `trace`: call chain(s) from a symbol or between two symbols, with call-site lines.
-- Graph kept in memory by the MCP server; changed files re-parsed on each call.
-- TS: JSX component use (`<Foo />`) and hooks as connections.
-- **Eval:** golden outputs on fixtures, output size limits on all 3 repos,
-  `find_symbol` retrieval accuracy on a labelled query set, determinism.
+Goal (narrowed 2026-11-12): RudhMap controls exactly two things in the model's
+context: **its tool results** and **its tool definitions**. Everything else
+(Claude Code's system prompt, built-in tools, CLAUDE.md, the question, the
+model's own output) is fixed or not ours. Step B makes tool results complete
+enough that the model needs no follow-up call and compact enough not to bloat,
+and keeps the tool definitions small and clear.
+
+Four MCP tools (and CLI commands with identical output), repo defaults to the
+server's working directory:
+- `find_symbol(query)`: fuzzy name/keyword search -> one line per match (kind, file:line, signature).
+- `show(symbol, detail)`: one function/class/file at `signature` / `outline` / `full`;
+  callees with signature + first doc line, tiny (<=3-line) callee bodies inline, one extra
+  hop through callbacks/background tasks; callers; unresolved calls stated.
+- `trace(from, to?)`: call chain(s) with call-site lines, or the reachable tree to depth 3.
+- `repo_map(path?)`: folders/files with their main symbols and routes, within a budget.
+
+Engine work: Python signature/docstring/decorator attrs; TS arrow-function components as
+nodes, JSX usage and signatures as edges/attrs; graph kept in memory by the MCP server with a
+changed-file check per call; old scan/slice/get_context/diagram tools removed from the MCP
+surface (kept in the CLI).
+
+**Pass criteria** (no LLM; measured on the 4 bench repos, tuning questions only):
+
+| Check | Pass |
+|---|---|
+| Unit tests incl. exact-output fixtures and the existing suite | all green |
+| Step 1 engine eval (`engine_eval.py`) | recall/precision unchanged (>= 99.3% / 100%) |
+| Output size: show <= 2,000 tokens, repo_map <= 1,500, find_symbol <= 400, trace <= 800 (chars/4), every cut stated | 100% of calls on a 200-call sweep |
+| `find_symbol` top-3 accuracy on a hand-labelled query set (~30, tuning repos) | >= 90% |
+| Coverage: for each tuning question, the facts' symbols appear in at most 2 RudhMap calls from the obvious entry symbol | >= 12 of 15 |
+| MCP tool definitions size (tokens added per model call) | <= 800 |
+| Determinism: same call twice, and cold vs warm | identical output |
+| Latency on rich: first call (cold cache) / warm call / after editing one file | <= 5 s / <= 300 ms / <= 1.5 s |
 
 ### Step C: Benchmark and iterate
 - Haiku (and Sonnet) + RudhMap on the step A questions, same harness.
