@@ -34,7 +34,7 @@ TIER = 2
 CONFIDENCE = 1.0
 # Bump the version whenever this extractor's output changes, so cached
 # results from the old version are never served (see rudhmap.cache).
-_EXTRACTOR_NAME = "python@5"
+_EXTRACTOR_NAME = "python@6"
 
 _SKIP_DIRS = COMMON_SKIP_DIRS
 
@@ -122,6 +122,42 @@ def _bound_names(node: Node, source: bytes) -> list[str]:
     return []
 
 
+_MAX_SIGNATURE = 240
+
+
+def _signature(node: Node, source: bytes) -> str:
+    """`def f(a: int, b=2) -> X` / `class A(B)`: the header up to the body, one line."""
+    colon = next((c for c in node.children if c.type == ":"), None)
+    body = node.child_by_field_name("body")
+    end = colon.start_byte if colon is not None else (body.start_byte if body is not None else node.end_byte)
+    text = source[node.start_byte:end].decode("utf-8", errors="replace")
+    text = " ".join(text.split()).rstrip(":").rstrip()
+    text = text.replace("( ", "(").replace(", )", ")").replace(",)", ")")
+    return text if len(text) <= _MAX_SIGNATURE else text[: _MAX_SIGNATURE - 3] + "..."
+
+
+def _docstring(body: Node | None, source: bytes) -> str | None:
+    """First non-empty line of a docstring, if the block starts with one."""
+    if body is None:
+        return None
+    for child in body.children:
+        if child.type == "comment":
+            continue
+        if child.type == "expression_statement" and child.children and child.children[0].type == "string":
+            raw = _text(child.children[0], source)
+            raw = raw.lstrip("rRbBuUfF")
+            for quote in ('"""', "'''", '"', "'"):
+                if raw.startswith(quote) and raw.endswith(quote) and len(raw) >= 2 * len(quote):
+                    raw = raw[len(quote):-len(quote)]
+                    break
+            for line in raw.splitlines():
+                if line.strip():
+                    line = line.strip()
+                    return line if len(line) <= 160 else line[:157] + "..."
+        return None
+    return None
+
+
 def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[EvidenceRecord], list[EdgeRecord]]:
     nodes: list[EvidenceRecord] = []
     edges: list[EdgeRecord] = []
@@ -152,7 +188,8 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
                 line=1,
                 tier=TIER,
                 confidence=CONFIDENCE,
-                attrs={"name": py_file.stem, "qualname": ""},
+                attrs={"name": py_file.stem, "qualname": "", "end_line": source.count(b"\n") + 1,
+                       **({"doc": doc} if (doc := _docstring(tree.root_node, source)) else {})},
             )
         )
 
@@ -394,7 +431,7 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
         finally:
             in_param_default[0] = False
 
-    def visit_def_or_class(node: Node, scope_stack: list[str], kind: str) -> None:
+    def visit_def_or_class(node: Node, scope_stack: list[str], kind: str, decorators: list[str] | None = None) -> None:
         name_node = node.child_by_field_name("name")
         name = _text(name_node, source) if name_node is not None else "<anonymous>"
         qualname = ".".join(scope_stack + [name])
@@ -406,8 +443,14 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
             line=_line(node),
             tier=TIER,
             confidence=CONFIDENCE,
-            attrs={"name": name, "qualname": qualname, "end_line": node.end_point[0] + 1},
+            attrs={"name": name, "qualname": qualname, "end_line": node.end_point[0] + 1,
+                   "signature": _signature(node, source)},
         )
+        doc = _docstring(node.child_by_field_name("body"), source)
+        if doc:
+            record.attrs["doc"] = doc
+        if decorators:
+            record.attrs["decorators"] = decorators
         nodes.append(record)
         if kind == "class":
             class_records[qualname] = record
@@ -449,10 +492,16 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
             inner = node.child_by_field_name("definition")
             name_node = inner.child_by_field_name("name") if inner is not None else None
             deco_scope = scope_stack + [_text(name_node, source)] if name_node is not None else scope_stack
+            decorators = []
             for deco in node.children:
                 if deco.type == "decorator":
                     walk(deco, deco_scope)
-            if inner is not None:
+                    text = " ".join(_text(deco, source).split())
+                    decorators.append(text if len(text) <= 160 else text[:157] + "...")
+            if inner is not None and inner.type in ("function_definition", "class_definition"):
+                visit_def_or_class(inner, scope_stack, "function" if inner.type == "function_definition" else "class",
+                                   decorators)
+            elif inner is not None:
                 visit(inner, scope_stack)
             return
         if node.type == "function_definition":

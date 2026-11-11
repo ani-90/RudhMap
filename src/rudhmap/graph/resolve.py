@@ -220,7 +220,46 @@ def _resolve_dotted_attribute_path(dotted: str, node_files: set[str], node_ids: 
     return next(iter(found)) if len(found) == 1 else None
 
 
-def _cross_file_candidate_identity(edge: EdgeRecord, node_files: set[str], node_ids: set[str]) -> str | None:
+_DEFAULT_EXPORT = "<default>"
+
+
+def _ts_export_target(target_file: str, name: str, node_files, node_ids, module_attrs: dict, depth: int = 0) -> str | None:
+    """`name` exported by `target_file`: a default export (`<default>`) maps
+    to the file's `export default X`; a name the file doesn't define is
+    followed through its re-exports (`export * from "./x"`,
+    `export {A as B} from "./x"`) up to 4 files deep."""
+    attrs = module_attrs.get(target_file, {})
+    if name.startswith(_DEFAULT_EXPORT):
+        default = attrs.get("default_export")
+        if not default:
+            return None
+        name = default + name[len(_DEFAULT_EXPORT):]
+    candidate = f"{target_file}:{name}"
+    if candidate in node_ids or depth >= 4:
+        return candidate if candidate in node_ids else None
+    head, _, rest = name.partition(".")
+    for reexport in attrs.get("reexports", []):
+        names = reexport.get("names")
+        if names is None:
+            original = head
+        else:
+            original = next((orig for alias, orig in names if alias == head), None)
+            if original is None:
+                continue
+        if not reexport["module"].startswith("."):
+            continue
+        sub_file = _resolve_relative_module_file(target_file, reexport["module"], node_files)
+        if sub_file is None:
+            continue
+        found = _ts_export_target(sub_file, original + ("." + rest if rest else ""), node_files, node_ids,
+                                  module_attrs, depth + 1)
+        if found is not None:
+            return found
+    return None
+
+
+def _cross_file_candidate_identity(edge: EdgeRecord, node_files: set[str], node_ids: set[str],
+                                   module_attrs: dict | None = None) -> str | None:
     if edge.tier != 2:
         return None
     dotted = edge.attrs.get("resolved_dotted_path")
@@ -236,6 +275,9 @@ def _cross_file_candidate_identity(edge: EdgeRecord, node_files: set[str], node_
         if not module.startswith("."):
             return None  # bare specifier -- external package, never scanned
         target_file = _resolve_relative_module_file(edge.file, module, node_files)
+        if target_file is None:
+            return None
+        return _ts_export_target(target_file, name, node_files, node_ids, module_attrs or {})
     elif edge.file.endswith(_PY_EXT):
         if module.startswith("."):
             return None  # leading-dot relative import -- not handled here
@@ -250,10 +292,13 @@ def resolve_cross_file_calls(assembly: AssemblyResult) -> AssemblyResult:
     graph = assembly.graph
     node_files = _FileIndex(ev.file for _, data in graph.nodes(data=True) for ev in data["evidence"])
     node_ids = set(graph.nodes)
+    module_attrs = {
+        ev.file: ev.attrs for _, data in graph.nodes(data=True) for ev in data["evidence"] if ev.kind == "module"
+    }
 
     still_dropped: list[EdgeRecord] = []
     for edge in assembly.dropped_edges:
-        candidate = _cross_file_candidate_identity(edge, node_files, node_ids)
+        candidate = _cross_file_candidate_identity(edge, node_files, node_ids, module_attrs)
         if (
             candidate is not None
             and graph.has_node(candidate)
