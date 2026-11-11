@@ -152,13 +152,39 @@ def test_unreadable_file_falls_back_to_compute_without_caching(tmp_path):
 def test_flush_with_nothing_new_is_a_noop(tmp_path):
     cache = ExtractionCache(tmp_path)
     cache.flush()  # must not create a cache file when nothing was computed
-    assert not (tmp_path / ".rudhmap_cache").exists()
+    assert not cache.path.exists()
+
+
+def test_cache_is_written_outside_the_repo(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "a.py").write_text("x = 1")
+    cache = ExtractionCache(repo)
+    cache.get_or_compute(repo / "a.py", "python", lambda: ([], []))
+    cache.flush()
+    assert cache.path.exists()
+    assert repo not in cache.path.parents
+    assert sorted(p.name for p in repo.iterdir()) == ["a.py"]
+
+
+def test_flush_drops_entries_not_used_by_this_scan(tmp_path):
+    f = tmp_path / "a.py"
+    f.write_text("x = 1")
+    first = ExtractionCache(tmp_path)
+    first.get_or_compute(f, "python", lambda: ([], []))
+    first.flush()
+    f.write_text("x = 2")  # old content's entry is now stale
+    second = ExtractionCache(tmp_path)
+    second.get_or_compute(f, "python", lambda: ([], []))
+    second.flush()
+    import json
+    assert len(json.loads(second.path.read_text(encoding="utf-8"))) == 1
 
 
 def test_corrupt_cache_file_degrades_to_cold_cache(tmp_path):
-    cache_dir = tmp_path / ".rudhmap_cache"
-    cache_dir.mkdir()
-    (cache_dir / "extraction_cache.v2.json").write_text("not valid json{{{")
+    path = ExtractionCache(tmp_path).path
+    path.parent.mkdir(parents=True)
+    path.write_text("not valid json{{{")
 
     f = tmp_path / "a.py"
     f.write_text("x = 1")

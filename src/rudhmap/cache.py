@@ -18,19 +18,44 @@ invalidates its old entries instead of serving them.
 
 The on-disk filename carries a format version; bumping it discards caches
 written under an older key scheme rather than leaving them to grow forever.
+
+The cache lives outside the scanned repo (step B): a `.rudhmap_cache/` folder
+inside a user's repo is clutter, shows up in their searches, and in the
+benchmark it was visible to the agents' Grep/Glob. Location:
+`$RUDHMAP_CACHE_DIR`, else `%LOCALAPPDATA%\rudhmap\cache` on Windows,
+`$XDG_CACHE_HOME/rudhmap` or `~/.cache/rudhmap` elsewhere; one subfolder per
+repo, named by a hash of its resolved path. Each flush keeps only the
+entries used by that scan, so entries for old file contents don't pile up.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import Callable
 
 from rudhmap.extract.schema import EdgeRecord, EvidenceRecord
 
-_CACHE_DIRNAME = ".rudhmap_cache"
-_CACHE_FILENAME = "extraction_cache.v2.json"
+_CACHE_FILENAME = "extraction_cache.v3.json"
+
+
+def cache_root() -> Path:
+    override = os.environ.get("RUDHMAP_CACHE_DIR")
+    if override:
+        return Path(override)
+    if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
+        return Path(os.environ["LOCALAPPDATA"]) / "rudhmap" / "cache"
+    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(base) / "rudhmap"
+
+
+def cache_path_for(repo_path: str | Path) -> Path:
+    resolved = str(Path(repo_path).resolve())
+    digest = hashlib.sha256(resolved.encode("utf-8")).hexdigest()[:16]
+    name = "".join(c if c.isalnum() or c in "-_" else "_" for c in Path(resolved).name)[:40]
+    return cache_root() / f"{name}-{digest}" / _CACHE_FILENAME
 
 
 def _hash_bytes(data: bytes) -> str:
@@ -39,8 +64,9 @@ def _hash_bytes(data: bytes) -> str:
 
 class ExtractionCache:
     def __init__(self, repo_path: str | Path):
-        self._path = Path(repo_path) / _CACHE_DIRNAME / _CACHE_FILENAME
+        self._path = cache_path_for(repo_path)
         self._entries: dict[str, dict] = {}
+        self._used: set[str] = set()
         self._dirty = False
         if self._path.exists():
             try:
@@ -64,6 +90,7 @@ class ExtractionCache:
             return compute()
 
         key = f"{extractor_name}:{file_path}:{_hash_bytes(content)}"
+        self._used.add(key)
         cached = self._entries.get(key)
         if cached is not None:
             nodes = [EvidenceRecord(**n) for n in cached["nodes"]]
@@ -78,9 +105,20 @@ class ExtractionCache:
         self._dirty = True
         return nodes, edges
 
+    @property
+    def path(self) -> Path:
+        return self._path
+
     def flush(self) -> None:
-        if not self._dirty:
+        stale = len(self._entries) - len(self._used & self._entries.keys())
+        if not self._dirty and not stale:
             return
+        if not self._used:
+            return
+        kept = {k: v for k, v in self._entries.items() if k in self._used}
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(self._entries), encoding="utf-8")
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(kept), encoding="utf-8")
+        os.replace(tmp, self._path)
+        self._entries = kept
         self._dirty = False
