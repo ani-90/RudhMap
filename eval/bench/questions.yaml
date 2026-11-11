@@ -1,0 +1,608 @@
+# Step A benchmark questions and answer keys.
+#
+# Written 2026-11-11 by reading each repo's source at the pinned commit, before
+# RudhMap was run on fastapi-template or httpx and before any step B tool existed.
+# Not derived from RudhMap output.
+#
+# Grading: an answer is CORRECT when it states every critical fact (in its own
+# words; file:line citations are not required) and makes no major false claim
+# about the code. Fact score = facts hit / facts total. "where" is for the grader
+# and for RCA only.
+#
+# Changes after the first graded run go in the amendment log at the bottom.
+
+repos:
+  knowledge-news-app:
+    source: D:/ani_codes/AGENTICAI/Knowledge-News-App
+    commit: 20d352e
+  fastapi-template:
+    source: D:/ani_codes/AGENTICAI/full-stack-fastapi-template
+    commit: aabb901
+  httpx:
+    source: D:/ani_codes/AGENTICAI/httpx
+    commit: b5addb6
+
+questions:
+
+  # ---------------------------------------------------------------- Knowledge-News-App
+  - id: kna-1
+    repo: knowledge-news-app
+    type: explain
+    question: >-
+      Explain refresh_feed() in app/api/feed.py: what it does, what it calls, and
+      what happens after it returns.
+    facts:
+      - id: cooldown
+        critical: true
+        text: >-
+          It first checks for a cooldown: it gets the last successful run
+          (status success or partial, latest finished_at) and, if that finished less
+          than 2 hours ago, returns status "skipped" with the remaining cooldown
+          seconds and does not start a run.
+        where: app/api/feed.py:17,27-42; app/db/crud.py:130-136
+      - id: creates-run
+        critical: true
+        text: >-
+          Otherwise it resolves the domains (request.resolved_domains(): all 7 when
+          none given, else the valid ones), creates a pipeline-run record with a new
+          uuid run_id and sets it to "running".
+        where: app/api/feed.py:44-48; app/schemas/feed.py:11-14
+      - id: background
+        critical: true
+        text: >-
+          It schedules _run_pipeline_bg as a FastAPI background task and returns
+          immediately with run_id and status "running"; the pipeline runs after the
+          response is sent.
+        where: app/api/feed.py:50-52
+      - id: pipeline
+        critical: true
+        text: >-
+          _run_pipeline_bg calls run_pipeline (app/pipeline/graph.py), a LangGraph
+          graph that runs all domain agents (run_all_agents node) and then the
+          aggregator node; if it raises, the run is marked "failed" with the error.
+        where: app/api/feed.py:55-72; app/pipeline/graph.py:56-83
+      - id: status
+        critical: false
+        text: >-
+          The aggregator writes the final status and persisted/duplicate counts to
+          the run record, and the client can poll GET /api/feed/status/{run_id}.
+        where: app/pipeline/aggregator.py:97-106; app/api/feed.py:75-88
+
+  - id: kna-2
+    repo: knowledge-news-app
+    type: trace
+    question: >-
+      Walk through what happens to a single news article from being fetched to
+      being stored, including every deduplication step.
+    facts:
+      - id: fetch
+        critical: true
+        text: >-
+          Each domain agent (BaseAgent._fetch_all) gets search queries from Groq
+          (groq_client.generate_queries, falling back to the agent's hardcoded
+          queries), searches Tavily, and also pulls NewsAPI headlines for its keywords.
+        where: app/pipeline/agents/base_agent.py:84-119
+      - id: url-norm
+        critical: true
+        text: >-
+          URLs are normalised (tracking params like utm_* / fbclid stripped) and
+          deduplicated by normalised URL within the agent.
+        where: app/pipeline/agents/base_agent.py:13-25,100-104
+      - id: enrich
+        critical: true
+        text: >-
+          BaseAgent.run scrapes/enriches content (scraper.enrich_content), drops
+          low-quality content (_is_quality: >= 40 words, >= 5 words per line on
+          average), embeds title + first 500 chars, and builds an ArticleData with an
+          empty summary.
+        where: app/pipeline/agents/base_agent.py:28-36,44-82
+      - id: semantic
+        critical: true
+        text: >-
+          The aggregator first drops semantic duplicates: Qdrant similarity search
+          (search_similar, threshold 0.85); a match means skip.
+        where: app/pipeline/aggregator.py:26-38
+      - id: url-exact
+        critical: true
+        text: >-
+          Then crud.bulk_insert_articles skips any article whose URL already exists
+          in SQLite (and rolls back if a parallel insert hit the same URL); only
+          newly inserted articles are upserted to Qdrant.
+        where: app/db/crud.py:40-64; app/pipeline/aggregator.py:59-82
+      - id: parallel
+        critical: false
+        text: >-
+          Agents for all requested domains run in parallel in a thread pool
+          (run_all_agents_node) and their articles are merged before the aggregator.
+        where: app/pipeline/graph.py:28-53
+
+  - id: kna-3
+    repo: knowledge-news-app
+    type: behavior
+    question: >-
+      Is the daily scheduled news refresh actually running when the API server
+      starts? Explain how it is (or isn't) wired up.
+    facts:
+      - id: not-started
+        critical: true
+        text: >-
+          No. start_scheduler() in app/scheduler.py is never called anywhere in the
+          code; the app's lifespan only calls init_db(), and run.py only starts
+          uvicorn.
+        where: app/scheduler.py:43-53; app/main.py:17-20; run.py:4-6
+      - id: would-do
+        critical: false
+        text: >-
+          If it were started, an APScheduler cron job would run _daily_refresh at
+          07:00 by default, which creates a run and runs the pipeline for all domains
+          with user_id=1 via asyncio.run(run_pipeline(...)).
+        where: app/scheduler.py:15-40,43-50
+      - id: settings-unused
+        critical: false
+        text: >-
+          settings.schedule_hour / schedule_minute exist in config but are not used
+          by any code (start_scheduler has its own defaults).
+        where: app/config.py:31-32
+
+  - id: kna-4
+    repo: knowledge-news-app
+    type: impact
+    question: >-
+      If I change similarity_threshold in app/config.py, what changes in article
+      deduplication?
+    facts:
+      - id: no-effect
+        critical: true
+        text: >-
+          Nothing changes in the pipeline: the aggregator calls
+          search_similar(article.embedding, threshold=0.85) with a hardcoded 0.85.
+        where: app/pipeline/aggregator.py:31
+      - id: default-only
+        critical: true
+        text: >-
+          settings.similarity_threshold is only used as the default inside
+          search_similar when threshold is None, and no caller relies on that default.
+        where: app/db/qdrant.py:39-41
+      - id: mechanics
+        critical: false
+        text: >-
+          search_similar is a Qdrant search with score_threshold and limit=1 on a
+          cosine-distance collection; any hit means duplicate.
+        where: app/db/qdrant.py:35,39-48; app/pipeline/aggregator.py:31-35
+
+  - id: kna-5
+    repo: knowledge-news-app
+    type: trace
+    question: How is a quiz generated for an article, and how is a submitted quiz scored?
+    facts:
+      - id: summary-first
+        critical: true
+        text: >-
+          POST /api/quiz/generate loads the article (404 if missing); if it has no
+          summary it first summarizes it with Groq and stores the summary.
+        where: app/api/quiz.py:22-31
+      - id: generate
+        critical: true
+        text: >-
+          groq_client.generate_quiz(summary) asks the LLM for exactly 3
+          multiple-choice questions as JSON (empty list on bad JSON -> HTTP 422); the
+          questions including answers are stored in a quiz session.
+        where: app/services/groq_client.py:88-97; app/api/quiz.py:33-43; app/db/crud.py:141-152
+      - id: answers-hidden
+        critical: true
+        text: The response to the client leaves out the correct answers.
+        where: app/api/quiz.py:45-57; app/schemas/quiz.py:18-22
+      - id: scoring
+        critical: true
+        text: >-
+          POST /api/quiz/submit: 404 if the session is missing, 409 if already
+          submitted; submit_quiz_session compares answers keyed by question index
+          ("0","1",...) case-insensitively, score = correct / total, and the response
+          includes a per-question breakdown.
+        where: app/api/quiz.py:67-96; app/db/crud.py:155-171
+      - id: groq-retry
+        critical: false
+        text: >-
+          Groq calls go through _call_messages: at most 2 concurrent calls
+          (semaphore) and retries on 429 with 8/16/32/64 s backoff.
+        where: app/services/groq_client.py:15-19,38-54
+
+  # ---------------------------------------------------------------- fastapi-template
+  - id: tpl-1
+    repo: fastapi-template
+    type: trace
+    question: >-
+      How does password login work in the backend, from the /login/access-token
+      request to the token returned? Include what happens when the email doesn't
+      exist.
+    facts:
+      - id: route
+        critical: true
+        text: >-
+          login_access_token (backend/app/api/routes/login.py) takes an OAuth2
+          password form and calls crud.authenticate(email=username, password).
+        where: backend/app/api/routes/login.py:23-30
+      - id: unknown-email
+        critical: true
+        text: >-
+          crud.authenticate looks the user up by email; if not found it still runs
+          verify_password against a dummy hash (to keep timing the same and prevent
+          user enumeration) and returns None; the route then returns 400 "Incorrect
+          email or password".
+        where: backend/app/crud.py:42-51; backend/app/api/routes/login.py:33-34
+      - id: verify
+        critical: true
+        text: >-
+          Passwords are checked with pwdlib (Argon2, with bcrypt also accepted) via
+          verify_and_update; if the hash needs upgrading the new hash is saved to the
+          user.
+        where: backend/app/core/security.py:11-16,29-32; backend/app/crud.py:52-60
+      - id: inactive
+        critical: false
+        text: An inactive user gets 400 "Inactive user".
+        where: backend/app/api/routes/login.py:35-36
+      - id: token
+        critical: true
+        text: >-
+          The token is a JWT from security.create_access_token: payload exp + sub
+          (user id), HS256, signed with settings.SECRET_KEY, expiring after
+          ACCESS_TOKEN_EXPIRE_MINUTES (default 8 days).
+        where: backend/app/core/security.py:19-26; backend/app/api/routes/login.py:37-42; backend/app/core/config.py:25
+
+  - id: tpl-2
+    repo: fastapi-template
+    type: impact
+    question: >-
+      Which application code (not tests) calls crud.get_user_by_email, and what does
+      each caller use the result for? I'm considering changing its signature.
+    facts:
+      - id: crud
+        critical: true
+        text: crud.authenticate uses it to find the user before checking the password.
+        where: backend/app/crud.py:46
+      - id: users-routes
+        critical: true
+        text: >-
+          Four routes in users.py: create_user and register_user (reject with 400 if
+          the email already exists), update_user_me and update_user (reject with 409
+          if the new email belongs to a different user).
+        where: backend/app/api/routes/users.py:61,90,151,204
+      - id: login-routes
+        critical: true
+        text: >-
+          Three routes in login.py: recover_password (send a reset email only if the
+          user exists, same response either way), reset_password (400 "Invalid token"
+          if missing), recover_password_html_content (404 if missing).
+        where: backend/app/api/routes/login.py:58,85,109
+      - id: not-init-db
+        critical: false
+        text: >-
+          init_db in core/db.py does not use it; it queries User by email with its
+          own select statement.
+        where: backend/app/core/db.py:24-26
+
+  - id: tpl-3
+    repo: fastapi-template
+    type: trace
+    question: >-
+      In the frontend, when a user deletes an item, trace what happens end to end
+      until the row is removed from the database, including how the request is
+      authenticated and how the list updates.
+    facts:
+      - id: component
+        critical: true
+        text: >-
+          DeleteItem (frontend/src/components/Items/DeleteItem.tsx), opened from the
+          item's actions menu (ItemActionsMenu, rendered in the items table columns),
+          runs a react-query mutation that calls ItemsService.deleteItem({ path: { id } }).
+        where: frontend/src/components/Items/DeleteItem.tsx:33-38,50-52; frontend/src/components/Items/ItemActionsMenu.tsx:30; frontend/src/components/Items/columns.tsx:70
+      - id: http
+        critical: true
+        text: >-
+          The generated client sends DELETE /api/v1/items/{id} with bearer auth; the
+          token is read from localStorage "access_token" by the auth callback set in
+          main.tsx and sent as "Authorization: Bearer <token>".
+        where: frontend/src/client/sdk.gen.ts:325-331; frontend/src/main.tsx:17-20; frontend/src/client/core/auth.gen.ts:22-34
+      - id: backend
+        critical: true
+        text: >-
+          Backend delete_item (backend/app/api/routes/items.py) gets the current user
+          from the JWT (CurrentUser -> get_current_user), returns 404 if the item
+          doesn't exist, 403 if the user is neither superuser nor owner, otherwise
+          deletes and commits.
+        where: backend/app/api/routes/items.py:99-113; backend/app/api/deps.py:30-49
+      - id: refresh
+        critical: true
+        text: >-
+          On success it shows a toast and closes the dialog; onSettled invalidates
+          all react-query queries, so the items list refetches.
+        where: frontend/src/components/Items/DeleteItem.tsx:39-47
+      - id: auth-error
+        critical: false
+        text: >-
+          A 401/403 from any query or mutation is handled globally in main.tsx:
+          the token is removed and the browser goes to /login.
+        where: frontend/src/main.tsx:22-38
+
+  - id: tpl-4
+    repo: fastapi-template
+    type: behavior
+    question: >-
+      How does the frontend decide whether the user is logged in, and what happens
+      when their token has expired or is invalid?
+    facts:
+      - id: presence-only
+        critical: true
+        text: >-
+          isLoggedIn() only checks that localStorage has an "access_token"; it never
+          checks expiry or validity.
+        where: frontend/src/hooks/useAuth.ts:14-16
+      - id: route-guards
+        critical: true
+        text: >-
+          The /_layout route's beforeLoad redirects to /login when not logged in, and
+          the /login route redirects to / when already logged in.
+        where: frontend/src/routes/_layout.tsx:12-21; frontend/src/routes/login.tsx:35-43
+      - id: backend-rejects
+        critical: true
+        text: >-
+          An expired/invalid token is rejected by the backend's get_current_user
+          (JWT decode fails -> 403 "Could not validate credentials").
+        where: backend/app/api/deps.py:30-40
+      - id: global-handler
+        critical: true
+        text: >-
+          The frontend's global react-query error handler (handleApiError in
+          main.tsx) catches 401/403, removes the token and redirects to /login.
+        where: frontend/src/main.tsx:22-38
+      - id: login-stores
+        critical: false
+        text: >-
+          Login stores the token from LoginService.loginAccessToken in localStorage;
+          logout removes it and navigates to /login.
+        where: frontend/src/hooks/useAuth.ts:41-59
+
+  - id: tpl-5
+    repo: fastapi-template
+    type: usage
+    question: >-
+      Where is SECRET_KEY used in the backend, and what happens at startup if it is
+      left as "changethis"?
+    facts:
+      - id: access-tokens
+        critical: true
+        text: >-
+          It signs access tokens (security.create_access_token) and verifies them in
+          get_current_user (jwt.decode).
+        where: backend/app/core/security.py:25; backend/app/api/deps.py:32-34
+      - id: reset-tokens
+        critical: true
+        text: >-
+          It also signs and verifies password-reset tokens
+          (generate_password_reset_token / verify_password_reset_token in
+          backend/app/utils.py).
+        where: backend/app/utils.py:105-125
+      - id: changethis
+        critical: true
+        text: >-
+          Settings validation (_enforce_non_default_secrets -> _check_default_secret)
+          raises ValueError for "changethis" unless FASTAPI_ENV is "development", in
+          which case it only warns.
+        where: backend/app/core/config.py:68-88
+      - id: other-secrets
+        critical: false
+        text: >-
+          The same check applies to the database password and
+          FIRST_SUPERUSER_PASSWORD.
+        where: backend/app/core/config.py:82-86
+
+  # ---------------------------------------------------------------- httpx
+  - id: httpx-1
+    repo: httpx
+    type: trace
+    question: >-
+      How does httpx's Client follow redirects? Trace the code path from
+      Client.send() and explain how the redirected request's method, headers and
+      body are decided.
+    facts:
+      - id: default-off
+        critical: true
+        text: >-
+          Redirects are not followed by default (follow_redirects=False); then the
+          redirect response is returned with response.next_request set.
+        where: httpx/_client.py:197,654,991-995
+      - id: path
+        critical: true
+        text: >-
+          send() -> _send_handling_auth() -> _send_handling_redirects(), which loops:
+          _send_single_request() (transport.handle_request), and if the response has
+          a redirect location builds the next request with _build_redirect_request().
+        where: httpx/_client.py:879-928,930-962,964-999,1001-1034,475-492
+      - id: method
+        critical: true
+        text: >-
+          _redirect_method: 303 -> GET (unless HEAD), 302 -> GET (unless HEAD), and a
+          POST answered with 301 -> GET; otherwise the method is kept.
+        where: httpx/_client.py:494-515
+      - id: headers-body
+        critical: true
+        text: >-
+          _redirect_headers drops Authorization when redirecting to a different
+          origin (except a same-host http->https upgrade) and updates Host; when the
+          method changes to GET it drops Content-Length/Transfer-Encoding and the body
+          (_redirect_stream); the Cookie header is always dropped and rebuilt from the
+          client cookie store.
+        where: httpx/_client.py:546-582,484
+      - id: max
+        critical: false
+        text: >-
+          More than max_redirects (default 20) raises TooManyRedirects; relative
+          Location headers are joined onto the request URL.
+        where: httpx/_client.py:971-974,537-538; httpx/_config.py:248
+
+  - id: httpx-2
+    repo: httpx
+    type: impact
+    question: >-
+      If I change the signature of BaseTransport.handle_request, which classes and
+      call sites in httpx (not tests) are affected?
+    facts:
+      - id: implementers
+        critical: true
+        text: >-
+          Implementations: HTTPTransport (_transports/default.py), WSGITransport
+          (_transports/wsgi.py) and MockTransport (_transports/mock.py, which
+          implements both the sync and async interfaces).
+        where: httpx/_transports/default.py:135,230; httpx/_transports/wsgi.py:44,91; httpx/_transports/mock.py:15,19
+      - id: call-site
+        critical: true
+        text: >-
+          The call site is Client._send_single_request, which calls
+          transport.handle_request(request) on the transport chosen by
+          _transport_for_url (mounts/proxy transports or the default _transport).
+        where: httpx/_client.py:1001-1014,760-769
+      - id: async-separate
+        critical: false
+        text: >-
+          The async side (AsyncBaseTransport.handle_async_request, AsyncHTTPTransport,
+          ASGITransport, AsyncClient) is a separate interface and not directly
+          affected.
+        where: httpx/_transports/base.py:65-86; httpx/_transports/asgi.py:63,99; httpx/_transports/default.py:279,374
+      - id: user-transports
+        critical: false
+        text: >-
+          Custom transports users pass via Client(transport=...) or mounts= would
+          also have to change.
+        where: httpx/_client.py:711-714,728-729
+      - id: httpcore
+        critical: false
+        text: >-
+          HTTPTransport.handle_request itself calls httpcore's pool.handle_request,
+          which is httpcore's own API and unaffected.
+        where: httpx/_transports/default.py:249-250
+
+  - id: httpx-3
+    repo: httpx
+    type: trace
+    question: >-
+      Where is the request timeout configured in httpx, and how does it get from
+      the Client down to the network layer? What exceptions come out when it fires?
+    facts:
+      - id: config
+        critical: true
+        text: >-
+          Timeout (httpx/_config.py) holds connect/read/write/pool values; the client
+          default is Timeout(5.0) for all four, and Client(timeout=...) stores
+          Timeout(timeout).
+        where: httpx/_config.py:72-138,246; httpx/_client.py:196,212
+      - id: extensions
+        critical: true
+        text: >-
+          build_request() puts timeout.as_dict() into request.extensions["timeout"]
+          (a per-request timeout overrides the client's); send() fills it in via
+          _set_timeout() if missing.
+        where: httpx/_client.py:370-377,584-591,910
+      - id: transport
+        critical: true
+        text: >-
+          HTTPTransport.handle_request passes request.extensions (including the
+          timeout) into the httpcore.Request, and httpcore enforces it.
+        where: httpx/_transports/default.py:237-250
+      - id: exceptions
+        critical: true
+        text: >-
+          map_httpcore_exceptions converts httpcore timeouts to httpx
+          ConnectTimeout / ReadTimeout / WriteTimeout / PoolTimeout (subclasses of
+          TimeoutException), picking the most specific.
+        where: httpx/_transports/default.py:74-118
+      - id: forms
+        critical: false
+        text: >-
+          Timeout accepts a single float, a tuple, another Timeout, or all four
+          values; without a default and not all four set, it raises ValueError.
+        where: httpx/_config.py:86-130
+
+  - id: httpx-4
+    repo: httpx
+    type: explain
+    question: How does DigestAuth work in httpx, and how does the client drive it?
+    facts:
+      - id: generator
+        critical: true
+        text: >-
+          Auth classes are generators (auth_flow). The client calls
+          auth.sync_auth_flow(request) in _send_handling_auth, sends the first
+          yielded request, and feeds each response back with .send(response) until
+          the generator stops; intermediate responses go into history.
+        where: httpx/_auth.py:38-85; httpx/_client.py:930-962
+      - id: challenge
+        critical: true
+        text: >-
+          DigestAuth.auth_flow sends the request; if the response is a 401 with a
+          "WWW-Authenticate: Digest ..." header, it parses the challenge (realm,
+          nonce, algorithm default MD5, opaque, qop; missing fields -> ProtocolError),
+          builds an Authorization header and yields the request again.
+        where: httpx/_auth.py:193-222,224-253
+      - id: header
+        critical: true
+        text: >-
+          The response hash: HA1 = H(username:realm:password) (re-hashed with nonce
+          and cnonce for -sess algorithms), HA2 = H(method:path), response =
+          H(HA1:nonce:nc:cnonce:qop:HA2), or H(HA1:nonce:HA2) with no qop. The hash
+          function comes from the algorithm (MD5, SHA, SHA-256, SHA-512).
+        where: httpx/_auth.py:176-185,255-301
+      - id: qop
+        critical: false
+        text: Only qop "auth" is supported; "auth-int" raises NotImplementedError.
+        where: httpx/_auth.py:329-340
+      - id: reuse
+        critical: false
+        text: >-
+          The last challenge is kept, so later requests send the Authorization
+          header up front (nonce count incremented each time); response cookies are
+          copied onto the retry.
+        where: httpx/_auth.py:190-197,215,220-221,270-272
+
+  - id: httpx-5
+    repo: httpx
+    type: explain
+    question: >-
+      How does Response.text turn the raw response body into a string? Cover both
+      decompression and character-encoding selection.
+    facts:
+      - id: text
+        critical: true
+        text: >-
+          .text requires the content to have been read (.content raises
+          ResponseNotRead otherwise) and decodes it with TextDecoder using
+          self.encoding (fallback utf-8), an incremental codec with errors="replace".
+        where: httpx/_models.py:636-650; httpx/_decoders.py:306-318
+      - id: encoding-order
+        critical: true
+        text: >-
+          Encoding priority: explicitly set .encoding; else the charset in the
+          Content-Type header if it is a known encoding; else default_encoding,
+          either a string or a callable run on the content (for autodetection);
+          finally utf-8.
+        where: httpx/_models.py:652-672,688-697
+      - id: default-encoding
+        critical: false
+        text: >-
+          default_encoding comes from the Client (default "utf-8"), set on each
+          response in _send_single_request.
+        where: httpx/_client.py:202,1023
+      - id: decompress
+        critical: true
+        text: >-
+          Decompression happens earlier, while reading bytes: iter_bytes uses
+          _get_content_decoder, which picks decoders from Content-Encoding (gzip,
+          deflate, br, zstd when installed; several -> MultiDecoder; none ->
+          IdentityDecoder); read() joins iter_bytes into .content.
+        where: httpx/_models.py:699-722,876-905; httpx/_decoders.py:381-393
+      - id: setter
+        critical: false
+        text: Setting .encoding after .text has been accessed raises ValueError.
+        where: httpx/_models.py:674-686
+
+# Amendment log
+# (none yet)
