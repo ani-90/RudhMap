@@ -1,0 +1,203 @@
+{
+  "answer": "**Short answer:** The frontend only checks whether a token is *stored*. Validity is checked by the backend, and the frontend reacts to 401/403 responses.\n\n**Deciding \"logged in\"**\n- `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`).\n- The `_layout` route calls it to guard protected pages (`frontend/src/routes/_layout.tsx:15`, per the call graph; I didn't read the guard body).\n- `useAuth` fetches `/users/me` only when `isLoggedIn()` is true (`frontend/src/hooks/useAuth.ts:23-27`).\n\n**Obtaining and sending the token**\n- Login posts to `/login/access-token`, then stores the token in localStorage (`frontend/src/hooks/useAuth.ts:41-46`).\n- The generated client adds the bearer header per request via `setAuthParams` \u2192 `getAuthToken` (`frontend/src/client/client/utils.gen.ts:95-121`, `frontend/src/client/core/auth.gen.ts:22-41`). The `beforeRequest` hook at `frontend/src/client/client/client.gen.ts:53` triggers this. I did not confirm where the token callback reads localStorage.\n\n**Expired or invalid token**\n- Backend: `get_current_user` returns **403** \"Could not validate credentials\" on a JWT decode or validation failure (`backend/app/api/deps.py:36-40`). It returns 404 if the user is missing and 400 if the user is inactive (`deps.py:41-45`).\n- Frontend: `handleApiError` treats 401 and 403 as session-expired. It removes `access_token` and sets `window.location.href = \"/login\"` (`frontend/src/main.tsx:22-30`).\n- `logout()` clears the token and navigates to `/login` (`frontend/src/hooks/useAuth.ts:56-59`).\n\n**Gaps I found**\n- `handleApiError` has no callers in the repo. I didn't find where it is registered, likely as a query/mutation cache error handler in `main.tsx`. Without that wiring, an expired token would leave the user on a broken page.\n- A 400 or 404 from the backend does not trigger the redirect.\n- `useAuth`'s `currentUser` query defines no `onError` handler of its own.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 17,
+  "model_calls": 6,
+  "cost_usd": 0.0046568600000000005,
+  "duration_ms": 19304,
+  "tokens": {
+    "input": 12,
+    "cache_write": 12845,
+    "cache_read": 54916,
+    "output": 3075,
+    "context": 12857,
+    "total": 70848
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {
+        "path": ""
+      },
+      "result_chars": 5469,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "token expired invalid logout login auth"
+      },
+      "result_chars": 1265,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/hooks/useAuth.ts",
+        "detail": "full"
+      },
+      "result_chars": 524,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/main.tsx",
+        "detail": "full"
+      },
+      "result_chars": 162,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/_layout.tsx",
+        "detail": "full"
+      },
+      "result_chars": 134,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/deps.py",
+        "detail": "full"
+      },
+      "result_chars": 428,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "useAuth",
+        "detail": "full"
+      },
+      "result_chars": 3404,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "handleApiError",
+        "detail": "full"
+      },
+      "result_chars": 482,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "get_current_user",
+        "detail": "full"
+      },
+      "result_chars": 1225,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "getAuthToken",
+        "detail": "full"
+      },
+      "result_chars": 881,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Layout",
+        "detail": "full"
+      },
+      "result_chars": 303,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/_layout.tsx:Layout",
+        "detail": "full"
+      },
+      "result_chars": 1510,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/main.tsx:handleApiError",
+        "detail": "outline"
+      },
+      "result_chars": 201,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "access_token localStorage OpenAPI.TOKEN bearer"
+      },
+      "result_chars": 1372,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "setAuthParams",
+        "detail": "full"
+      },
+      "result_chars": 1915,
+      "model_call": 5,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/login.tsx:Login",
+        "detail": "full"
+      },
+      "result_chars": 4771,
+      "model_call": 5,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 22.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": true,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [
+      "Claims handleApiError has no callers/registration found in the repo and that without wiring an expired token would leave the user on a broken page; per the key it is the global react-query error handler in main.tsx that catches 401/403, so this gap claim is misleading.",
+      "handleApiError has no callers in the repo / not registered, implying without wiring an expired token would leave user on a broken page (key says it is the global react-query error handler in main.tsx)",
+      "handleApiError has no callers / wiring not found, implying an expired token would leave the user on a broken page (key says it is the global react-query error handler in main.tsx that catches 401/403)"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

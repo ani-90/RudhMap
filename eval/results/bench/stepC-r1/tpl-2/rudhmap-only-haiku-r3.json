@@ -1,0 +1,150 @@
+{
+  "answer": "**Direct callers of `get_user_by_email`** (defined at `backend/app/crud.py:34`, a keyword-only `(*, session, email)` lookup that returns `User | None`). All 8 are application code. None are tests.\n\n**`backend/app/api/routes/login.py`**\n- `recover_password` (L54-74, L58): checks existence, then emails a reset link only if the user exists. Returns the same message either way, to prevent enumeration.\n- `reset_password` (L78-97, L85): resolves the user from the token's email. Raises 400 if missing, 400 if inactive, then updates the password via `crud.update_user`.\n- `recover_password_html_content` (L105-123, L109): superuser-only. Raises 404 if missing, otherwise builds the reset email HTML and returns it.\n- `authenticate` in `crud.py` (L45-60, L46), called by `login_access_token` (login.py:30): returns the user for password verification. A missing user still runs a dummy hash to prevent timing attacks.\n\n**`backend/app/api/routes/users.py`**\n- `create_user` (L57-78, L61): rejects with 400 if the email exists, otherwise calls `crud.create_user`.\n- `register_user` (L147-159, L151): same duplicate-email check as above, for public signup.\n- `update_user_me` (L82-100, L90): rejects with 409 if the email belongs to a different user.\n- `update_user` (L187-211, L204): same 409 check, for superusers editing another user.\n\n**Impact of changing the signature**\n- All 8 callers use keyword arguments (`session=..., email=...`). Renaming `email` or `session` breaks every call site. Changing the return type to something other than `User | None` affects the `if user:` / `if not user:` branches in all of them.\n- Callers rely on the `User` object's `.email`, `.is_active`, `.id`, and `.hashed_password` fields.\n- Only `authenticate` depends on the lookup's internal behavior (the timing-safe dummy path).\n\nThe call graph is static, so it could miss dynamic or string-based references. A quick grep for `get_user_by_email` before changing it would confirm.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 13,
+  "model_calls": 4,
+  "cost_usd": 0.00289865,
+  "duration_ms": 12354,
+  "tokens": {
+    "input": 8,
+    "cache_write": 8460,
+    "cache_read": 26885,
+    "output": 1874,
+    "context": 8468,
+    "total": 37227
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "get_user_by_email"
+      },
+      "result_chars": 1456,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password"
+      },
+      "result_chars": 1969,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "reset_password"
+      },
+      "result_chars": 2003,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password_html_content"
+      },
+      "result_chars": 2002,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_user"
+      },
+      "result_chars": 486,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user_me"
+      },
+      "result_chars": 1559,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "register_user"
+      },
+      "result_chars": 1573,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user"
+      },
+      "result_chars": 361,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "authenticate"
+      },
+      "result_chars": 1728,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:create_user"
+      },
+      "result_chars": 2250,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:update_user"
+      },
+      "result_chars": 2187,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 15.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

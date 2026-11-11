@@ -1,0 +1,60 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:20-52`) handles `POST /api/feed/refresh`. It starts a background news-ingestion run, unless a cooldown is still active.\n\n**Steps**\n\n1. **Cooldown check (L26-42).** It calls `crud.get_last_successful_run(db)` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, L17) ago, it returns early with `status=\"skipped\"`, the last run's `run_id`, and the remaining cooldown. Naive datetimes are treated as UTC (L30-31).\n2. **Resolve domains (L44).** `request.resolved_domains()` (`app/schemas/feed.py:11-14`) returns all configured `DOMAINS` if none were requested, otherwise only the requested ones that are valid.\n3. **Create the run (L45-48).** It generates a UUID, calls `crud.create_pipeline_run` (`crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`crud.py:121`), which commits.\n4. **Schedule work (L50).** It registers `_run_pipeline_bg` with `background_tasks.add_task`.\n5. **Return (L52).** It returns `FeedRefreshResponse(status=\"running\")` immediately.\n\n**After it returns**\n\nFastAPI sends the response, then runs `_run_pipeline_bg` (`feed.py:55-72`). That calls `run_pipeline(run_id, user_id, domains)` (`app/pipeline/graph.py:69`). I did not read `graph.py`, so I can't say how the pipeline ends or whether it sets the run's final status. If `run_pipeline` raises, the handler opens a new session, marks the run `\"failed\"` with the error in `error_log`, and sets `finished_at` (L59-72). Clients poll `GET /api/feed/status/{run_id}` (L75-88) to see progress.\n\n**Observations**\n\n- The cooldown check is based on the last *successful* run. A failed run therefore does not block a retry.\n- On the skipped path, the response contains the previous run's `run_id`, not a new one.\n- The `crud` calls are synchronous inside an `async` function, so they block the event loop while they run.\n- `_run_pipeline_bg` re-imports `datetime`, which shadows the module-level import. This is harmless.\n- Nothing in the repo calls `refresh_feed` directly. Only HTTP clients reach it.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 2,
+  "cost_usd": 0.0017148,
+  "duration_ms": 8330,
+  "tokens": {
+    "input": 4,
+    "cache_write": 4605,
+    "cache_read": 14190,
+    "output": 1303,
+    "context": 4609,
+    "total": 20102
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 3075,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\feed.py"
+      },
+      "result_chars": 7516,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 11.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

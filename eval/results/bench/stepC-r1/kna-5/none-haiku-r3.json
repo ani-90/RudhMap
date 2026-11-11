@@ -1,0 +1,110 @@
+{
+  "answer": "**Generation** (`app/api/quiz.py:22-64`)\n\n1. `generate_quiz` loads the article. If it has no summary, it calls `groq_client.summarize` on the raw content and saves the result (`quiz.py:28-31`).\n2. It sends the summary to `groq_client.generate_quiz` (`quiz.py:33`). That function uses a system prompt asking for exactly 3 MCQs as a JSON array with `question`, `options` A-D, `answer`, and `explanation` (`app/services/groq_client.py:28-35`, `88-97`). The reply goes through `_extract_json`, which strips markdown fences, and the list is capped at 3. Any parse failure returns `[]`, and the endpoint responds 422 (`quiz.py:34-35`).\n3. `crud.create_quiz_session` stores the full question list, including answers, as `questions_json` (`app/db/crud.py:141-152`).\n4. The response includes only question text, options, and explanation. `answer` is left out, so the client never sees the key (`quiz.py:45-64`).\n\n**Scoring** (`app/api/quiz.py:67-96`)\n\n1. The endpoint rejects unknown sessions with 404 and already-submitted sessions with 409 (`quiz.py:69-73`).\n2. `crud.submit_quiz_session` compares each answer to the stored key, case-insensitively. It counts the matches and sets `score = correct / total` (0.0 if there are no questions). It also saves the answers and a `submitted_at` timestamp (`app/db/crud.py:155-171`).\n3. The endpoint rebuilds a per-question breakdown with your answer, the correct answer, `is_correct`, and the explanation (`quiz.py:76-88`). It returns the score rounded to 3 decimals, plus `correct_count` and `total_questions` (`quiz.py:90-96`).\n\nAverages for the user's stats use only submitted sessions (`app/db/crud.py:191-209`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0021711700000000005,
+  "duration_ms": 11551,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5123,
+    "cache_read": 29827,
+    "output": 1695,
+    "context": 5131,
+    "total": 36653
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "quiz",
+        "-i": true,
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 479,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\quiz.py"
+      },
+      "result_chars": 3454,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "quiz|score|correct",
+        "-i": true,
+        "-n": true,
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py"
+      },
+      "result_chars": 1469,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def |quiz|question",
+        "-i": true,
+        "-n": true,
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\groq_client.py"
+      },
+      "result_chars": 907,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py",
+        "offset": 139,
+        "limit": 40
+      },
+      "result_chars": 1467,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\groq_client.py",
+        "offset": 28,
+        "limit": 70
+      },
+      "result_chars": 2867,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-5",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 12.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "summary-first": true,
+      "generate": true,
+      "answers-hidden": true,
+      "scoring": true,
+      "groq-retry": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "answer": "**Flow:** `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` (904-908) and calls `_send_handling_auth` (919), which calls `_send_handling_redirects` (942). That loop is where redirects happen.\n\n- **Loop:** It fails with `TooManyRedirects` once `len(history) > max_redirects` (971-974). It returns the response unchanged if there is no redirect `Location` (985-986). Otherwise it builds the next request (988) and appends the response to history (989).\n- **Stop or follow:** If `follow_redirects` is false, the redirect request is stored on `response.next_request` and returned (991-995). If true, the redirect body is read and the loop continues (992).\n\n**Method** (`_redirect_method`, 494-515):\n- 303 becomes GET unless the method is HEAD (502-503).\n- 302 becomes GET unless the method is HEAD (507-508).\n- 301 becomes GET only for POST (512-513).\n- 307 and 308 keep the original method.\n\n**Headers** (`_redirect_headers`, 546-571), starting from a copy of the original headers (550):\n- Cross-origin: `Authorization` is removed unless the redirect is an HTTP-to-HTTPS upgrade (552-556), and `Host` is reset to the new origin (559).\n- Switching to GET removes `Content-Length` and `Transfer-Encoding` (561-565).\n- `Cookie` is always removed (569). The new request gets cookies from the client jar via `Cookies(self.cookies)` (484).\n\n**Body** (`_redirect_stream`, 573-582): If the method changed to GET, the stream is `None` (579-580). Otherwise the original `request.stream` is reused as-is (582). Nothing rewinds it, so a one-shot body on a 307/308 is not resent.\n\n**URL** (`_redirect_url`, 517-544): Relative `Location` values are joined to the current URL (537-538), and the original fragment is kept if the new URL has none (541-542).\n\nThe new `Request` is assembled in `_build_redirect_request` (475-492). I did not read the `_same_origin` and `_is_https_redirect` helpers, so the origin checks rely on their names. The async client mirrors this logic at `_client.py:1679`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0019511099999999998,
+  "duration_ms": 11302,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4293,
+    "cache_read": 20191,
+    "output": 1780,
+    "context": 4299,
+    "total": 26270
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def send\\(|def _send_handling_redirects|def _redirect_method|def _redirect_headers|def _redirect_stream|def _build_redirect_request|def rewind_body|max_redirects",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1419,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 475,
+        "limit": 125
+      },
+      "result_chars": 5173,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 879,
+        "limit": 120
+      },
+      "result_chars": 4110,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 12.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

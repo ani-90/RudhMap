@@ -1,0 +1,747 @@
+{
+  "repos": {
+    "knowledge-news-app": {
+      "files": 32,
+      "symbols": 134,
+      "build_s": 0.89
+    },
+    "fastapi-template": {
+      "files": 121,
+      "symbols": 499,
+      "build_s": 1.74
+    },
+    "httpx": {
+      "files": 23,
+      "symbols": 544,
+      "build_s": 1.18
+    },
+    "rich": {
+      "files": 144,
+      "symbols": 1303,
+      "build_s": 3.61
+    }
+  },
+  "size": {
+    "knowledge-news-app": {
+      "calls": 291,
+      "per_tool": {
+        "repo_map": {
+          "n": 6,
+          "max": 582,
+          "median": 121.5,
+          "budget": 1500
+        },
+        "show": {
+          "n": 110,
+          "max": 929,
+          "median": 100.5,
+          "budget": 2000
+        },
+        "trace": {
+          "n": 125,
+          "max": 401,
+          "median": 39,
+          "budget": 800
+        },
+        "find_symbol": {
+          "n": 50,
+          "max": 365,
+          "median": 209.5,
+          "budget": 400
+        }
+      },
+      "over_budget": [],
+      "outputs_with_a_stated_cut": 68
+    },
+    "fastapi-template": {
+      "calls": 291,
+      "per_tool": {
+        "repo_map": {
+          "n": 6,
+          "max": 1332,
+          "median": 124.0,
+          "budget": 1500
+        },
+        "show": {
+          "n": 110,
+          "max": 1135,
+          "median": 171.0,
+          "budget": 2000
+        },
+        "trace": {
+          "n": 125,
+          "max": 781,
+          "median": 47,
+          "budget": 800
+        },
+        "find_symbol": {
+          "n": 50,
+          "max": 396,
+          "median": 257.0,
+          "budget": 400
+        }
+      },
+      "over_budget": [],
+      "outputs_with_a_stated_cut": 73
+    },
+    "httpx": {
+      "calls": 288,
+      "per_tool": {
+        "repo_map": {
+          "n": 3,
+          "max": 882,
+          "median": 880,
+          "budget": 1500
+        },
+        "show": {
+          "n": 110,
+          "max": 1897,
+          "median": 136.5,
+          "budget": 2000
+        },
+        "trace": {
+          "n": 125,
+          "max": 434,
+          "median": 32,
+          "budget": 800
+        },
+        "find_symbol": {
+          "n": 50,
+          "max": 354,
+          "median": 230.5,
+          "budget": 400
+        }
+      },
+      "over_budget": [],
+      "outputs_with_a_stated_cut": 52
+    },
+    "rich": {
+      "calls": 291,
+      "per_tool": {
+        "repo_map": {
+          "n": 6,
+          "max": 1418,
+          "median": 105.5,
+          "budget": 1500
+        },
+        "show": {
+          "n": 110,
+          "max": 1983,
+          "median": 145.0,
+          "budget": 2000
+        },
+        "trace": {
+          "n": 125,
+          "max": 786,
+          "median": 36,
+          "budget": 800
+        },
+        "find_symbol": {
+          "n": 50,
+          "max": 400,
+          "median": 242.0,
+          "budget": 400
+        }
+      },
+      "over_budget": [],
+      "outputs_with_a_stated_cut": 55
+    }
+  },
+  "find": {
+    "top3": 29,
+    "total": 30,
+    "accuracy": 0.967,
+    "misses": [
+      {
+        "repo": "fastapi-template",
+        "query": "authenticate user password",
+        "rank": 4,
+        "top3": [
+          "backend/app/api/routes/users.py:update_password_me",
+          "frontend/src/client/sdk.gen.ts:UsersService.updatePasswordMe",
+          "frontend/src/components/UserSettings/ChangePassword.tsx:ChangePassword"
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "repo": "knowledge-news-app",
+        "query": "refresh feed",
+        "rank": 1,
+        "top3": [
+          "app/api/feed.py:refresh_feed",
+          "app/schemas/feed.py:FeedRefreshResponse",
+          "app/schemas/feed.py:FeedRefreshRequest"
+        ]
+      },
+      {
+        "repo": "knowledge-news-app",
+        "query": "quiz submit score",
+        "rank": 1,
+        "top3": [
+          "app/api/quiz.py:submit_quiz",
+          "app/db/crud.py:submit_quiz_session",
+          "app/schemas/quiz.py:QuizSubmitResponse"
+        ]
+      },
+      {
+        "repo": "knowledge-news-app",
+        "query": "similarity search",
+        "rank": 1,
+        "top3": [
+          "app/db/qdrant.py:search_similar",
+          "app/services/tavily_client.py:search",
+          "app/services/newsapi_client.py:search"
+        ]
+      },
+      {
+        "repo": "knowledge-news-app",
+        "query": "groq rate limit retry",
+        "rank": 1,
+        "top3": [
+          "app/services/groq_client.py:_call_messages",
+          "app/services/groq_client.py",
+          "app/services/groq_client.py:_call"
+        ]
+      },
+      {
+        "repo": "knowledge-news-app",
+        "query": "daily scheduler",
+        "rank": 1,
+        "top3": [
+          "app/scheduler.py:_daily_refresh",
+          "app/scheduler.py",
+          "app/scheduler.py:start_scheduler"
+        ]
+      },
+      {
+        "repo": "knowledge-news-app",
+        "query": "debate",
+        "rank": 3,
+        "top3": [
+          "app/api/debate.py",
+          "app/schemas/debate.py",
+          "app/api/debate.py:debate_message"
+        ]
+      },
+      {
+        "repo": "knowledge-news-app",
+        "query": "bulk insert articles",
+        "rank": 1,
+        "top3": [
+          "app/db/crud.py:bulk_insert_articles",
+          "app/db/qdrant.py:upsert_articles",
+          "app/db/crud.py:get_articles_by_domain"
+        ]
+      },
+      {
+        "repo": "knowledge-news-app",
+        "query": "normalize url",
+        "rank": 1,
+        "top3": [
+          "app/pipeline/agents/base_agent.py:_normalise_url",
+          "app/db/crud.py:get_articles_by_urls",
+          "app/services/scraper.py:enrich_content"
+        ]
+      },
+      {
+        "repo": "knowledge-news-app",
+        "query": "fetch articles tavily",
+        "rank": 3,
+        "top3": [
+          "app/db/qdrant.py:upsert_articles",
+          "app/services/scraper.py:_fetch_and_extract",
+          "app/pipeline/agents/base_agent.py:BaseAgent._fetch_all"
+        ]
+      },
+      {
+        "repo": "knowledge-news-app",
+        "query": "run pipeline",
+        "rank": 1,
+        "top3": [
+          "app/pipeline/graph.py:run_pipeline",
+          "app/api/feed.py:_run_pipeline_bg",
+          "app/db/crud.py:update_pipeline_run"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "login access token",
+        "rank": 1,
+        "top3": [
+          "backend/app/api/routes/login.py:login_access_token",
+          "frontend/src/client/sdk.gen.ts:LoginService.loginAccessToken",
+          "backend/app/api/routes/login.py:test_token"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "authenticate user password",
+        "rank": 4,
+        "top3": [
+          "backend/app/api/routes/users.py:update_password_me",
+          "frontend/src/client/sdk.gen.ts:UsersService.updatePasswordMe",
+          "frontend/src/components/UserSettings/ChangePassword.tsx:ChangePassword"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "current user",
+        "rank": 1,
+        "top3": [
+          "backend/app/api/deps.py:get_current_user",
+          "backend/app/api/routes/users.py:read_user_me",
+          "frontend/src/components/Admin/AddUser.tsx:AddUser"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "create access token",
+        "rank": 1,
+        "top3": [
+          "backend/app/core/security.py:create_access_token",
+          "backend/app/api/routes/login.py:login_access_token",
+          "frontend/src/client/sdk.gen.ts:LoginService.loginAccessToken"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "password reset email",
+        "rank": 1,
+        "top3": [
+          "backend/app/utils.py:generate_reset_password_email",
+          "packages/react-email/emails/reset_password.tsx:ResetPassword",
+          "packages/react-email/emails/reset_password.tsx"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "delete item",
+        "rank": 1,
+        "top3": [
+          "frontend/src/components/Items/DeleteItem.tsx:DeleteItem",
+          "backend/app/api/routes/items.py:delete_item",
+          "frontend/src/client/sdk.gen.ts:ItemsService.deleteItem"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "is logged in",
+        "rank": 1,
+        "top3": [
+          "frontend/src/hooks/useAuth.ts:isLoggedIn",
+          "backend/app/api/routes/users.py:register_user",
+          "frontend/src/hooks/useMobile.ts:useIsMobile"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "useAuth",
+        "rank": 1,
+        "top3": [
+          "frontend/src/hooks/useAuth.ts:useAuth",
+          "frontend/src/hooks/useAuth.ts",
+          "frontend/src/hooks/useAuth.ts:useAuth.login"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "api error handler",
+        "rank": 1,
+        "top3": [
+          "frontend/src/main.tsx:handleApiError",
+          "frontend/src/utils.ts:handleError",
+          "frontend/src/components/Common/ErrorComponent.tsx:ErrorComponent"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "superuser",
+        "rank": 1,
+        "top3": [
+          "backend/app/api/deps.py:get_current_active_superuser"
+        ]
+      },
+      {
+        "repo": "fastapi-template",
+        "query": "default secret check",
+        "rank": 1,
+        "top3": [
+          "backend/app/core/config.py:Settings._check_default_secret",
+          "backend/app/core/config.py:Settings._enforce_non_default_secrets",
+          "frontend/src/client/core/utils.gen.ts:defaultPathSerializer"
+        ]
+      },
+      {
+        "repo": "httpx",
+        "query": "redirects",
+        "rank": 2,
+        "top3": [
+          "httpx/_client.py:BaseClient._redirect_stream",
+          "httpx/_client.py:Client._send_handling_redirects",
+          "httpx/_client.py:AsyncClient._send_handling_redirects"
+        ]
+      },
+      {
+        "repo": "httpx",
+        "query": "redirect method",
+        "rank": 1,
+        "top3": [
+          "httpx/_client.py:BaseClient._redirect_method",
+          "httpx/_client.py:BaseClient._build_redirect_request",
+          "httpx/_client.py:BaseClient._redirect_url"
+        ]
+      },
+      {
+        "repo": "httpx",
+        "query": "digest auth",
+        "rank": 1,
+        "top3": [
+          "httpx/_auth.py:DigestAuth",
+          "httpx/_auth.py:DigestAuth._build_auth_header.digest",
+          "httpx/_auth.py:_DigestAuthChallenge"
+        ]
+      },
+      {
+        "repo": "httpx",
+        "query": "Timeout",
+        "rank": 2,
+        "top3": [
+          "httpx/_client.py:BaseClient.timeout",
+          "httpx/_config.py:Timeout",
+          "httpx/_exceptions.py:TimeoutException"
+        ]
+      },
+      {
+        "repo": "httpx",
+        "query": "transport handle request",
+        "rank": 3,
+        "top3": [
+          "httpx/_transports/asgi.py:ASGITransport.handle_async_request",
+          "httpx/_transports/wsgi.py:WSGITransport.handle_request",
+          "httpx/_transports/default.py:HTTPTransport.handle_request"
+        ]
+      },
+      {
+        "repo": "httpx",
+        "query": "httpcore exceptions",
+        "rank": 1,
+        "top3": [
+          "httpx/_transports/default.py:map_httpcore_exceptions",
+          "httpx/_transports/default.py:_load_httpcore_exceptions",
+          "httpx/_exceptions.py:HTTPError"
+        ]
+      },
+      {
+        "repo": "httpx",
+        "query": "response encoding",
+        "rank": 1,
+        "top3": [
+          "httpx/_models.py:Response.encoding",
+          "httpx/_models.py:Response.charset_encoding",
+          "httpx/_content.py:encode_response"
+        ]
+      },
+      {
+        "repo": "httpx",
+        "query": "content decoder",
+        "rank": 2,
+        "top3": [
+          "httpx/_decoders.py:ContentDecoder",
+          "httpx/_models.py:Response._get_content_decoder",
+          "httpx/_decoders.py:ContentDecoder.flush"
+        ]
+      },
+      {
+        "repo": "httpx",
+        "query": "send single request",
+        "rank": 1,
+        "top3": [
+          "httpx/_client.py:Client._send_single_request",
+          "httpx/_client.py:AsyncClient._send_single_request",
+          "httpx/_transports/base.py:BaseTransport.handle_request"
+        ]
+      }
+    ]
+  },
+  "coverage": {
+    "covered": 12,
+    "total": 15,
+    "rows": [
+      {
+        "question": "kna-1",
+        "calls": [
+          [
+            "show",
+            "refresh_feed"
+          ],
+          [
+            "trace",
+            "refresh_feed"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 1119
+      },
+      {
+        "question": "kna-2",
+        "calls": [
+          [
+            "show",
+            "BaseAgent.run"
+          ],
+          [
+            "show",
+            "aggregator_node"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 2159
+      },
+      {
+        "question": "kna-3",
+        "calls": [
+          [
+            "find_symbol",
+            "scheduler"
+          ],
+          [
+            "show",
+            "start_scheduler"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 383
+      },
+      {
+        "question": "kna-4",
+        "calls": [
+          [
+            "show",
+            "search_similar"
+          ],
+          [
+            "show",
+            "aggregator_node"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 1641
+      },
+      {
+        "question": "kna-5",
+        "calls": [
+          [
+            "show",
+            "app/api/quiz.py:generate_quiz"
+          ],
+          [
+            "show",
+            "app/api/quiz.py:submit_quiz"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 1320
+      },
+      {
+        "question": "tpl-1",
+        "calls": [
+          [
+            "show",
+            "login_access_token"
+          ],
+          [
+            "show",
+            "authenticate"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 936
+      },
+      {
+        "question": "tpl-2",
+        "calls": [
+          [
+            "show",
+            "get_user_by_email"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 291
+      },
+      {
+        "question": "tpl-3",
+        "calls": [
+          [
+            "show",
+            "DeleteItem"
+          ],
+          [
+            "show",
+            "delete_item"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 1437
+      },
+      {
+        "question": "tpl-4",
+        "calls": [
+          [
+            "show",
+            "isLoggedIn"
+          ],
+          [
+            "show",
+            "handleApiError"
+          ]
+        ],
+        "covered": false,
+        "missing": [
+          "get_current_user"
+        ],
+        "tokens": 288
+      },
+      {
+        "question": "tpl-5",
+        "calls": [
+          [
+            "show",
+            "Settings"
+          ],
+          [
+            "show",
+            "Settings._enforce_non_default_secrets"
+          ]
+        ],
+        "covered": false,
+        "missing": [
+          "create_access_token",
+          "get_current_user",
+          "generate_password_reset_token",
+          "verify_password_reset_token",
+          "changethis"
+        ],
+        "tokens": 361
+      },
+      {
+        "question": "httpx-1",
+        "calls": [
+          [
+            "show",
+            "Client._send_handling_redirects"
+          ],
+          [
+            "show",
+            "BaseClient._build_redirect_request"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 1313
+      },
+      {
+        "question": "httpx-2",
+        "calls": [
+          [
+            "show",
+            "BaseTransport.handle_request"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 491
+      },
+      {
+        "question": "httpx-3",
+        "calls": [
+          [
+            "show",
+            "BaseClient.build_request"
+          ],
+          [
+            "show",
+            "HTTPTransport.handle_request"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 1627
+      },
+      {
+        "question": "httpx-4",
+        "calls": [
+          [
+            "show",
+            "DigestAuth.auth_flow"
+          ],
+          [
+            "show",
+            "Client._send_handling_auth"
+          ]
+        ],
+        "covered": true,
+        "missing": [],
+        "tokens": 1321
+      },
+      {
+        "question": "httpx-5",
+        "calls": [
+          [
+            "show",
+            "Response.text"
+          ],
+          [
+            "show",
+            "Response.encoding"
+          ]
+        ],
+        "covered": false,
+        "missing": [
+          "_get_content_decoder"
+        ],
+        "tokens": 658
+      }
+    ]
+  },
+  "determinism": {
+    "knowledge-news-app": {
+      "calls": 291,
+      "identical_twice": 291,
+      "identical_fresh_index": 291
+    },
+    "fastapi-template": {
+      "calls": 291,
+      "identical_twice": 291,
+      "identical_fresh_index": 291
+    },
+    "httpx": {
+      "calls": 288,
+      "identical_twice": 288,
+      "identical_fresh_index": 288
+    },
+    "rich": {
+      "calls": 291,
+      "identical_twice": 291,
+      "identical_fresh_index": 291
+    }
+  },
+  "latency_rich": {
+    "files": 144,
+    "symbols": 1304,
+    "cold_s": 9.51,
+    "warm_s_max": 0.184,
+    "warm_s_median": 0.108,
+    "after_edit_s": 2.63,
+    "edit_visible": true,
+    "cold_output_ok": true
+  }
+}

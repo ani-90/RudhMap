@@ -1,0 +1,89 @@
+{
+  "answer": "**Quiz generation** (`POST /api/quiz/generate`, `app/api/quiz.py:23-64`):\n\n1. The article is loaded by ID; a missing article returns 404 (`app/api/quiz.py:24-26`).\n2. If the article has no summary, the endpoint calls `groq_client.summarize` on `raw_content`, saves the summary and tags, and uses that summary from then on (`app/api/quiz.py:28-31`).\n3. It calls `groq_client.generate_quiz(article.summary)` (`app/api/quiz.py:33`). An empty result returns 422.\n4. It stores a `QuizSession` via `crud.create_quiz_session`, which keeps the questions as `questions_json` including each `answer` (`app/api/quiz.py:37-43`). `app/db/models.py:54` defines the model.\n5. It returns the questions with options A\u2013D and explanations, but not the answers. The response includes `session_id` (`app/api/quiz.py:45-64`).\n\nI did not open `groq_client.py`, so I can't say what prompt or model produces the questions.\n\n**Quiz scoring** (`POST /api/quiz/submit`, `app/api/quiz.py:67-96`):\n\n1. The session must exist (404) and must not already have `submitted_at` set (409) (`app/api/quiz.py:69-73`).\n2. `crud.submit_quiz_session` (`app/db/crud.py:155-171`) loads the stored questions and counts a question as correct when `user_answers.get(str(i))` matches `q[\"answer\"]`, case-insensitively. A missing answer counts as wrong.\n3. It saves `user_answers`, `correct_count`, `total_questions`, `score = correct / len(questions)` (0.0 if there are no questions), and `submitted_at` (UTC now), then commits (`app/db/crud.py:164-169`).\n4. The endpoint rebuilds the per-question breakdown from the stored questions, with `your_answer`, `correct_answer`, `is_correct`, and `explanation` (`app/api/quiz.py:78-88`). It returns the score rounded to 3 decimals, plus the correct and total counts (`app/api/quiz.py:90-96`).\n\nThe answer comparison is done twice, once in `crud.py:160-163` for the count and again in `quiz.py:80-86` for the breakdown. Both use the same rule, so they agree.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00184183,
+  "duration_ms": 11252,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4115,
+    "cache_read": 30253,
+    "output": 1431,
+    "context": 4123,
+    "total": 35807
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "quiz"
+      },
+      "result_chars": 711,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "score"
+      },
+      "result_chars": 749,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/api/quiz.py",
+        "detail": "full"
+      },
+      "result_chars": 268,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "submit_quiz_session",
+        "detail": "full"
+      },
+      "result_chars": 1179,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\quiz.py"
+      },
+      "result_chars": 3454,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-5",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 14.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "summary-first": true,
+      "generate": false,
+      "answers-hidden": true,
+      "scoring": true,
+      "groq-retry": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

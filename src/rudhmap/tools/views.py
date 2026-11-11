@@ -179,7 +179,10 @@ def find_symbol(index: RepoIndex, query: str, kind: str | None = None, limit: in
             if tokens(text) > FIND_BUDGET and similar:
                 text = "\n".join(head + hits + note)
             return text
-    if not results:
+    phrase = _phrase_matches(index, query) if len(_split_words(query)) >= 2 or not results else []
+    if phrase:
+        results = results[:4]  # leave room for the text matches
+    if not results and not phrase:
         return f'No symbols match "{query}". Try fewer or different words, or repo_map to browse.'
     lines = [f'{len(results)} matches for "{query}" (best first):']
     width = max(len(_loc(s)) for _, s in results)
@@ -187,11 +190,36 @@ def find_symbol(index: RepoIndex, query: str, kind: str | None = None, limit: in
         doc = f"  -- {symbol.doc}" if symbol.doc and len(symbol.doc) < 70 else ""
         what = symbol.file if symbol.kind == "module" else _short_sig(symbol, 90)
         lines.append(f"  {symbol.kind:<8} {_loc(symbol):<{width}}  {what}{_tag(symbol)}{doc}")
+    if phrase:
+        lines += ["lines containing all those words:"] + phrase
     text = "\n".join(lines)
     while tokens(text) > FIND_BUDGET and len(lines) > 2:
         lines.pop()
         text = "\n".join(lines) + "\n  (more matches cut; refine the query)"
     return text
+
+
+MAX_PHRASE_HITS = 5
+
+
+def _phrase_matches(index: RepoIndex, query: str) -> list[str]:
+    """Source lines containing every word of the query (case-insensitive),
+    with their enclosing definition: a compact grep inside RudhMap."""
+    words = [w.lower() for w in re.split(r"[^A-Za-z0-9_]+", query) if len(w) >= 2]
+    if not words:
+        return []
+    hits = []
+    for file in index.files:
+        for n, text in enumerate(index.lines(file), 1):
+            low = text.lower()
+            if all(w in low for w in words):
+                owner = enclosing(index, file, n)
+                snippet = " ".join(text.split())
+                snippet = snippet if len(snippet) <= 80 else snippet[:77] + "..."
+                hits.append(f"  {file}:{n}  [{owner.label if owner else 'module level'}]  {snippet}")
+                if len(hits) >= MAX_PHRASE_HITS:
+                    return hits
+    return hits
 
 
 # ---------------------------------------------------------------- resolving a symbol argument
@@ -284,6 +312,155 @@ def _decorator_start(index: RepoIndex, symbol: Symbol) -> int:
     return start
 
 
+_PY_VALUE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*(?::[^=]+)?=(?!=)\s*(.*)$")
+_TS_VALUE = re.compile(r"^(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=(?!=)\s*(.*)$")
+_PY_FROM_IMPORT = re.compile(r"^from\s+(\S+)\s+import\s+(.+)$")
+_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_STUB = re.compile(r"^(return(\s+(\[\]|\{\}|\(\)|None|''|\"\"|0|False|True))?|pass|\.\.\.|raise\s+NotImplementedError.*)$")
+MAX_MODULE_VALUES = 6
+
+
+def _module_values(index: RepoIndex, file: str) -> dict[str, tuple[int, str]]:
+    """Top-level `NAME = value` assignments of a file (not functions/classes):
+    constants, config objects, module singletons. name -> (line, one-line text)."""
+    cache = index.__dict__.setdefault("_module_values_cache", {})
+    if file in cache:
+        return cache[file]
+    lines = index.lines(file)
+    values: dict[str, tuple[int, str]] = {}
+    pattern = _PY_VALUE if file.endswith(".py") else _TS_VALUE
+    i = 0
+    while i < len(lines):
+        text = lines[i]
+        match = pattern.match(text) if text[:1] not in (" ", "\t") else None
+        if match and not match.group(2).lstrip().startswith(("(", "async (", "function")) or (
+                match and file.endswith(".py")):
+            rhs = match.group(2)
+            if not file.endswith(".py") and ("=>" in rhs.split("{")[0]):
+                i += 1
+                continue
+            joined, depth, j = text.strip(), 0, i
+            depth = sum(text.count(c) for c in "([{") - sum(text.count(c) for c in ")]}")
+            while depth > 0 and j + 1 < len(lines) and j - i < 6:
+                j += 1
+                joined += " " + lines[j].strip()
+                depth += sum(lines[j].count(c) for c in "([{") - sum(lines[j].count(c) for c in ")]}")
+            joined = " ".join(joined.split())
+            values.setdefault(match.group(1), (i + 1, joined if len(joined) <= 140 else joined[:137] + "..."))
+            i = j + 1
+            continue
+        i += 1
+    cache[file] = values
+    return values
+
+
+def _imported_values(index: RepoIndex, file: str) -> dict[str, tuple[str, int, str]]:
+    """Module values imported into a Python file with `from x import NAME`:
+    name -> (defining file, line, text). Only names that resolve to a scanned file."""
+    if not file.endswith(".py"):
+        return {}
+    cache = index.__dict__.setdefault("_imported_values_cache", {})
+    if file in cache:
+        return cache[file]
+    out: dict[str, tuple[str, int, str]] = {}
+    lines = index.lines(file)
+    for n, text in enumerate(lines):
+        match = _PY_FROM_IMPORT.match(text.strip())
+        if not match:
+            continue
+        module, names = match.group(1), match.group(2)
+        if names.strip().startswith("("):
+            k = n
+            while ")" not in names and k + 1 < len(lines) and k - n < 30:
+                k += 1
+                names += " " + lines[k].strip()
+        names = names.replace("(", " ").replace(")", " ")
+        if module.startswith("."):
+            level = len(module) - len(module.lstrip("."))
+            base = file.rsplit("/", 1)[0] if "/" in file else ""
+            for _ in range(level - 1):
+                base = base.rsplit("/", 1)[0] if "/" in base else ""
+            rel = module.lstrip(".").replace(".", "/")
+            candidates = [f"{base}/{rel}.py" if base else f"{rel}.py", f"{base}/{rel}/__init__.py"]
+        else:
+            rel = module.replace(".", "/")
+            candidates = [f for f in index.files if f.endswith("/" + rel + ".py") or f == rel + ".py"
+                          or f.endswith("/" + rel + "/__init__.py")]
+        target = next((c.lstrip("/") for c in candidates if c.lstrip("/") in index.by_id), None)
+        if target is None:
+            continue
+        values = _module_values(index, target)
+        for part in names.split(","):
+            name = part.strip().split(" as ")[0].strip()
+            alias = part.strip().split(" as ")[-1].strip()
+            if name in values:
+                out[alias] = (target, *values[name])
+    cache[file] = out
+    return out
+
+
+def _value_lines(index: RepoIndex, symbols: list[Symbol]) -> list[str]:
+    """Module values (constants, config, singletons) the shown code uses,
+    from its own file or imported into it -- the facts a body alone hides
+    (`ALGORITHM = "HS256"`, `password_hash = PasswordHash(...)`)."""
+    found: list[str] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        local = _module_values(index, symbol.file)
+        imported = _imported_values(index, symbol.file)
+        body = index.lines(symbol.file)[symbol.line - 1:symbol.end_line]
+        for word in dict.fromkeys(_WORD.findall("\n".join(body))):
+            if word in seen or word == symbol.name:
+                continue
+            if word in local:
+                line, text = local[word]
+                found.append(f"  {text}  ({symbol.file}:{line})")
+                seen.add(word)
+            elif word in imported:
+                target, line, text = imported[word]
+                found.append(f"  {text}  ({target}:{line})")
+                seen.add(word)
+            if len(found) >= MAX_MODULE_VALUES:
+                break
+    return ["module values used:"] + found if found else []
+
+
+def _stub_note(index: RepoIndex, symbol: Symbol) -> str:
+    """`  [stub: always returns []]` for a function whose body does nothing."""
+    if symbol.kind != "function":
+        return ""
+    body = [l.strip() for l in index.lines(symbol.file)[symbol.line:symbol.end_line] if l.strip()]
+    body = [l for l in body if not l.startswith(("#", '"""', "'''", "//"))]
+    if len(body) == 1 and _STUB.match(body[0].rstrip(";")):
+        what = body[0].replace("return", "").strip() or "None"
+        return f"  [stub: always returns {what}]" if body[0].startswith("return") else f"  [stub: {body[0]}]"
+    return ""
+
+
+def _chain(index: RepoIndex, target: Symbol, depth: int = 0) -> str:
+    """What a function calls, following indirections (callbacks, module values
+    built by a function, dispatchers) up to 3 levels: the line that tells a
+    model where a background task actually goes."""
+    parts = []
+    links = [l for l in index.out.get(target.node, []) if l.relation != "inherits"
+             and index.symbols[l.other].kind != "class"]
+    for link in links[:5]:
+        nested = index.symbols[link.other]
+        text = f"{nested.label} ({_loc(nested)})"
+        if link.relation == "built_by":
+            text = f"value built by {text}"
+        dispatcher = any(l.relation in ("reference", "built_by") for l in index.out.get(nested.node, []))
+        if depth < 2 and (link.relation in ("reference", "built_by") or dispatcher):
+            inner = _chain(index, nested, depth + 1)
+            if inner:
+                text += f" -> {inner}"
+        parts.append(text)
+    if len(links) > 5:
+        parts.append(f"+{len(links) - 5} more")
+    joined = ", ".join(parts)
+    return f"[{joined}]" if depth and len(parts) > 1 else joined
+
+
 def _relation_note(link: Link) -> str:
     return {"reference": "  [passed as value]", "jsx": "  [renders]", "inherits": "  [base class]",
             "built_by": "  [uses the module value it builds]"}.get(link.relation, "")
@@ -316,16 +493,17 @@ def _callee_lines(index: RepoIndex, symbol: Symbol, budget_chars: int) -> list[s
         body_len = target.end_line - target.line
         if target.kind == "function" and 0 < body_len <= TINY_BODY_LINES:
             entry += _body(index, target, target.line + 1, target.end_line, indent="           ")
+            stub = _stub_note(index, target)
+            if stub:
+                entry[-1] += stub
         elif target.kind == "function" and (
                 link.relation in ("reference", "built_by")
                 or (link.relation == "call" and (body_len <= 12
                                                  or (target.file == symbol.file and target.name.startswith("_"))))):
             # One hop further through callbacks / thin wrappers: name what they call.
-            nested = [index.symbols[l.other] for l in index.out.get(target.node, []) if l.relation != "inherits"]
-            if nested:
-                names = ", ".join(f"{n.label} ({_loc(n)})" for n in nested[:5])
-                more = f", +{len(nested) - 5} more" if len(nested) > 5 else ""
-                entry.append(f"           which calls: {names}{more}")
+            chain = _chain(index, target)
+            if chain:
+                entry.append(f"           which calls: {chain}")
         size = sum(len(e) + 1 for e in entry)
         if (used + size > budget_chars or shown >= MAX_CALLEES) and shown:
             out.append(f"  (+{len(links) - shown} more callees not shown; use trace {symbol.id})")
@@ -425,8 +603,32 @@ def _member_lines(index: RepoIndex, symbol: Symbol) -> list[str]:
     return out
 
 
-def _show_module(index: RepoIndex, module: Symbol, detail: str) -> str:
+SMALL_FILE_LINES = 120
+
+
+def _show_module_source(index: RepoIndex, module: Symbol) -> str:
+    """The file's source with line numbers (replaces reading the file), cut
+    at the budget with a pointer to the rest."""
     lines = [f"{module.file}  ({module.end_line} lines)"]
+    budget_chars = SHOW_BUDGET * 4 - 200
+    used = 0
+    source = index.lines(module.file)
+    width = len(str(len(source)))
+    for n, text in enumerate(source, 1):
+        line = f"{n:>{width}}  {text}".rstrip()
+        if used + len(line) + 1 > budget_chars:
+            lines.append(f"   ... cut at line {n - 1} of {len(source)} to stay within budget; "
+                         f"show a function/class from it, or Read {module.file}:{n}-{len(source)}")
+            break
+        lines.append(line)
+        used += len(line) + 1
+    return "\n".join(lines)
+
+
+def _show_module(index: RepoIndex, module: Symbol, detail: str) -> str:
+    if detail == "full" or (detail == "auto" and module.end_line <= SMALL_FILE_LINES):
+        return _show_module_source(index, module)
+    lines = [f"{module.file}  ({module.end_line} lines; detail=full for its source)"]
     if module.doc:
         lines.append(f'  "{module.doc}"')
     top = [s for s in index.by_file.get(module.file, []) if "." not in s.qualname]
@@ -464,7 +666,7 @@ def show(index: RepoIndex, ref: str, detail: str | None = None) -> str:
         return _ambiguous(ref, candidates)
     detail = (detail or "").lower() or None
     if symbol.kind == "module":
-        return _show_module(index, symbol, detail or "outline")
+        return _show_module(index, symbol, detail or "auto")
     if detail is None:
         detail = "outline" if symbol.kind == "class" else "full"
     if detail not in ("signature", "outline", "full"):
@@ -483,6 +685,9 @@ def show(index: RepoIndex, ref: str, detail: str | None = None) -> str:
     if symbol.doc:
         lines.append(f'  "{symbol.doc}"')
     lines += _override_lines(index, symbol, parent)
+    stub = _stub_note(index, symbol)
+    if stub:
+        lines.append(stub.strip())
     if detail == "signature":
         return "\n".join(lines)
 
@@ -505,6 +710,10 @@ def show(index: RepoIndex, ref: str, detail: str | None = None) -> str:
             tail.append("used by: " + ", ".join(f"{index.symbols[l.other].label or l.file} ({l.file}:{l.line})"
                                                  for l in users[:10]) + (f" (+{len(users) - 10} more)" if len(users) > 10 else ""))
     else:
+        tiny = [index.symbols[l.other] for l in index.out.get(symbol.node, [])
+                if index.symbols[l.other].kind == "function"
+                and 0 < index.symbols[l.other].end_line - index.symbols[l.other].line <= TINY_BODY_LINES]
+        tail += _value_lines(index, [symbol] + tiny)
         tail += _caller_lines(index, symbol)
         tail += _unresolved_lines(index, symbol)
 
@@ -600,6 +809,12 @@ def trace(index: RepoIndex, start: str, end: str | None = None, direction: str =
 
     # Tree of everything reachable (down) or every caller (up), to `depth`.
     lines = [f"{source.label}  ({_loc(source)})  {'calls' if direction == 'down' else 'is called by'}:"]
+    if direction == "down":
+        callers = [l for l in index.into.get(source.node, []) if l.relation != "inherits"]
+        if callers:
+            names = ", ".join(index.symbols[l.other].label or l.file for l in callers[:4])
+            more = f" +{len(callers) - 4} more" if len(callers) > 4 else ""
+            lines.insert(0, f"(called by {len(callers)}: {names}{more}; direction=up for the caller tree)")
     seen = {source.node}
     budget_chars = TRACE_BUDGET * 4
     truncated = 0

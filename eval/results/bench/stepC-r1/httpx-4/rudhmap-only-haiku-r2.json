@@ -1,0 +1,89 @@
+{
+  "answer": "**DigestAuth** (`httpx/_auth.py:175`) subclasses `Auth` and overrides the generator-based `auth_flow` (`_auth.py:193`).\n\n**Flow in `auth_flow`:**\n1. If a previous challenge is cached (`_last_challenge`), it sends the request pre-authenticated with a fresh `Authorization` header (`_auth.py:194-197`).\n2. It yields the request to the client and receives the response (`_auth.py:199`).\n3. If the response is not a 401, or has no `Digest` `WWW-Authenticate` header, it stops (`_auth.py:201-212`).\n4. Otherwise it parses the challenge (`_parse_challenge`, `_auth.py:214`), resets `_nonce_count` to 1 (`_auth.py:215`), builds the header (`_auth.py:217`), forwards any response cookies (`_auth.py:220-221`), and yields the request again for a retry (`_auth.py:222`).\n\n**Header computation** (`_build_auth_header`, `_auth.py:255-301`):\n- HA1 = hash(username:realm:password), HA2 = hash(method:raw_path) (`_auth.py:263-268`).\n- `-sess` algorithms rehash HA1 with nonce and cnonce (`_auth.py:275-276`).\n- `qop` selects the RFC 2617/7616 form (`nonce:nc:cnonce:qop:HA2`), otherwise the RFC 2069 form (`_auth.py:278-284`).\n- The nonce count increments on each request (`_auth.py:270-272`).\n- The final `response` digest and optional `opaque`, `qop`, `nc`, and `cnonce` fields are assembled into the header (`_auth.py:286-301`).\n- `auth-int` is not implemented (TODO at `_auth.py:267`).\n\n**Client driving:** `Client._send_handling_auth` (`httpx/_client.py:930`) wraps the auth generator via `Auth.sync_auth_flow` (`_auth.py:62`). Each yielded request goes through `_send_handling_redirects` (`_client.py:942`) and `_send_single_request` (`_client.py:979`). The response is then read and closed (`_client.py:954-959`) and fed back into the generator. The second yield is the retry, so a Digest challenge costs two round trips on first contact. Later requests reuse the cached challenge and usually succeed on the first try.\n\nI did not read `_parse_challenge`'s body or `sync_auth_flow`'s body directly. Those claims come from the call-graph tool's summaries.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00155361,
+  "duration_ms": 9747,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3352,
+    "cache_read": 16811,
+    "output": 1429,
+    "context": 3358,
+    "total": 21598
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1121,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth"
+      },
+      "result_chars": 920,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth.auth_flow"
+      },
+      "result_chars": 2718,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth._build_auth_header"
+      },
+      "result_chars": 2938,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "Client._send_handling_auth"
+      },
+      "result_chars": 1351,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 12.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": false,
+      "reuse": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "Says auth-int is only a TODO at _auth.py:267 and 'not implemented', without stating that it raises NotImplementedError (minor/uncertain)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

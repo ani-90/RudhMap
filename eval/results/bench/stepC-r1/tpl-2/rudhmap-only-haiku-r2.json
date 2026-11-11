@@ -1,0 +1,158 @@
+{
+  "answer": "**Callers of `crud.get_user_by_email`** (defined at `backend/app/crud.py:34`, returns `User | None`). All 8 call sites are in application code, and all pass `session=` and `email=` as keyword arguments.\n\n**Existence checks (result used only for truthiness):**\n- `backend/app/api/routes/users.py:61` in `create_user` (`POST /users/`): returns 400 if the email is taken, otherwise creates the user.\n- `backend/app/api/routes/users.py:151` in `register_user` (`POST /users/signup`): same pattern, 400 if taken.\n- `backend/app/api/routes/users.py:90` in `update_user_me` (`PATCH /users/me`): returns 409 only if the found user has a different id than `current_user`.\n- `backend/app/api/routes/users.py:204` in `update_user` (`PATCH /users/{user_id}`): returns 409 if a different user owns the email.\n\n**Lookup for a follow-up action:**\n- `backend/app/api/routes/login.py:58` in `recover_password`: sends a reset email only if the user exists, and returns the same message either way to prevent enumeration.\n- `backend/app/api/routes/login.py:85` in `reset_password`: returns 400 if the user is missing or inactive, then updates the password. Uses `user.is_active`.\n- `backend/app/api/routes/login.py:109` in `recover_password_html_content`: returns 404 if missing, otherwise builds the reset email HTML from `user.email`.\n\n**Authentication:**\n- `backend/app/crud.py:46` in `authenticate`: reads `db_user.hashed_password` and `db_user` fields. When the user is missing, it still runs a dummy password verify to avoid timing leaks. `authenticate` is called only from `login_access_token` (`backend/app/api/routes/login.py:30`).\n\n**Implications for a signature change:**\n- Every caller uses keywords, so adding a parameter with a default is safe. Renaming `email` or `session`, or changing the return type, breaks all 8 sites.\n- Five callers need only a yes/no answer. `authenticate`, `recover_password_html_content`, `reset_password`, and `recover_password` need the `User` object itself.\n- Callers outside `backend/app` (scripts, `scripts/`, or the frontend) weren't checked. The call graph covers only the Python code it indexed.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 13,
+  "model_calls": 4,
+  "cost_usd": 0.0028702700000000003,
+  "duration_ms": 14802,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7416,
+    "cache_read": 27227,
+    "output": 2228,
+    "context": 7424,
+    "total": 36879
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "get_user_by_email"
+      },
+      "result_chars": 1456,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password"
+      },
+      "result_chars": 1969,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "reset_password"
+      },
+      "result_chars": 2003,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_user"
+      },
+      "result_chars": 486,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user_me"
+      },
+      "result_chars": 1559,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "register_user"
+      },
+      "result_chars": 1573,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user"
+      },
+      "result_chars": 361,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "authenticate"
+      },
+      "result_chars": 1728,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:create_user"
+      },
+      "result_chars": 2250,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:update_user"
+      },
+      "result_chars": 2187,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password_html_content"
+      },
+      "result_chars": 2002,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 18.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "Says 'Five callers need only a yes/no answer' but lists a contradictory grouping (only four are existence checks; the list names four needing the User object, total 8 inconsistent: 4 existence + 4 needing object)",
+      "Says reset_password returns 400 if the user is missing or inactive (key only mentions missing user; may be extra detail not contradicting)",
+      "Says five callers need only a yes/no answer, but lists only four existence-check callers (and the listed 'need the User object' set includes four, making 4+4=8 with authenticate counted); the count 'five' is inconsistent",
+      "Says recover_password needs the User object itself, while elsewhere classing it as a lookup; minor inconsistency",
+      "Says reset_password returns 400 if user is missing or inactive; the key only mentions missing (Invalid token), though inactive check may exist",
+      "Says 'Five callers need only a yes/no answer' but then lists four callers needing the User object, and the existence-check group has only four callers; count is inconsistent (minor).",
+      "Claims reset_password returns 400 if user is missing or inactive; key only says 400 'Invalid token' if missing (likely true detail, not contradicting)."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

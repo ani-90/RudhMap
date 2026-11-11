@@ -1,0 +1,56 @@
+{
+  "answer": "**What it does:** `refresh_feed` is the handler for `POST /api/feed/refresh` (`app/api/feed.py:20-21`). It enforces a cooldown, then starts a background pipeline run and returns immediately.\n\n**Steps:**\n\n1. **Cooldown check (L26-42).** It loads the last successful pipeline run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished recently, it returns early with `status=\"skipped\"`, the remaining cooldown seconds, and minutes since the last refresh (`app/api/feed.py:34-42`). The check normalizes naive timestamps to UTC first (L30-31).\n\n2. **Resolve domains (L44).** `request.resolved_domains()` (`app/schemas/feed.py:11-14`) returns all configured `DOMAINS` if none were requested, otherwise only the requested ones that are in `DOMAINS`.\n\n3. **Create the run record (L45-48).** It generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`), which commits.\n\n4. **Schedule the work (L50).** `background_tasks.add_task(_run_pipeline_bg, run_id, user_id, domains)`. `_run_pipeline_bg` (`app/api/feed.py:55`) calls `run_pipeline` (`app/pipeline/graph.py:69`) and `update_pipeline_run`.\n\n5. **Return (L52).** `FeedRefreshResponse(run_id, status=\"running\", domains)` is returned to the client.\n\n**What happens after it returns:** FastAPI runs queued background tasks after the response is sent, so `_run_pipeline_bg` executes outside the request's lifetime. The client only gets the `run_id` and `\"running\"` status; it must poll or otherwise check the run's status later. Results and final status are written to the `PipelineRun` row by the background task.\n\n**Observations from reading the code:**\n\n- The cooldown only looks at the last *successful* run that has a `finished_at`. A run that is still in progress, or one that failed, doesn't block a new refresh. Two requests in quick succession could therefore start overlapping pipelines. I haven't verified how `get_last_successful_run` filters, so this is worth confirming.\n- The `db` session is injected for the request. The background task opens its own work, so it doesn't share that session.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 2,
+  "model_calls": 2,
+  "cost_usd": 0.00114224,
+  "duration_ms": 8308,
+  "tokens": {
+    "input": 4,
+    "cache_write": 2231,
+    "cache_read": 8864,
+    "output": 1214,
+    "context": 2235,
+    "total": 12313
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3075,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 11.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": false,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.4,
+    "critical_ok": false,
+    "false_claims": [
+      "The cooldown description omits the 2-hour duration, and the answer says it is unverified how get_last_successful_run filters, hedging on the check.",
+      "Cooldown described without stating the 2-hour duration; says only 'finished recently' (not false, but vague)",
+      "Claims a failed run or one in progress doesn't block a new refresh and overlapping pipelines are possible; this is hedged and consistent with the key's success/partial check"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

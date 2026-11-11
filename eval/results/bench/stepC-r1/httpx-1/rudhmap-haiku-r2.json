@@ -1,0 +1,91 @@
+{
+  "answer": "**Flow:** `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects`, sets the timeout, and builds auth. It then calls `_send_handling_auth` (L914), which calls `_send_handling_redirects` (`_client.py:964`). That loop sends each hop with `_send_single_request` (L979). If the response has a `Location` header (L985), it builds the next request (L988). With `follow_redirects` on, it reads the response and loops (L991-992). Otherwise it stores the request on `response.next_request` and returns (L994-995). The loop raises `TooManyRedirects` once history exceeds `max_redirects` (L971-974).\n\n**Building the redirected request** is `_build_redirect_request` (`_client.py:475`). It computes method, URL, headers and body separately, then builds a new `Request` with the request's extensions and the client's cookie jar (L484-492).\n\n- **Method** (`_redirect_method`, L494-515): 303 turns any non-HEAD method into GET. 302 does the same, following browser behaviour. 301 turns POST into GET. 307 and 308 keep the method.\n- **URL** (`_redirect_url`, L517-544): Resolves the `Location` header. Relative locations are joined to the current URL (L537-538). The original fragment is kept if the new URL has none (L541-542).\n- **Headers** (`_redirect_headers`, L546-571):\n  - On a cross-origin redirect, `Authorization` is dropped unless the redirect is an HTTP\u2192HTTPS upgrade (L552-556, `_is_https_redirect` at L62).\n  - `Host` is updated to the new origin (L559).\n  - If the method changed to GET, `Content-Length` and `Transfer-Encoding` are removed (L561-565).\n  - `Cookie` is always removed, because cookies are re-derived from the client store (L569).\n- **Body** (`_redirect_stream`, L573-582): If the method changed to GET, the body is `None`. Otherwise the original `request.stream` is reused.\n\n**Caveat:** For 307/308 the original stream object is reused as-is. I did not check whether a consumed stream is rebuilt anywhere, so I can't say whether a streamed upload survives a redirect.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00218717,
+  "duration_ms": 10449,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5730,
+    "cache_read": 24207,
+    "output": 1597,
+    "context": 5736,
+    "total": 31540
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 3747,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "rebuild_redirect_request"
+      },
+      "result_chars": 1494,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_redirect_method"
+      },
+      "result_chars": 1623,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 473,
+        "limit": 135
+      },
+      "result_chars": 5376,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 962,
+        "limit": 50
+      },
+      "result_chars": 1845,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 13.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

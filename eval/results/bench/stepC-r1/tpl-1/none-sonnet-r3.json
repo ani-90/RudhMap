@@ -1,0 +1,85 @@
+{
+  "answer": "**Flow**\n\n1. `POST /login/access-token` is handled by `login_access_token` (`backend/app/api/routes/login.py:23-26`). It takes an OAuth2 form (`OAuth2PasswordRequestForm`) and a DB session. The form's `username` field carries the email.\n\n2. It calls `crud.authenticate(...)` with `form_data.username` as the email (`login.py:30-32`).\n\n3. `authenticate` (`backend/app/crud.py:45`) looks the user up with `get_user_by_email`, which runs a `select(User).where(User.email == email)` query (`crud.py:34-37`).\n\n4. If the user exists, it calls `verify_password(password, db_user.hashed_password)` (`crud.py:52`). That calls pwdlib's `verify_and_update` (`backend/app/core/security.py:29-32`). The hasher is Argon2, with Bcrypt as a fallback (`security.py:11-16`).\n   - If verification fails, it returns `None` (`crud.py:53-54`).\n   - If the stored hash is outdated, e.g. bcrypt, it is rehashed and saved (`crud.py:55-59`).\n\n5. Back in the route, a falsy user raises a 400 \"Incorrect email or password\" (`login.py:33-34`). An inactive user raises a 400 \"Inactive user\" (`login.py:35-36`).\n\n6. Otherwise it builds a `Token`. `create_access_token` makes an HS256 JWT with `sub=user.id` and an `exp` of now plus `ACCESS_TOKEN_EXPIRE_MINUTES`, signed with `SECRET_KEY` (`login.py:37-42`, `security.py:22-26`).\n\n**Email doesn't exist**\n\n- `get_user_by_email` returns `None`, so `authenticate` runs `verify_password(password, DUMMY_HASH)` and discards the result (`crud.py:47-50`). `DUMMY_HASH` is defined at `crud.py:40-42`.\n- This is done so the response time is similar whether or not the email exists, which prevents timing-based email enumeration.\n- `authenticate` then returns `None` (`crud.py:51`).\n- The route returns the same 400 \"Incorrect email or password\" as for a wrong password (`login.py:33-34`), so the response doesn't reveal whether the email exists.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.035147,
+  "duration_ms": 10545,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5035,
+    "cache_read": 14850,
+    "output": 1351,
+    "context": 5041,
+    "total": 21242
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "access-token|def authenticate|def get_user_by_email|def create_access_token",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "glob": "backend/app/**/*.py",
+        "output_mode": "content"
+      },
+      "result_chars": 462,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "limit": 50
+      },
+      "result_chars": 1743,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 35
+      },
+      "result_chars": 1526,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\security.py",
+        "limit": 60
+      },
+      "result_chars": 1009,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 11.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "unknown-email": true,
+      "verify": true,
+      "inactive": true,
+      "token": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

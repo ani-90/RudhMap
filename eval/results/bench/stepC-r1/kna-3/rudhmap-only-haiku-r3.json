@@ -1,0 +1,154 @@
+{
+  "answer": "**Short answer: No.** The daily refresh is defined but never started when the API server boots.\n\n**What exists**\n- `app/scheduler.py:15-40` defines `_daily_refresh()`, which creates a `PipelineRun` and calls `run_pipeline` (`app/scheduler.py:26-32`).\n- `app/scheduler.py:43-53` defines `start_scheduler(hour=7, minute=0)`. It registers a `CronTrigger` job with id `daily_refresh`, then calls `scheduler.start()`.\n- `app/scheduler.py:56-58` defines `stop_scheduler()`.\n\n**What's missing**\n- `start_scheduler` has no callers in the repo. The trace from it upward returns \"no callers in this repo\" (`app/scheduler.py:43`).\n- The FastAPI `lifespan` in `app/main.py:18-20` only calls `init_db()` and then yields. It does not import or start the scheduler.\n- `run.py` contains no call to `start_scheduler` either.\n\n**Result**\nStarting the server (via `run.py` or uvicorn on `app.main:app`) creates the database tables but never registers or starts the cron job. The refresh only runs if something outside this repo calls `start_scheduler()`, or if a manual refresh is triggered through `POST /api/feed/refresh` (`app/api/feed.py:20`).\n\n**To wire it up**\nCall `start_scheduler()` in `lifespan` after `init_db()` (`app/main.py:19`), and call `stop_scheduler()` after the `yield`. One caveat: if the server runs with multiple workers, each worker would start its own scheduler and the job would run more than once.\n\nI did not run the server, so this is based on static call-graph inspection. The `scheduler` object's construction was not checked.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 13,
+  "model_calls": 6,
+  "cost_usd": 0.00176319,
+  "duration_ms": 14402,
+  "tokens": {
+    "input": 12,
+    "cache_write": 2416,
+    "cache_read": 45479,
+    "output": 1648,
+    "context": 2428,
+    "total": 49555
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule"
+      },
+      "result_chars": 300,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "refresh"
+      },
+      "result_chars": 1127,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/scheduler.py",
+        "detail": "full"
+      },
+      "result_chars": 179,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "lifespan",
+        "detail": "full"
+      },
+      "result_chars": 489,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/config.py",
+        "detail": "full"
+      },
+      "result_chars": 124,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "start_scheduler",
+        "direction": "up"
+      },
+      "result_chars": 95,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "start_scheduler"
+      },
+      "result_chars": 307,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/main.py",
+        "detail": "full"
+      },
+      "result_chars": 157,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "start_scheduler",
+        "detail": "full"
+      },
+      "result_chars": 985,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_daily_refresh",
+        "detail": "full"
+      },
+      "result_chars": 1806,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "run.py",
+        "detail": "full"
+      },
+      "result_chars": 40,
+      "model_call": 5,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 17.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": false,
+      "settings-unused": false
+    },
+    "fact_score": 0.333,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

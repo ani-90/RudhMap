@@ -1,0 +1,108 @@
+{
+  "answer": "**Flow: `POST /login/access-token` \u2192 JWT**\n\n1. **Route and form parsing.** `login_access_token` is registered at `backend/app/api/routes/login.py:23` and takes an `OAuth2PasswordRequestForm`, so the email is read from the form's `username` field (`login.py:24-25`).\n\n2. **Authentication.** The route calls `crud.authenticate(...)` with `form_data.username` as the email (`login.py:30-32`). That function (`backend/app/crud.py:45`) does the following:\n   - Looks up the user by email via `get_user_by_email` (`crud.py:34`, called at `crud.py:46`).\n   - Verifies the password with `verify_password`, which uses `pwdlib` with Argon2 first and Bcrypt as a fallback (`backend/app/core/security.py:11-16, 29-32`).\n   - If the stored hash used an older scheme, it rehashes to Argon2 and commits the change (`crud.py:55-59`).\n\n3. **Checks.** If `authenticate` returns `None`, the route raises HTTP 400 \"Incorrect email or password\" (`login.py:33-34`). If the user is inactive, it raises HTTP 400 \"Inactive user\" (`login.py:35-36`).\n\n4. **Token creation.** The route builds a `timedelta` from `settings.ACCESS_TOKEN_EXPIRE_MINUTES` (`login.py:37`). `create_access_token` (`security.py:22-26`) then signs an HS256 JWT with claims `sub = str(user.id)` and `exp = now + expiry`, using `settings.SECRET_KEY`.\n\n5. **Response.** The route returns `Token(access_token=...)` (`login.py:38-42`). `Token` is a model with a single `access_token: str` field (`backend/app/models.py:114-115`). The response body is JSON with that field; the token type is not set in the model.\n\n**Unknown email**\n\n`authenticate` does not return early. When `get_user_by_email` finds nothing, it still runs `verify_password(password, DUMMY_HASH)` against a fixed Argon2 hash (`crud.py:42, 47-51`), then returns `None`. This keeps response timing close to the case where the email exists. The client gets the same 400 \"Incorrect email or password\" response as for a wrong password (`login.py:33-34`), so the response does not reveal whether the email exists.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0027234,
+  "duration_ms": 11114,
+  "tokens": {
+    "input": 8,
+    "cache_write": 8044,
+    "cache_read": 31680,
+    "output": 1594,
+    "context": 8052,
+    "total": 41326
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "access-token login"
+      },
+      "result_chars": 1190,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "access-token|authenticate|create_access_token",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 3529,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "limit": 45
+      },
+      "result_chars": 1616,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 40,
+        "limit": 30
+      },
+      "result_chars": 1352,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\security.py"
+      },
+      "result_chars": 1009,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def get_user_by_email|class Token\\(|access_token: str",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 190,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 14.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "unknown-email": true,
+      "verify": true,
+      "inactive": true,
+      "token": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "States the token type is not set in the model / response body only has access_token; the actual Token model may include token_type default 'bearer' (unverified against key)",
+      "States the token type is not set in the model / response has only access_token; the actual Token model likely includes token_type default 'bearer' (unverified against key)",
+      "States the token type is not set in the model / response is only access_token; the real Token model may include token_type default 'bearer' (uncertain, not contradicted by key)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

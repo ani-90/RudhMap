@@ -1,0 +1,102 @@
+{
+  "answer": "**Application callers of `crud.get_user_by_email`** (defined at `backend/app/crud.py:34`, returns `User | None`):\n\n1. **`crud.authenticate`**, `backend/app/crud.py:46`. Uses the result for the password check. If there's no user, it runs a dummy hash verify (timing-attack defense) and returns `None`. Otherwise it verifies `db_user.hashed_password`.\n2. **`login_access_token`**, `backend/app/api/routes/login.py:30` (via `authenticate`, not a direct call). Uses the returned user to reject missing or inactive users, then issues a token from `user.id`.\n3. **`recover_password`**, `backend/app/api/routes/login.py:58`. Only checks truthiness. If a user exists, it sends a reset email to `user.email`. The response is the same either way, to prevent email enumeration.\n4. **`reset_password`**, `backend/app/api/routes/login.py:85`. Rejects a missing user with \"Invalid token\", rejects inactive users, then passes the user to `crud.update_user`.\n5. **`recover_password_html_content`**, `backend/app/api/routes/login.py:109`. Returns 404 if missing. Otherwise it builds the reset email from `user.email`.\n6. **`create_user`**, `backend/app/api/routes/users.py:61`. Returns 400 if the email is already taken.\n7. **`register_user`**, `backend/app/api/routes/users.py:151`. Same duplicate-email check as `create_user`, on the signup path.\n8. **`update_user_me`**, `backend/app/api/routes/users.py:90`. Returns 409 if the email belongs to a different user (`existing_user.id != current_user.id`).\n9. **`update_user`**, `backend/app/api/routes/users.py:204`. Returns 409 if the email belongs to a different user (`existing_user.id != user_id`).\n\nAll of these use the result only for truthiness, `.id`, `.is_active`, or `.email`. None of them depend on the function's internals.\n\n**Test callers** (not app code, but they will break on a signature change): `backend/tests/utils/user.py:39`, `backend/tests/api/routes/test_users.py:55, 74, 112, 496`.\n\n**Implications for a signature change:** the 9 app call sites and `authenticate` all use keyword arguments (`session=`, `email=`), so renaming `email` or adding a required parameter means updating each one. Keeping the `session`/`email` keyword names and returning `User | None` avoids touching the callers. The tests use the same keyword form.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0023935,
+  "duration_ms": 10854,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6766,
+    "cache_read": 21670,
+    "output": 1646,
+    "context": 6772,
+    "total": 30088
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "offset": 20,
+        "limit": 100
+      },
+      "result_chars": 3686,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\users.py",
+        "offset": 50,
+        "limit": 180
+      },
+      "result_chars": 6341,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 25
+      },
+      "result_chars": 1140,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 13.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "Lists login_access_token (login.py:30) as a caller, though it only calls it indirectly via authenticate; the answer itself notes this, so it is not a direct caller",
+      "Claims 'the 9 app call sites and authenticate' all use keyword arguments, which is inconsistent with the 9 count including authenticate (unverified detail)",
+      "login_access_token at login.py:30 is listed as a caller of crud.get_user_by_email, though the answer itself says it goes via authenticate and not a direct call (inconsistent with the 'application callers' list; key lists only 3 login routes)",
+      "Claims '9 app call sites and authenticate' implying separate counts; the list is slightly inconsistent, with 9 items including authenticate and a non-direct caller",
+      "Lists login_access_token (login.py:30) as a caller, but concedes it goes via authenticate rather than a direct call; it is not a direct caller of get_user_by_email.",
+      "Says '9 app call sites and authenticate' all use keyword arguments, which miscounts the callers (it listed 9 including authenticate)."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

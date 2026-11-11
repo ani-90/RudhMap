@@ -1,0 +1,110 @@
+{
+  "answer": "**Logged-in check: presence only.** `isLoggedIn()` returns true if a `access_token` key exists in `localStorage` (`frontend/src/hooks/useAuth.ts:14-16`). The frontend never decodes or validates the JWT.\n\n**Where it's used:**\n- **Route guard:** the `/_layout` route's `beforeLoad` redirects to `/login` when `isLoggedIn()` is false (`frontend/src/routes/_layout.tsx:14-19`).\n- **User query:** `useAuth` fetches `/users/me` only when `isLoggedIn()` is true (`frontend/src/hooks/useAuth.ts:23-27`).\n- **Requests:** the API client reads the token from `localStorage` on each request and sends it as a Bearer header (`frontend/src/main.tsx:17-20`, `frontend/src/client/core/auth.gen.ts:22-34`).\n- **Login/logout:** login stores the token (`useAuth.ts:45`); logout removes it and navigates to `/login` (`useAuth.ts:56-59`).\n\n**Expired or invalid token:**\n1. The backend rejects it. `deps.py` catches `InvalidTokenError` and raises **403** (`backend/app/api/deps.py:36-38`). Note that it returns 403, not the more common 401.\n2. The global QueryClient `onError` handlers (`QueryCache` and `MutationCache`) call `handleApiError` (`frontend/src/main.tsx:22-37`). For an `AxiosError` with status 401 or 403, it removes `access_token` and does a hard redirect to `/login` via `window.location.href`.\n\n**Gaps to be aware of:**\n- Because the check is presence-only, an expired token still passes `beforeLoad`. The user is only redirected after the first failing API call.\n- `handleApiError` only runs for queries and mutations. Any direct client call outside them would not trigger the redirect.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.0027575100000000003,
+  "duration_ms": 11935,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7737,
+    "cache_read": 39581,
+    "output": 1627,
+    "context": 7745,
+    "total": 48953
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "token|isLoggedIn|isAuthenticated|401|logout|expired",
+        "-i": true,
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 1554,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {
+        "path": "frontend"
+      },
+      "result_chars": 5693,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\hooks\\useAuth.ts"
+      },
+      "result_chars": 1933,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\main.tsx"
+      },
+      "result_chars": 1698,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\routes\\_layout.tsx"
+      },
+      "result_chars": 1146,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\client\\core\\auth.gen.ts"
+      },
+      "result_chars": 977,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "HTTPException|status_code|InvalidTokenError|JWTError",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\deps.py",
+        "-n": true,
+        "output_mode": "content"
+      },
+      "result_chars": 493,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": true,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

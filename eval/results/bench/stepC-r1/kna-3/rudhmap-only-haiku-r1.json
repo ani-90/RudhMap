@@ -1,0 +1,144 @@
+{
+  "answer": "**No.** The daily refresh is defined but never started when the API server boots.\n\n**What exists:**\n- `app/scheduler.py:15` defines `_daily_refresh()`, which creates a pipeline run, runs the pipeline, and logs the result.\n- `app/scheduler.py:43-53` defines `start_scheduler(hour=7, minute=0)`. It registers a `CronTrigger` job with id `daily_refresh` and calls `scheduler.start()`.\n- `app/scheduler.py:56` defines `stop_scheduler()`, which is the matching shutdown hook.\n\n**What is missing:**\n- The FastAPI `lifespan` in `app/main.py:18-20` only calls `init_db()` (`app/db/sqlite.py:26`) and then `yield`s. It never calls `start_scheduler` or `stop_scheduler`.\n- The trace up from `start_scheduler` returns \"no callers in this repo.\" Nothing in the codebase invokes it.\n- `run.py` (7 lines) defines no functions, and its contents do not show a call to the scheduler. I did not see a route, a CLI command, or a startup hook that would start it.\n\n**Result:** The `daily_refresh` job is never registered with APScheduler, so no scheduled refresh fires at 07:00 (or anywhere else) while the server runs. The only way to refresh is the manual `POST /api/feed/refresh` route (`app/api/feed.py:20`).\n\n**To wire it up**, call `start_scheduler()` in `lifespan` after `init_db()`, and call `stop_scheduler()` after the `yield`. I have not made this change. I also did not read `run.py` line by line, so the claim that it doesn't start the scheduler rests on its symbol outline, not its full text.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 12,
+  "model_calls": 5,
+  "cost_usd": 0.0021346200000000003,
+  "duration_ms": 12682,
+  "tokens": {
+    "input": 10,
+    "cache_write": 5180,
+    "cache_read": 32262,
+    "output": 1550,
+    "context": 5190,
+    "total": 39002
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule"
+      },
+      "result_chars": 300,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "refresh"
+      },
+      "result_chars": 1127,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/scheduler.py",
+        "detail": "full"
+      },
+      "result_chars": 179,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "lifespan",
+        "detail": "full"
+      },
+      "result_chars": 489,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/config.py",
+        "detail": "full"
+      },
+      "result_chars": 124,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "start_scheduler",
+        "direction": "up"
+      },
+      "result_chars": 95,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "start_scheduler",
+        "detail": "full"
+      },
+      "result_chars": 985,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/main.py",
+        "detail": "full"
+      },
+      "result_chars": 157,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "run.py",
+        "detail": "full"
+      },
+      "result_chars": 40,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "scheduler"
+      },
+      "result_chars": 301,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 15.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": false,
+      "settings-unused": false
+    },
+    "fact_score": 0.333,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

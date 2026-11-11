@@ -1,0 +1,74 @@
+{
+  "answer": "**DigestAuth in httpx** (`httpx/_auth.py`) is a generator-based `Auth` subclass that answers a 401 digest challenge and then retries.\n\n**Flow (`_auth.py:193-222`)**\n1. If a challenge is cached from an earlier response, `auth_flow` attaches an `Authorization` header immediately (`_auth.py:194-197`). Otherwise the first request goes out unauthenticated.\n2. It `yield`s the request and receives the response (`_auth.py:199`).\n3. If the status is not 401, or there is no `WWW-Authenticate: Digest` header, it returns and the client keeps that response (`_auth.py:201-212`).\n4. Otherwise it parses the challenge (`_parse_challenge`, `_auth.py:224-253`), caches it, resets `_nonce_count` to 1 (`_auth.py:214-215`), builds the header, and yields the request again (`_auth.py:217-222`).\n\n**Header computation (`_build_auth_header`, `_auth.py:255-301`)**\n- Picks the hash from the algorithm table (`_auth.py:175-185`, `258`).\n- HA1 = H(user:realm:pass), with an extra hash step for `-SESS` variants (`_auth.py:263-276`).\n- HA2 = H(method:raw_path) (`_auth.py:265-268`).\n- response = H(HA1:nonce:nc:cnonce:qop:HA2), or the RFC 2069 form when there is no qop (`_auth.py:278-291`).\n- The cnonce is a SHA-1 of counter, nonce, time and `os.urandom` (`_auth.py:303-309`).\n- `qop=auth` is selected in `_resolve_qop` (`_auth.py:329-340`). `auth-int` raises `NotImplementedError` (`_auth.py:336-337`).\n\n**How the client drives it (`_client.py:930-962`)**\n- `_send_handling_auth` calls `auth.sync_auth_flow(request)` and advances it with `next()` (`_client.py:937-939`).\n- Each yielded request is sent through `_send_handling_redirects` (`_client.py:942`), and the response is `send()`-ed back into the generator (`_client.py:949`).\n- If the generator finishes (`StopIteration`), the client returns that response (`_client.py:950-951`). A second 401 therefore reaches the caller as-is, and the flow never retries again.\n- The async path mirrors this in `_client.py:1652-1677`.\n- `DigestAuth` does not set `requires_request_body` or `requires_response_body`, so the base `sync_auth_flow` (`_auth.py:71-85`) does not read bodies. The client reads the intermediate response itself (`_client.py:953-954`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0025578700000000003,
+  "duration_ms": 10119,
+  "tokens": {
+    "input": 6,
+    "cache_write": 7685,
+    "cache_read": 24977,
+    "output": 1541,
+    "context": 7691,
+    "total": 34209
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|digest_auth|_build_auth_header|sync_auth_flow|auth_flow",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2415,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py"
+      },
+      "result_chars": 13195,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 40
+      },
+      "result_chars": 1343,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 11.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

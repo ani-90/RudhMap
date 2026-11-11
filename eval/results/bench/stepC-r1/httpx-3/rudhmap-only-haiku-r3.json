@@ -1,0 +1,109 @@
+{
+  "answer": "**Where it's configured:** `Timeout` is a class in `httpx/_config.py:72`. Its `__init__` (`_config.py:86`) takes a single value or per-phase overrides for `connect`, `read`, `write`, and `pool`. `BaseClient.timeout` (`httpx/_client.py:254`) exposes the client-level setting.\n\n**How it reaches the network layer:**\n1. `Client.send` (`_client.py:910`) calls `BaseClient._set_timeout` (`_client.py:584-591`). If the request has no per-request `timeout` extension, it uses the client's timeout, wrapping plain numbers in `Timeout(...)`. It then stores `timeout.as_dict()` in `request.extensions[\"timeout\"]`.\n2. `HTTPTransport.handle_request` (`httpx/_transports/default.py:230-259`) builds an `httpcore.Request` and passes `extensions=request.extensions` (line 247). It then calls `self._pool.handle_request(req)` (line 250). The per-phase timeouts are enforced by httpcore from that extension. I did not open httpcore's source to confirm how it reads the key, so that step is inferred from the wiring.\n\n**Exceptions when a timeout fires:**\nhttpcore raises its own timeout exceptions, which `map_httpcore_exceptions()` (`default.py:96-118`) converts to httpx types. It picks the most specific match and re-raises it `from` the original (lines 105-118). The wrapper is entered around the pool call at line 249, and the same mapping applies to response streaming (`ResponseStream.__iter__`, line 126). The httpx exception classes all subclass `TimeoutException(TransportError)` (`httpx/_exceptions.py:132`):\n- `ConnectTimeout` (line 140): connecting to the host\n- `ReadTimeout` (line 146): receiving data\n- `WriteTimeout` (line 152): sending data\n- `PoolTimeout` (line 158): waiting for a pooled connection\n\nBecause they subclass `TimeoutException`, a single `except httpx.TimeoutException` catches all four.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.0016500700000000002,
+  "duration_ms": 11307,
+  "tokens": {
+    "input": 8,
+    "cache_write": 3368,
+    "cache_read": 24467,
+    "output": 1462,
+    "context": 3376,
+    "total": 29305
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout"
+      },
+      "result_chars": 1090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "map_httpcore_exceptions"
+      },
+      "result_chars": 1208,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout.__init__",
+        "detail": "outline"
+      },
+      "result_chars": 650,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "map_httpcore_exceptions"
+      },
+      "result_chars": 1800,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "HTTPTransport.handle_request"
+      },
+      "result_chars": 1899,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": false,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "Says BaseClient._set_timeout is called from Client.send and stores timeout in extensions there, omitting build_request; minor and partially consistent with key (key says send fills it if missing).",
+      "Says the extension is set in Client.send via _set_timeout only, omitting build_request, though it does mention per-request override; minor."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

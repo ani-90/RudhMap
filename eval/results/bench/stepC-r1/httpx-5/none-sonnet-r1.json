@@ -1,0 +1,87 @@
+{
+  "answer": "`Response.text` (`httpx/_models.py:642-650`) works in two stages. First the body is decompressed when it is read. Then the decompressed bytes are decoded to a string using a chosen encoding.\n\n**Decompression (happens in `read()`, before `.text`)**\n- `.text` reads `self.content` (`_models.py:636-639`). That property raises `ResponseNotRead` unless `read()` has already stored `_content`.\n- `read()` joins the output of `iter_bytes()` (`_models.py:876-882`).\n- `iter_bytes()` gets a decoder from `_get_content_decoder()`. It feeds each chunk from `iter_raw()` through `decoder.decode()`, then calls `decoder.flush()` (`_models.py:894-903`).\n- `_get_content_decoder()` (`_models.py:699-722`) reads the `Content-Encoding` header, splitting on commas. It looks each value up in `SUPPORTED_DECODERS`, silently skipping unknown ones.\n  - One match gives that decoder.\n  - Several matches give a `MultiDecoder`.\n  - No matches give `IdentityDecoder`.\n- The decoder classes are in `httpx/_decoders.py`: `GZipDecoder` (line 85), `DeflateDecoder` (line 56), `BrotliDecoder` (line 108) and `ZStandardDecoder` (line 161).\n\n**Character-encoding selection (`encoding` property, `_models.py:652-672`)**\nPriority order:\n1. An explicit `response.encoding = ...` setter value, stored as `_encoding` (`_models.py:674-686`). Setting it after `.text` has been accessed raises `ValueError`.\n2. The `charset` parameter of the `Content-Type` header, via `charset_encoding` (`_models.py:689-697`). It is used only if `_is_known_encoding` accepts it (line 666).\n3. `default_encoding`, otherwise (`_models.py:667-670`). It can be a string, or a callable that is given the content bytes, which allows charset autodetection.\n4. `\"utf-8\"` as the final fallback (line 671).\n\n**Final decode**\n- Empty content gives `\"\"` (`_models.py:645-646`).\n- Otherwise `.text` builds `TextDecoder(encoding=self.encoding or \"utf-8\")` and joins `decode(content)` with `flush()` (`_models.py:648-649`).\n- `TextDecoder` wraps `codecs.getincrementaldecoder(encoding)(errors=\"replace\")` (`_decoders.py:312`). Invalid bytes become replacement characters instead of raising.\n- The result is cached in `_text`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0366116,
+  "duration_ms": 12171,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4878,
+    "cache_read": 17376,
+    "output": 1535,
+    "context": 4884,
+    "total": 23795
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def text|def encoding|def content|def read|def iter_bytes|def iter_raw|def _get_content_decoder|def decode|class .*Decoder|def charset_encoding|def default_encoding",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "glob": "{_models,_decoders}.py"
+      },
+      "result_chars": 2077,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 630,
+        "limit": 110
+      },
+      "result_chars": 4319,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 874,
+        "limit": 45
+      },
+      "result_chars": 2153,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_decoders.py",
+        "offset": 300,
+        "limit": 20
+      },
+      "result_chars": 606,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 13.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

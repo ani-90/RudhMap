@@ -1,0 +1,157 @@
+{
+  "answer": "**Direct callers of `crud.get_user_by_email`** (all application code; no tests):\n\nEvery caller uses it as an existence or ownership check, and most then use the `User` object.\n\n1. **`recover_password`**, `backend/app/api/routes/login.py:58`: if the user exists, it emails a reset link (`login.py:60-71`). The response is the same either way, to prevent enumeration.\n2. **`reset_password`**, `login.py:85`: returns 400 if the user is missing or inactive (`login.py:86-90`). Otherwise it calls `crud.update_user` on the returned object (`login.py:92`).\n3. **`recover_password_html_content`**, `login.py:109`: returns 404 if missing. Otherwise it builds reset-email HTML using `user.email` (`login.py:116-123`).\n4. **`create_user`** (superuser route), `backend/app/api/routes/users.py:61`: a duplicate-email guard before creating the user. I only read the outline for this one, so the exact error branch is from the trace, not the body.\n5. **`update_user_me`**, `users.py:90`: returns 409 if a different user already has the new email (`users.py:91-94`).\n6. **`register_user`**, `users.py:151`: returns 400 if the email exists, otherwise calls `crud.create_user` (`users.py:152-158`).\n7. **`update_user`** (superuser route), `users.py:204`: returns 409 if a different user has the email (`users.py:205-208`).\n8. **`authenticate`**, `backend/app/crud.py:46`: returns `None` if missing. Otherwise it reads `db_user.hashed_password` and returns the `User` (`crud.py:47-60`). It is called from `login_access_token` (`login.py:30`).\n\n**Impact of changing the signature:** all eight call sites pass `session=` and `email=` by keyword, and the function is keyword-only (`crud.py:34`). Renaming `email` or changing its type would break all eight. Changing the return type would only matter for `authenticate` and `reset_password`, which read `User` attributes. Callers 1, 3, and 5\u20137 use `.id` or `.email` on the result, and 4 and 6 only test truthiness.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 13,
+  "model_calls": 5,
+  "cost_usd": 0.00356915,
+  "duration_ms": 18854,
+  "tokens": {
+    "input": 10,
+    "cache_write": 9269,
+    "cache_read": 38535,
+    "output": 2658,
+    "context": 9279,
+    "total": 50472
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "get_user_by_email"
+      },
+      "result_chars": 1456,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password"
+      },
+      "result_chars": 1969,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "reset_password"
+      },
+      "result_chars": 2003,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password_html_content"
+      },
+      "result_chars": 2002,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_user"
+      },
+      "result_chars": 486,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user_me"
+      },
+      "result_chars": 1559,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "register_user"
+      },
+      "result_chars": 1573,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user"
+      },
+      "result_chars": 361,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "authenticate"
+      },
+      "result_chars": 1728,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:update_user"
+      },
+      "result_chars": 2187,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:create_user",
+        "detail": "outline"
+      },
+      "result_chars": 1346,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 22.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "reset_password returns 400 if user is missing or inactive and calls crud.update_user - possibly extra detail, not contradicting key",
+      "Claims all eight call sites use keyword args and callers 4 and 6 only test truthiness - unverified but not contradicting key",
+      "reset_password returns 400 if user is missing or inactive and calls crud.update_user (key only mentions missing; likely extra detail, not contradicting)",
+      "Claims reset_password returns 400 if user is missing or inactive (key says only missing -> 400 'Invalid token'); likely true extra detail, not contradicting.",
+      "Says authenticate is called from login_access_token, not covered by key; not contradicting."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

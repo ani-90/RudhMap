@@ -1,0 +1,75 @@
+{
+  "answer": "**Direct caller (non-test):**\n- `Client._send_single_request` calls `BaseTransport.handle_request` at `httpx/_client.py:1014`. That method is reached from `Client._send_handling_redirects` (`httpx/_client.py:979`), which is reached from `Client._send_handling_auth` (`httpx/_client.py:942`). The trace is up-only, so I didn't check other callers.\n\n**Overrides that must match the new signature (non-test):**\n- `HTTPTransport.handle_request` at `httpx/_transports/default.py:230`\n- `WSGITransport.handle_request` at `httpx/_transports/wsgi.py:91`\n- `MockTransport.handle_request` at `httpx/_transports/mock.py:19`\n\n`mock.py` is in the library package, not the tests, so it counts. It is also the transport most likely to be used in user code, so it's the one that would break for downstream users.\n\n**Not affected:**\n- The async path. `AsyncBaseTransport` (`httpx/_transports/base.py:77`) uses `handle_async_request`, and the async implementations (`default.py:374`, `asgi.py:99`, `mock.py:29`) use that name. I read this from the names and did not trace `AsyncClient`, so confirm it before relying on it.\n- `ASGITransport` (`httpx/_transports/asgi.py`) has no sync `handle_request`. Its only override is `handle_async_request`, so it is not affected.\n\n**Signature-only changes:** If you change only the parameters, the three overrides and the single call site above need updating. If you change the return type, the `Response` return contract in the overrides is also affected.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.00124211,
+  "duration_ms": 9169,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2442,
+    "cache_read": 14561,
+    "output": 1215,
+    "context": 2448,
+    "total": 18224
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "BaseTransport.handle_request"
+      },
+      "result_chars": 1285,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_single_request",
+        "detail": "outline"
+      },
+      "result_chars": 1229,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": false,
+      "httpcore": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [
+      "ASGITransport is mentioned as a not-affected item, which is consistent with the key; no clear false claims. The claim that MockTransport async is at mock.py:29 is unverified but minor.",
+      "ASGITransport described as having its only override handle_async_request is fine; no clear falsehood. Claim that the mock.py is most likely used in user code is speculative but not contradicting the key.",
+      "Claims MockTransport is the transport most likely used in user code and would break for downstream users (speculative, not contradicting key)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

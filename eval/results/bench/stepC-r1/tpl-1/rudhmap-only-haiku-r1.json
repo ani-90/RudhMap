@@ -1,0 +1,87 @@
+{
+  "answer": "**Password login flow**\n\n1. **Route:** `POST /login/access-token` maps to `login_access_token` (`backend/app/api/routes/login.py:23-24`). It takes OAuth2 form data, so `form_data.username` is the email and `form_data.password` is the password (`login.py:25`, `:31`).\n\n2. **Authentication:** The route calls `crud.authenticate(session, email, password)` (`login.py:30`). That function:\n   - Looks up the user by email with `select(User).where(User.email == email)` (`backend/app/crud.py:34-37`, called at `crud.py:46`).\n   - Verifies the password with `verify_password`, which wraps `password_hash.verify_and_update` (`backend/app/core/security.py:29-32`, called at `crud.py:52`).\n   - If the password verifies and the hash needs upgrading, it stores the new hash and commits (`crud.py:55-59`).\n   - Returns the user, or `None` on failure (`crud.py:54`).\n\n3. **Checks in the route:** If authentication returns `None`, the route raises HTTP 400 \"Incorrect email or password\" (`login.py:33-34`). If the user is inactive, it raises HTTP 400 \"Inactive user\" (`login.py:35-36`).\n\n4. **Token creation:** The route computes `timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)` (`login.py:37`) and calls `create_access_token(user.id, ...)` (`login.py:39-40`). That function sets `exp = now(UTC) + expires_delta` and `sub = str(user.id)`, then signs with `settings.SECRET_KEY` and `ALGORITHM` (`backend/app/core/security.py:22-26`).\n\n5. **Response:** The JWT is wrapped in the `Token` model (`login.py:38`, defined at `backend/app/models.py:114`) and returned.\n\n**Unknown email**\n\n`get_user_by_email` returns `None`, so `authenticate` still runs `verify_password(password, DUMMY_HASH)` (`crud.py:47-50`). This makes the response time roughly the same as for a real account, and then it returns `None`. The route returns the same 400 \"Incorrect email or password\" as a wrong password, so the response does not reveal whether the email exists.\n\nI did not check the `Token` model's fields or the `ALGORITHM` and `DUMMY_HASH` constants, so I can't confirm the response's exact JSON shape.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00210973,
+  "duration_ms": 9797,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6319,
+    "cache_read": 12383,
+    "output": 1443,
+    "context": 6325,
+    "total": 20151
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "access_token login"
+      },
+      "result_chars": 1190,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "authenticate"
+      },
+      "result_chars": 1167,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "login_access_token"
+      },
+      "result_chars": 1639,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "authenticate"
+      },
+      "result_chars": 1728,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_access_token"
+      },
+      "result_chars": 584,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 13.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "unknown-email": true,
+      "verify": false,
+      "inactive": true,
+      "token": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

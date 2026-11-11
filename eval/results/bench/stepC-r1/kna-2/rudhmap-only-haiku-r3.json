@@ -1,0 +1,187 @@
+{
+  "answer": "**Lifecycle of one article**\n\n1. **Fetch (per domain agent).** `BaseAgent.run` calls `_fetch_all` (`app/pipeline/agents/base_agent.py:49`), which pulls candidates from Tavily search queries and NewsAPI headlines (`base_agent.py:84-119`). Items missing a URL or title are dropped (`base_agent.py:52`).\n\n2. **Enrich and quality-check.** `scraper.enrich_content` keeps the existing text if it is long enough, otherwise it runs trafilatura and caps the result at 8000 chars (`app/services/scraper.py:28-36`). `_is_quality` requires at least 40 words and an average of 5+ words per line (`base_agent.py:28-36`, called at line 56). This is a filter, not dedup.\n\n3. **Embed and hash.** The vector is built from title plus the first 500 chars of content (`base_agent.py:60`). A SHA-256 of the URL is computed (`base_agent.py:61`), but it is never written to the database record, so it does no dedup work.\n\n**Deduplication steps**\n\n- **D1: URL dedup within one agent's fetch.** URLs are normalised by stripping tracking params (`base_agent.py:19-25`) and checked against a `seen_urls` set across all Tavily queries and NewsAPI keywords (`base_agent.py:86, 100-102, 112-113`).\n- **D2: Semantic dedup against Qdrant (aggregator Pass 1).** Each article is searched with threshold 0.85 (`app/pipeline/aggregator.py:26-35`, `app/db/qdrant.py:39-48`). If the search fails, the article is kept (`aggregator.py:36-37`). Articles without an embedding skip this check (`aggregator.py:29`).\n- **D3: Exact-URL dedup in SQLite (Pass 2).** `bulk_insert_articles` queries for an existing row with the same URL and skips it (`app/db/crud.py:43-45`). A commit failure from a concurrent insert is rolled back and skipped (`crud.py:58-63`).\n\n**Storage**\n\n- Newly inserted rows get a UUID `qdrant_id` (`aggregator.py:44`) and are written to SQLite (`crud.py:40-64`).\n- They are then upserted to Qdrant with their vectors (`aggregator.py:63-82`, `app/db/qdrant.py:51`). A Qdrant failure leaves the article in SQLite only.\n- Counts are recorded on the `PipelineRun` row (`aggregator.py:98-106`).\n\n**Gaps I noticed**\n\n- D2 only checks against vectors already in Qdrant. Articles that are paraphrases of each other within the same run are not caught, because upserts happen after the check (`aggregator.py:26-38` vs `63-79`).\n- I did not confirm that `Article.url` has a unique constraint in `app/db/models.py:22-38`, so D3's race handling depends on that unverified constraint.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 16,
+  "model_calls": 5,
+  "cost_usd": 0.00414911,
+  "duration_ms": 18614,
+  "tokens": {
+    "input": 10,
+    "cache_write": 11379,
+    "cache_read": 43781,
+    "output": 2869,
+    "context": 11389,
+    "total": 58039
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch article"
+      },
+      "result_chars": 1297,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedup"
+      },
+      "result_chars": 448,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run"
+      },
+      "result_chars": 2847,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent._fetch_all"
+      },
+      "result_chars": 2898,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5795,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_fetch_and_extract"
+      },
+      "result_chars": 908,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_normalise_url"
+      },
+      "result_chars": 569,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles"
+      },
+      "result_chars": 1358,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_is_quality"
+      },
+      "result_chars": 603,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar"
+      },
+      "result_chars": 759,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "enrich_content"
+      },
+      "result_chars": 1100,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article"
+      },
+      "result_chars": 395,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article",
+        "detail": "outline"
+      },
+      "result_chars": 395,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "run_all_agents_node"
+      },
+      "result_chars": 1610,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 21.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": false,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [
+      "Semantic dedup against Qdrant (D2) is described as an active step that runs, and articles are upserted to Qdrant with vectors; in fact embedder.embed() returns [] so it never runs and upsert never happens.",
+      "Embedding is described as producing a vector from title plus content, implying a real vector; it is an empty stub.",
+      "Semantic dedup against Qdrant is described as an active step (D2), when embedder.embed() returns [] so it never runs",
+      "Newly inserted rows are upserted to Qdrant with their vectors, which never actually happens since embeddings are empty",
+      "Embedding step described as building a real vector from title plus 500 chars as if functional",
+      "Semantic dedup (D2) is described as an active pass that searches Qdrant; it never runs because embedder.embed() returns [] so articles have no embedding.",
+      "Newly inserted articles are upserted to Qdrant with their vectors; in reality the upsert never happens since embeddings are empty.",
+      "Claims a SHA-256 of the URL is computed in the agent (not in key; unverified)",
+      "Gap claim about paraphrases within the same run implies the semantic check is otherwise functional."
+    ],
+    "major_false_claim": true,
+    "correct": false,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,169 @@
+{
+  "answer": "**Flow for one article** (the `BaseAgent` pipeline in `app/pipeline/agents/base_agent.py`)\n\n1. **Fetch and URL dedup.** `BaseAgent.run` calls `_fetch_all` (`base_agent.py:84`). That runs LLM-generated Tavily queries, falling back to hardcoded ones, and keeps the top `tavily_queries_per_agent=2` (`config.py:27`). It then runs NewsAPI keyword searches. Each URL goes through `_normalise_url` (`base_agent.py:19`), which strips tracking params, and is kept only if not already in `seen_urls` (`base_agent.py:101`, `:112`). This is dedup #1, within one agent's fetch.\n\n2. **Enrich and filter.** `run` skips items with no URL or title (`base_agent.py:52`). `scraper.enrich_content` keeps the feed body if it has at least 300 chars (`scraper.py:7`, `:30`). Otherwise it scrapes with trafilatura and returns up to 8000 chars (`scraper.py:35`). `_is_quality` requires at least 40 words and an average of 5 or more words per line (`base_agent.py:28`).\n\n3. **Embed.** `embedder.embed(title + content[:500])` (`base_agent.py:60`). If the embedder is unavailable it returns `[]` (`embedder.py:5`).\n\n4. **Hash (unused).** `content_hash` is the SHA-256 of the URL (`base_agent.py:61`). It is put on `ArticleData` but never read for dedup.\n\n5. **Semantic dedup.** `aggregator_node` (`aggregator.py:26-38`) calls `search_similar` against Qdrant with threshold 0.85 (`config.py:28`, `qdrant.py:39`). Any hit drops the article and increments `duplicate_count`. Articles with no embedding skip this check. If Qdrant errors, the article is kept.\n\n6. **Exact-URL dedup and insert.** Each surviving article gets a UUID `qdrant_id` (`aggregator.py:44`). `crud.bulk_insert_articles` (`crud.py:40-64`) checks for an existing row by URL, commits one row at a time, and rolls back on error, which covers races with parallel agents. `Article.url` is also `unique=True` (`models.py:27`). Rows that fail are counted as duplicates (`aggregator.py:60`).\n\n7. **Vector upsert.** Only newly inserted rows are upserted to Qdrant (`aggregator.py:64-79`). A failure here is logged and the article stays in SQLite only.\n\n8. **Run record.** `update_pipeline_run` stores status, persisted count, duplicate count, and errors (`aggregator.py:98-106`).\n\n**Gap:** Pass 1 queries only Qdrant, which holds previously stored vectors. Two near-duplicates fetched in the same run both pass Pass 1, because neither is in Qdrant yet. The later one is caught only by exact-URL matching, not by semantic similarity.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 14,
+  "model_calls": 5,
+  "cost_usd": 0.0038486299999999996,
+  "duration_ms": 17026,
+  "tokens": {
+    "input": 10,
+    "cache_write": 10373,
+    "cache_read": 55353,
+    "output": 2439,
+    "context": 10383,
+    "total": 68175
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedup"
+      },
+      "result_chars": 448,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch article"
+      },
+      "result_chars": 1297,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run"
+      },
+      "result_chars": 2847,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent._fetch_all"
+      },
+      "result_chars": 2898,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5795,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "enrich_content"
+      },
+      "result_chars": 1100,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles"
+      },
+      "result_chars": 1358,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_normalise_url"
+      },
+      "result_chars": 569,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar"
+      },
+      "result_chars": 759,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article"
+      },
+      "result_chars": 395,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_is_quality"
+      },
+      "result_chars": 603,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "unique=True|similarity_threshold|_MIN_CONTENT_LENGTH\\s*=|_STRIP_PARAMS\\s*=|tavily_queries_per_agent",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 953,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 20.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": false,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [
+      "Describes the semantic (Qdrant) dedup pass as active, with hits dropping articles; it says embedding is skipped only if the embedder is 'unavailable', not that embed() is a stub always returning [], so semantic dedup never runs and the Qdrant upsert never happens.",
+      "Claims vector upsert to Qdrant happens for newly inserted rows, when in reality articles have no embedding so upsert never occurs.",
+      "Describes the semantic dedup pass as active (Qdrant search_similar drops articles on a hit), when embedder.embed() is a stub returning [] so it never runs; it only says embed returns [] if 'unavailable'.",
+      "Says the vector upsert to Qdrant happens for newly inserted rows, though with no embeddings it never happens.",
+      "The 'Gap' section implies semantic dedup works against previously stored vectors.",
+      "Semantic dedup is described as active (Qdrant search_similar drops articles with a hit); the answer says embedder returns [] only if the embedder is 'unavailable' rather than always being a stub, so semantic dedup is presented as functioning and the upsert as occurring for new rows.",
+      "Vector upsert to Qdrant is described as happening for newly inserted rows, though with no embeddings it never runs."
+    ],
+    "major_false_claim": true,
+    "correct": false,
+    "unanimous": true
+  }
+}

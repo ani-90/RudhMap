@@ -1,0 +1,126 @@
+{
+  "answer": "**Configuration**\n\n- Default: `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` (`httpx/_config.py:246`), used as the default argument in `Client.__init__` (`httpx/_client.py:196`) and the top-level API functions (`httpx/_api.py:52` and others).\n- `Timeout` (`httpx/_config.py:72`) holds four fields: `connect`, `read`, `write`, `pool`. Its `__init__` (`_config.py:86`) accepts a single float, a tuple, a `Timeout`, or all four keywords explicitly.\n- `Client.__init__` stores it as `self._timeout = Timeout(timeout)` (`httpx/_client.py:212`). The `timeout` property setter is at `_client.py:254-259`.\n\n**Path to the network layer**\n\n1. `Client.send` calls `BaseClient._set_timeout(request)` (`httpx/_client.py:910`; async equivalent at `:1625`).\n2. `_set_timeout` (`_client.py:584-591`) uses the per-request timeout if one is set. Otherwise it takes the client's `Timeout`. It writes `timeout.as_dict()` into `request.extensions[\"timeout\"]`. `as_dict` is at `httpx/_config.py:132`.\n3. `HTTPTransport.handle_request` builds an `httpcore.Request` with those extensions (`httpx/_transports/default.py:237-248`) and calls the httpcore pool. I did not inspect how httpcore reads `extensions[\"timeout\"]`; that code lives outside this repo.\n\n**Exceptions when a timeout fires**\n\nhttpcore's exceptions are translated by `map_httpcore_exceptions()` (`httpx/_transports/default.py:96-118`). It picks the most specific mapping from `_load_httpcore_exceptions` (`default.py:74-92`) and re-raises it `from exc`:\n\n- `ConnectTimeout` (`httpx/_exceptions.py:140`): connection establishment\n- `WriteTimeout` (`_exceptions.py:152`): sending the request\n- `ReadTimeout` (`_exceptions.py:146`): waiting for response data\n- `PoolTimeout` (`_exceptions.py:158`): waiting for a pool connection\n- `TimeoutException` (`_exceptions.py:132`): the base class of all four\n\nEvery one of these subclasses `TransportError`, so `except httpx.TimeoutException` catches all of them. The mapping is applied to response streaming too (`default.py:126`), so a read timeout during body iteration surfaces as `ReadTimeout` as well.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 5,
+  "cost_usd": 0.00315437,
+  "duration_ms": 14155,
+  "tokens": {
+    "input": 10,
+    "cache_write": 8097,
+    "cache_read": 47597,
+    "output": 2116,
+    "context": 8107,
+    "total": 57820
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class Timeout|TimeoutException|ReadTimeout|def timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2148,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout"
+      },
+      "result_chars": 1090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout.__init__"
+      },
+      "result_chars": 2894,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\default.py",
+        "offset": 70,
+        "limit": 60
+      },
+      "result_chars": 2268,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "DEFAULT_TIMEOUT_CONFIG|DEFAULT_TIMEOUT\\b|map_httpcore_exceptions\\(\\)|as_dict|extensions\\[.timeout|timeout=DEFAULT|timeout = Timeout\\(",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2170,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\default.py",
+        "offset": 215,
+        "limit": 40
+      },
+      "result_chars": 1353,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_config.py",
+        "offset": 130,
+        "limit": 12
+      },
+      "result_chars": 397,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 17.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": true,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

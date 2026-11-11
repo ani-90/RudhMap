@@ -1,0 +1,114 @@
+{
+  "answer": "**Short answer:** `Client.send()` hands off to a loop in `_send_handling_redirects`, which builds each follow-up request with `_build_redirect_request`.\n\n**Path**\n\n1. `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` against the client default (904-908), then calls `_send_handling_auth` (914). That method wraps `_send_handling_redirects` (942).\n2. `_send_handling_redirects` (`httpx/_client.py:964-999`) loops:\n   - Raises `TooManyRedirects` once `len(history) > max_redirects` (971-974).\n   - Sends with `_send_single_request` (979).\n   - If the response has no redirect location, it returns (985-986).\n   - Otherwise it calls `_build_redirect_request` (988) and appends the response to `history` (989).\n   - With `follow_redirects` on, it reads and discards the response body and loops (991-992). With it off, it stores the new request in `response.next_request` and returns (993-995).\n3. `_build_redirect_request` (`httpx/_client.py:475-492`) composes a new `Request` from four helpers. It keeps the original `extensions` and builds `cookies` from the client's cookie jar (484-491).\n\n**How each part is decided**\n\n- **Method** \u2014 `_redirect_method` (`httpx/_client.py:494-515`): 303 becomes GET, and 302 becomes GET, unless the method is HEAD. 301 becomes GET only for POST. Other codes keep the method.\n- **URL** \u2014 `_redirect_url` (`httpx/_client.py:517`). I did not read its body.\n- **Headers** \u2014 `_redirect_headers` (`httpx/_client.py:546-571`):\n  - Copies the original headers.\n  - If the target is cross-origin, drops `Authorization`, unless the redirect is a direct HTTP\u2192HTTPS upgrade (552-556).\n  - If cross-origin, rewrites `Host` (559).\n  - If the method changed to GET, drops `Content-Length` and `Transfer-Encoding` (561-565).\n  - Always drops `Cookie`, so the client's cookie jar supplies it (569).\n- **Body** \u2014 `_redirect_stream` (`httpx/_client.py:573-582`): when the method switched to GET, the body is `None`. Otherwise the original `request.stream` is reused.\n\n**Note:** Redirects are followed inside `send()`, but `Client.request()` and `Client.stream()` both call `send()` (`httpx/_client.py:825`, `868`). So `send()` returns the final response and `history` records the intermediate ones.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 3,
+  "cost_usd": 0.0030966200000000004,
+  "duration_ms": 10463,
+  "tokens": {
+    "input": 6,
+    "cache_write": 10476,
+    "cache_read": 14082,
+    "output": 1720,
+    "context": 10482,
+    "total": 26284
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 3747,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 1062,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "build_redirect_request"
+      },
+      "result_chars": 1618,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3199,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._build_redirect_request"
+      },
+      "result_chars": 2471,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_method"
+      },
+      "result_chars": 1336,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_headers"
+      },
+      "result_chars": 2286,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_stream"
+      },
+      "result_chars": 728,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 13.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

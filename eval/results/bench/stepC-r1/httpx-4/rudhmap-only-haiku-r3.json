@@ -1,0 +1,87 @@
+{
+  "answer": "**Digest auth in httpx** is a generator-based `Auth` subclass (`httpx/_auth.py:175`). Its `auth_flow` (`_auth.py:193-222`) runs as follows:\n\n1. **Reuse a cached challenge.** If `self._last_challenge` is set, it builds an `Authorization` header from it and attaches it to the outgoing request (`_auth.py:194-197`). This is how later requests to the same client skip the 401 round trip.\n2. **Yield the request and receive the response** (`_auth.py:199`).\n3. **Stop unless it's a Digest challenge.** Anything other than a 401 with a `WWW-Authenticate: Digest ...` header ends the flow (`_auth.py:201-212`).\n4. **Parse and answer the challenge.** `_parse_challenge` (`_auth.py:224-253`) turns the header into a `_DigestAuthChallenge` (`_auth.py:343`). The nonce count resets to 1 (`_auth.py:215`), and `_build_auth_header` (`_auth.py:255-301`) computes the response digest. That function uses the helpers `_get_client_nonce` (`_auth.py:303`), `_resolve_qop` (`_auth.py:329`) and `_get_header_value` (`_auth.py:311`). Any cookies on the 401 are forwarded (`_auth.py:220-221`).\n5. **Yield the retried request** (`_auth.py:222`).\n\n**How the client drives it.** `Client.send` (`httpx/_client.py:879`, calling `_send_handling_auth` at `:914`) hands the request to `_send_handling_auth` (`_client.py:930-962`):\n\n- It obtains the generator via `auth.sync_auth_flow(request)` and advances it with `next()`.\n- Each yielded request goes through `_send_handling_redirects`, so redirects are followed inside each auth step.\n- The response is fed back with `auth_flow.send(response)`. If the flow raises `StopIteration`, that response is final and returned (`_client.py:949-951`).\n- Otherwise the client reads the 401 body (`response.read()`, `:954`) so the connection can be reused, records it in history, and loops with the next request (`:955-956`).\n- Errors close the response (`:958-960`), and `finally` closes the generator (`:962`).\n\nThe async path mirrors this in `AsyncClient._send_handling_auth` (`_client.py:1645`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00149959,
+  "duration_ms": 10701,
+  "tokens": {
+    "input": 8,
+    "cache_write": 2906,
+    "cache_read": 24709,
+    "output": 1341,
+    "context": 2914,
+    "total": 28964
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1121,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth"
+      },
+      "result_chars": 920,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth.auth_flow"
+      },
+      "result_chars": 2718,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_send_handling_auth"
+      },
+      "result_chars": 1407,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_auth"
+      },
+      "result_chars": 2621,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": false,
+      "qop": false,
+      "reuse": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

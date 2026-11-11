@@ -1,0 +1,84 @@
+{
+  "answer": "Changing the sync `BaseTransport.handle_request` signature affects **one direct call site** and **three overriding classes**. Nothing else in `httpx/` (non-tests) calls it.\n\n**Call site**\n- `Client._send_single_request` calls `transport.handle_request(request)` at `httpx/_client.py:1014`. The call graph shows this is reached through `_send_handling_redirects` and `_send_handling_auth`.\n\n**Overrides that must match the new signature**\n- `HTTPTransport.handle_request` at `httpx/_transports/default.py:230`. It calls `self._pool.handle_request` at `default.py:250`, but that is httpcore's pool, not this method.\n- `WSGITransport.handle_request` at `httpx/_transports/wsgi.py:91`.\n- `MockTransport.handle_request` at `httpx/_transports/mock.py:19`.\n\n**Not affected**\n- The async path is separate. `AsyncBaseTransport.handle_async_request` (`base.py:77`) and its implementations `ASGITransport` (`asgi.py:99`), `AsyncHTTPTransport` (`default.py:374`), and `MockTransport.handle_async_request` (`mock.py:29`) are independent. The async caller is `_client.py:1730`.\n- `base.py:48` is inside a docstring example, not a real call.\n\n**Caveats**\n- The rudhmap trace reports the caller at `_client.py:1001`/`1014`. I confirmed the actual call line with a text search, which shows 1014.\n- Any downstream user code that subclasses `BaseTransport` or calls `handle_request` directly would also break. Those are outside this repo.\n- Tests in `tests/` were excluded as requested.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.0018745300000000001,
+  "duration_ms": 12892,
+  "tokens": {
+    "input": 8,
+    "cache_write": 3369,
+    "cache_read": 30093,
+    "output": 1798,
+    "context": 3377,
+    "total": 35268
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "BaseTransport.handle_request"
+      },
+      "result_chars": 1285,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "handle_request\\(|handle_async_request\\(|def handle_request|def handle_async_request",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 981,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\base.py",
+        "offset": 20,
+        "limit": 40
+      },
+      "result_chars": 1616,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 16.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": true,
+      "httpcore": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

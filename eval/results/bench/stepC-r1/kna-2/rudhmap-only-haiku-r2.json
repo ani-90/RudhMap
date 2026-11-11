@@ -1,0 +1,147 @@
+{
+  "answer": "**Flow for one article**\n\n1. **Query generation and fetch** (`BaseAgent._fetch_all`, `app/pipeline/agents/base_agent.py:84-119`). The agent asks Groq for search queries, falling back to hardcoded ones (L90-94). It then calls Tavily per query and NewsAPI per keyword. Each result URL goes through `_normalise_url` (L19-25), which strips tracking params. Dedup step 1: a per-agent `seen_urls` set drops repeats (L100-102, L112-114).\n\n2. **Per-item filtering** (`BaseAgent.run`, `base_agent.py:44-82`). Items with no URL or title are skipped (L52-53). `scraper.enrich_content` returns the existing content or scrapes the page with trafilatura (`app/services/scraper.py:28`). `_is_quality` rejects content under 40 words or with an average under 5 words per line (`base_agent.py:28-36`). Only then is the embedding computed from title plus the first 500 chars of content (L60). A SHA-256 `content_hash` of the URL is attached (L61), but nothing downstream reads it.\n\n3. **Aggregation** (`aggregator_node`, `app/pipeline/aggregator.py:14-116`).\n   - **Dedup step 2, semantic (Pass 1, L26-38):** each article is searched against Qdrant at threshold 0.85. A match drops it. Articles in the same batch are not compared with each other, because they only reach Qdrant in Pass 3.\n   - **Dedup step 3, URL-exact (Pass 2, L40-61):** `crud.bulk_insert_articles` (`app/db/crud.py:40-64`) queries SQLite by URL and skips existing rows (L43-45). It also commits per row and rolls back on error to handle parallel agents racing on the same URL (L58-63). Inserted rows get a fresh `qdrant_id` UUID (L44).\n   - **Pass 3 (L63-82):** `upsert_articles` (`app/db/qdrant.py:51-64`) writes vectors for newly inserted rows only. If this fails, the article stays in SQLite only and will be missed by future semantic dedup.\n\n4. **Bookkeeping** (L84-109). `duplicate_count` is the semantic hits plus the URL hits. The run's status is written to `PipelineRun` in the `finally` block.\n\n**Caveats**\n- Semantic dedup runs only against vectors already stored from earlier runs, so two near-identical articles fetched in the same run can both be saved.\n- I did not confirm whether `Article.url` has a unique constraint in the database. The URL-exact check lives in application code.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 12,
+  "model_calls": 4,
+  "cost_usd": 0.00330648,
+  "duration_ms": 13498,
+  "tokens": {
+    "input": 8,
+    "cache_write": 9978,
+    "cache_read": 29108,
+    "output": 2038,
+    "context": 9986,
+    "total": 41132
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch article"
+      },
+      "result_chars": 1297,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedup"
+      },
+      "result_chars": 448,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run"
+      },
+      "result_chars": 2847,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent._fetch_all"
+      },
+      "result_chars": 2898,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5795,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_normalise_url"
+      },
+      "result_chars": 569,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles"
+      },
+      "result_chars": 1358,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "upsert_articles"
+      },
+      "result_chars": 1020,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_is_quality"
+      },
+      "result_chars": 603,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article"
+      },
+      "result_chars": 395,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 16.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": false,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [
+      "Describes the semantic Qdrant dedup pass as active (articles searched against Qdrant, a match drops them, embedding computed and vectors upserted), when embedder.embed() returns [] so it never runs",
+      "Claims Pass 3 upserts vectors for newly inserted rows to Qdrant and that semantic dedup works against vectors from earlier runs, which never happens in this code",
+      "Describes the semantic Qdrant dedup pass as active (A match drops it; embedding computed from title plus content) without noting embedder.embed() is a stub returning [] so it never runs",
+      "Claims Qdrant upsert writes vectors for newly inserted rows and semantic dedup runs against vectors from earlier runs, when in fact no embeddings exist so neither happens",
+      "Describes the semantic Qdrant dedup pass as active (searches Qdrant at 0.85, a match drops the article, vectors upserted in Pass 3) without noting embedder.embed() returns [] so it never runs",
+      "States the embedding is computed from title plus first 500 chars as if it produces a real vector, and that semantic dedup works against vectors from earlier runs"
+    ],
+    "major_false_claim": true,
+    "correct": false,
+    "unanimous": true
+  }
+}

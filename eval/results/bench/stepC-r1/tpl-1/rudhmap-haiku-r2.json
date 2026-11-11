@@ -1,0 +1,95 @@
+{
+  "answer": "**Flow for `POST /login/access-token`**\n\n1. **Route:** `login_access_token` in `backend/app/api/routes/login.py:23-42` takes the `OAuth2PasswordRequestForm` form fields. It uses `form_data.username` as the email.\n\n2. **Authentication:** It calls `crud.authenticate(...)` (`login.py:30`), defined at `backend/app/crud.py:45-60`:\n   - It looks up the user by email with `get_user_by_email`.\n   - It verifies the password with `verify_password`, which calls `password_hash.verify_and_update` (`backend/app/core/security.py:29-32`). This returns whether the password matched and, if the hash used an older scheme, an upgraded hash.\n   - If the upgraded hash is returned, it is saved to the user (`crud.py:55-59`). The existing tests cover this bcrypt-to-argon2 upgrade.\n\n3. **Checks:** If `authenticate` returns nothing, the route raises HTTP 400 \"Incorrect email or password\" (`login.py:33-34`). If the user is inactive, it raises HTTP 400 \"Inactive user\" (`login.py:35-36`).\n\n4. **Token:** The route sets the expiry from `settings.ACCESS_TOKEN_EXPIRE_MINUTES` (`login.py:37`). `create_access_token` (`security.py:22-26`) builds a JWT with `exp` and `sub = str(user.id)`, signed with `settings.SECRET_KEY`. The route returns it wrapped in the `Token` model (`login.py:38-42`; `backend/app/models.py:114`).\n\n**When the email doesn't exist**\n\n`authenticate` still runs a password check, `verify_password(password, DUMMY_HASH)` (`crud.py:47-50`), so response time is similar to a real user with a wrong password. It then returns `None`. The route responds with the same 400 \"Incorrect email or password\" as a wrong password, so the response doesn't reveal whether the email is registered.\n\n**Not verified:** I did not open the `ALGORITHM` constant, the `DUMMY_HASH` definition, or the `Token` model fields, so I can't confirm their values.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0017235000000000002,
+  "duration_ms": 10536,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3664,
+    "cache_read": 23510,
+    "output": 1510,
+    "context": 3670,
+    "total": 28690
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "access-token login"
+      },
+      "result_chars": 1190,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "access-token|authenticate|create_access_token",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 3529,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "offset": 20,
+        "limit": 25
+      },
+      "result_chars": 897,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 44,
+        "limit": 20
+      },
+      "result_chars": 880,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\security.py",
+        "offset": 20,
+        "limit": 15
+      },
+      "result_chars": 506,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 13.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "unknown-email": true,
+      "verify": true,
+      "inactive": true,
+      "token": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

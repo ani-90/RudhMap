@@ -1,0 +1,88 @@
+{
+  "answer": "**Overridden by (classes that must match the new signature):**\n- `HTTPTransport.handle_request` (`httpx/_transports/default.py:230`)\n- `MockTransport.handle_request` (`httpx/_transports/mock.py:19`)\n- `WSGITransport.handle_request` (`httpx/_transports/wsgi.py:91`)\n\n**Call sites (non-test):**\n- The only direct caller the call graph finds is `Client._send_single_request`, which calls it at `httpx/_client.py:1014` (the function is defined at `_client.py:1001`).\n- That is reached through `Client._send_handling_redirects` (`_client.py:964`), then `Client._send_handling_auth` (`_client.py:930`), then `Client.send` (`_client.py:879`).\n\n**Not affected:**\n- The async side is separate. `AsyncBaseTransport` uses `handle_async_request` (`httpx/_transports/base.py:77`), and `ASGITransport`, `AsyncHTTPTransport`, and `MockTransport.handle_async_request` all override that method, not `handle_request`. Changing `BaseTransport.handle_request` does not touch them.\n- `ASGITransport` and `WSGITransport` do not inherit from `BaseTransport`'s sync method in a way that matters here, except `WSGITransport`, which is listed above.\n\n**Caveats:**\n- The call graph resolves calls through `self._transport`, but it does not show dynamic dispatch. I did not separately check wrapper or mount transports (for example, a `MountTransport`-style class that delegates to another transport) for calls to `handle_request`. A text search for `.handle_request(` across `httpx/` would confirm that, and I did not run one.\n- If you change the signature, `_client.py:1014` is the only call site to update, plus the three overrides above.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0010036900000000002,
+  "duration_ms": 11096,
+  "tokens": {
+    "input": 6,
+    "cache_write": 701,
+    "cache_read": 16239,
+    "output": 1401,
+    "context": 707,
+    "total": 18347
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "BaseTransport.handle_request"
+      },
+      "result_chars": 1285,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "Client._send_single_request",
+        "direction": "up"
+      },
+      "result_chars": 268,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "detail": "signature"
+      },
+      "result_chars": 418,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": false,
+      "httpcore": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [
+      "ASGITransport and WSGITransport do not inherit from BaseTransport's sync method in a way that matters here \u2014 vague/confusing; WSGITransport does inherit from BaseTransport",
+      "_client.py:1014 is the only call site to update (ignores user-provided custom transports)",
+      "ASGITransport and WSGITransport 'do not inherit from BaseTransport's sync method in a way that matters here' - muddled/inaccurate statement (WSGITransport does inherit BaseTransport)",
+      "Claims _client.py:1014 is the only call site to update, overlooking user-provided custom transports",
+      "ASGITransport and WSGITransport 'do not inherit from BaseTransport's sync method in a way that matters here' \u2014 muddled/incorrect statement, since WSGITransport does inherit BaseTransport and overrides handle_request",
+      "The claim that _client.py:1014 is the only call site to update is stated with some uncertainty, but it is consistent with the key"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

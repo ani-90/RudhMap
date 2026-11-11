@@ -1,0 +1,109 @@
+{
+  "answer": "**Generation** (`POST /api/quiz/generate`, `app/api/quiz.py:23-64`)\n\n1. The article is loaded via `crud.get_article`; a 404 is returned if it's missing (`quiz.py:24-26`).\n2. If the article has no summary, Groq summarizes `raw_content` and the summary and tags are saved (`quiz.py:28-31`).\n3. `groq_client.generate_quiz(article.summary)` asks the LLM for MCQs (`quiz.py:33`). It returns up to 3 questions with `question`, `options`, `answer`, and `explanation`, parsed from JSON with markdown fences stripped. Parse failures return `[]` (`app/services/groq_client.py:88-97`). An empty result yields a 422 (`quiz.py:34-35`).\n4. The raw questions, including the answer key, are stored as `questions_json` in a new `QuizSession` (`quiz.py:37-43`). The client gets a copy with options but no answers (`quiz.py:45-64`).\n\n**Submission** (`POST /api/quiz/submit`, `app/api/quiz.py:67-96`)\n\n1. The session must exist (404) and must not already be submitted (409) (`quiz.py:69-73`).\n2. `crud.submit_quiz_session` scores it (`quiz.py:75`, `app/db/crud.py:155-171`):\n   - Each answer is compared case-insensitively to the stored `answer` (`crud.py:160-163`). Only keys `\"0\"`, `\"1\"`, \u2026 are checked; missing answers count as wrong.\n   - `correct_count` and `total_questions` are stored, and `score = correct / total` (`crud.py:165-167`).\n   - The answers, `submitted_at`, and the new fields are committed (`crud.py:164-170`).\n3. The endpoint rebuilds a per-question breakdown with your answer, the correct answer, `is_correct`, and the explanation (`quiz.py:78-88`). It returns the rounded score (3 decimals), counts, and breakdown (`quiz.py:90-96`).\n\nScores are also aggregated per user and per domain in `get_user_stats` (`app/db/crud.py:194-199`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 6,
+  "cost_usd": 0.00173221,
+  "duration_ms": 13219,
+  "tokens": {
+    "input": 12,
+    "cache_write": 2434,
+    "cache_read": 53971,
+    "output": 1409,
+    "context": 2446,
+    "total": 57826
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "quiz"
+      },
+      "result_chars": 711,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "score"
+      },
+      "result_chars": 749,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/api/quiz.py",
+        "detail": "full"
+      },
+      "result_chars": 268,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "submit_quiz_session",
+        "detail": "full"
+      },
+      "result_chars": 1179,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\quiz.py"
+      },
+      "result_chars": 3454,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "generate_quiz",
+        "detail": "full"
+      },
+      "result_chars": 334,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/services/groq_client.py:generate_quiz",
+        "detail": "full"
+      },
+      "result_chars": 1048,
+      "model_call": 5,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-5",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 16.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "summary-first": true,
+      "generate": true,
+      "answers-hidden": true,
+      "scoring": true,
+      "groq-retry": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

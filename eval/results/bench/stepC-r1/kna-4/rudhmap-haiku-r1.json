@@ -1,0 +1,88 @@
+{
+  "answer": "**Short answer: nothing changes in the pipeline's dedup.** The setting is read only when `search_similar` gets `threshold=None`, and the one caller never passes `None`.\n\n- **The setting:** `similarity_threshold: float = 0.85` is defined at `app/config.py:28`. `.env.example:21` sets `SIMILARITY_THRESHOLD=0.95`, but that value is also unused by the pipeline.\n- **The reader:** `search_similar` falls back to `settings.similarity_threshold` only when `threshold` is `None` (`app/db/qdrant.py:40-41`). It then passes that value to Qdrant as `score_threshold` (`app/db/qdrant.py:47`).\n- **The caller:** `aggregator_node` hardcodes `search_similar(article.embedding, threshold=0.85)` at `app/pipeline/aggregator.py:31`. This is the only caller in the trace, so the config value is never read during the run.\n\n**What actually controls semantic dedup:** the literal `0.85` in `aggregator.py:31`. Any Qdrant hit scoring at or above that value marks the article as a duplicate and skips it (`aggregator.py:32-35`). Changing `config.py` has no effect on this.\n\n**What would change behavior:**\n- Edit `aggregator.py:31` to drop the hardcoded value (call `search_similar(article.embedding)`), so the config setting takes effect.\n- Or change the literal in `aggregator.py:31` directly.\n\nRight now the config default and the hardcoded value both equal 0.85, so behavior matches today. Editing `config.py` or `.env` alone would be silently ignored, and `.env.example`'s 0.95 is misleading.\n\nOther notes: URL-exact dedup happens later, in `crud.bulk_insert_articles` (`aggregator.py:59-60`), and is not affected by this setting.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00187242,
+  "duration_ms": 11063,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4494,
+    "cache_read": 29382,
+    "output": 1358,
+    "context": 4502,
+    "total": 35242
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "similarity_threshold"
+      },
+      "result_chars": 308,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "similarity_threshold|SIMILARITY_THRESHOLD",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 167,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar"
+      },
+      "result_chars": 759,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "search_similar",
+        "direction": "up"
+      },
+      "result_chars": 607,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5795,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-4",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 14.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "no-effect": true,
+      "default-only": true,
+      "mechanics": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

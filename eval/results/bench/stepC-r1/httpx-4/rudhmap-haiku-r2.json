@@ -1,0 +1,85 @@
+{
+  "answer": "**Overview:** `DigestAuth` is a generator-based `Auth` subclass. It answers a 401 Digest challenge by retrying the request with a computed `Authorization` header. It does not send requests itself. The client drives it.\n\n**Class and state** (`httpx/_auth.py:175-191`): It holds the username and password as bytes, the last parsed challenge (`_last_challenge`), and a `_nonce_count` that starts at 1.\n\n**Flow** (`httpx/_auth.py:193-222`):\n1. If a challenge was cached from an earlier response, it attaches a fresh `Authorization` header before the first send (`:194-197`). Otherwise the first request goes out unauthenticated.\n2. It yields the request and receives the response (`:199`).\n3. If the response is not a 401, or has no `WWW-Authenticate: Digest` header, the flow ends (`:201-212`).\n4. Otherwise it parses the challenge (`:214`), resets the nonce count (`:215`), builds the header (`:217-219`), copies any response cookies onto the request (`:220-221`), and yields the request again (`:222`).\n\n**Header computation** (`_build_auth_header`, `:255-301`): It implements RFC 2617/7616 digest.\n- HA1 = hash(user:realm:pass), with an extra nonce/cnonce hash for `-sess` algorithms (`:263-276`).\n- HA2 = hash(method:uri) (`:265-268`).\n- response = hash(HA1:nonce:nc:cnonce:qop:HA2), or the RFC 2069 form when there is no qop (`:278-291`).\n- The nonce count increments per request, and the cnonce is a truncated SHA-1 over the count, nonce, time, and `os.urandom` (`:270-272`, `:303-309`).\n- Only `qop=auth` is supported. `auth-int` raises `NotImplementedError` (`:329-340`).\n\n**Client driving** (`httpx/_client.py:930-962`, `_send_handling_auth`):\n- It calls `auth.sync_auth_flow(request)` (`:937`), which by default delegates to `auth_flow()` (`httpx/_auth.py:62-74`).\n- It advances the generator with `next()` to get the first request (`:939`).\n- Each yielded request is sent through `_send_handling_redirects`, so redirects are followed normally (`:942`).\n- The response is fed back with `auth_flow.send(response)` (`:949`). `StopIteration` means the flow is done and the response is returned (`:950-951`).\n- Otherwise the client reads the body so the connection can be reused, records history, and sends the next request (`:953-956`).\n- `finally` closes the generator (`:961-962`).\n\nThe async path mirrors this with `async_auth_flow` (`httpx/_client.py:1652-1677`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.00224018,
+  "duration_ms": 10399,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6042,
+    "cache_read": 23718,
+    "output": 1588,
+    "context": 6048,
+    "total": 31354
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1121,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|sync_auth_flow|build_digest_header",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 3943,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 175
+      },
+      "result_chars": 7090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 35
+      },
+      "result_chars": 1199,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 13.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

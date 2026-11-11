@@ -1,0 +1,162 @@
+{
+  "answer": "**Flow for one article**\n\n1. **Fetch (search APIs).** `BaseAgent._fetch_all` (`app/pipeline/agents/base_agent.py:84`) asks the LLM for search queries, falling back to hardcoded ones (L90\u201395). It runs Tavily queries (L97\u2013106) and NewsAPI keywords (L108\u2013117).\n\n2. **Dedup #1: URL normalisation and in-run URL set.** Each URL goes through `_normalise_url` (`base_agent.py:19`), which strips tracking params in `_STRIP_PARAMS`. It is then checked against `seen_urls` (L101, L112). This is the only dedup inside a single agent's fetch.\n\n3. **Per-item processing.** `BaseAgent.run` (`base_agent.py:44`) skips items with no URL or title (L52). It then calls `enrich_content` (`app/services/scraper.py:28`), which scrapes with trafilatura only if the snippet is under 300 chars (`scraper.py:7`, `:30\u201336`). It applies `_is_quality` (`base_agent.py:28`, L56), embeds title plus the first 500 chars (L60), and computes a SHA-256 of the URL (L61). That hash is never persisted.\n\n4. **Dedup #2: semantic, in the aggregator.** `aggregator_node` (`app/pipeline/aggregator.py:14`) calls `search_similar` with threshold 0.85 (`aggregator.py:31`, `app/config.py:28`, `app/db/qdrant.py:39`). A hit counts as a duplicate. Articles with empty embeddings skip this check (L29). If Qdrant errors, the article is kept (L36\u201337).\n\n5. **Dedup #3: exact URL in SQLite.** `crud.bulk_insert_articles` (`app/db/crud.py:40`) runs a SELECT by URL per record (L43) and skips existing rows. Commits are wrapped in try/except, so a race with a parallel agent is rolled back (L62\u201363). The `url` column is also `unique=True` (`app/db/models.py:27`) as a backstop.\n\n6. **Store.** The row is written to SQLite with a fresh `qdrant_id` UUID (`aggregator.py:44`). Surviving rows are then upserted to Qdrant (`aggregator.py:77\u201382`). Run counts go to `update_pipeline_run` (L98).\n\n**Caveat:** Qdrant is only written in pass 3, after the batch's semantic check. Two near-duplicates in the same run are therefore both kept, since neither is in Qdrant yet. This follows from the code order; I did not run it.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 13,
+  "model_calls": 5,
+  "cost_usd": 0.0038345600000000003,
+  "duration_ms": 16330,
+  "tokens": {
+    "input": 10,
+    "cache_write": 10695,
+    "cache_read": 54206,
+    "output": 2305,
+    "context": 10705,
+    "total": 67216
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedup"
+      },
+      "result_chars": 448,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch article"
+      },
+      "result_chars": 1297,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run"
+      },
+      "result_chars": 2847,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent._fetch_all"
+      },
+      "result_chars": 2898,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5795,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "enrich_content"
+      },
+      "result_chars": 1100,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles"
+      },
+      "result_chars": 1358,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_normalise_url"
+      },
+      "result_chars": 569,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar"
+      },
+      "result_chars": 759,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article"
+      },
+      "result_chars": 395,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "unique|_MIN_CONTENT_LENGTH\\s*=|similarity_threshold|_STRIP_PARAMS\\s*=|def _is_quality|MIN_QUALITY|return len",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 723,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 19.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": false,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [
+      "Describes the semantic dedup as active (Dedup #2), saying a hit counts as a duplicate and that only articles with empty embeddings skip it, without stating that embedder.embed() returns [] so it never runs",
+      "Says surviving rows are upserted to Qdrant and that near-duplicates in the same run are both kept because neither is in Qdrant yet, implying Qdrant upsert works",
+      "Says the query generation is by 'the LLM' without naming Groq (minor)",
+      "Describes semantic dedup as active in the aggregator; only notes it is skipped for empty embeddings, without stating embedder.embed() is a stub returning [] so it never runs",
+      "Claims surviving rows are upserted to Qdrant and that two near-duplicates in the same run are both kept due to ordering, implying Qdrant upsert works, when in fact embeddings are empty so no upsert happens",
+      "Says embedding is computed from title plus first 500 chars as if producing real embeddings",
+      "Describes semantic dedup as an active pass that checks Qdrant and treats hits as duplicates, only noting that empty embeddings skip it, without stating that embedder.embed() is a stub returning [] so it never runs",
+      "States that Surviving rows are upserted to Qdrant and that two near-duplicates in the same run are both kept due to ordering, implying Qdrant upsert/semantic dedup works otherwise",
+      "Says the embedding is computed from title plus first 500 chars as if real, while embed() returns []"
+    ],
+    "major_false_claim": true,
+    "correct": false,
+    "unanimous": true
+  }
+}

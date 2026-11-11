@@ -1,0 +1,90 @@
+{
+  "answer": "**Short answer:** the frontend treats \"logged in\" as \"an `access_token` exists in localStorage.\" It never checks expiry or validity itself. The server rejects a bad token, and the frontend reacts to that rejection.\n\n**How it decides logged-in**\n- `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`).\n- The protected layout route runs that check in `beforeLoad` and redirects to `/login` if it fails (`frontend/src/routes/_layout.tsx:14-19`).\n- The `currentUser` query only runs when `isLoggedIn()` is true (`useAuth.ts:23-27`).\n\n**How the token gets set and attached**\n- Login posts to `LoginService.loginAccessToken`, stores the returned token in localStorage, and navigates to `/` (`useAuth.ts:41-46`, `:51`).\n- Logout removes the token and navigates to `/login` (`useAuth.ts:56-59`).\n- The API client reads the token from localStorage on each request (`frontend/src/main.tsx:17-20`).\n\n**What happens on expired or invalid tokens**\n- The global query and mutation caches call `handleApiError` on errors (`main.tsx:31-38`).\n- For any 401 or 403 response, it removes `access_token` and hard-redirects to `/login` with `window.location.href` (`main.tsx:22-30`).\n\n**Gaps to be aware of**\n- An expired token passes the route guard, since the guard only checks presence. The user is only logged out after an API call fails.\n- 403 is treated the same as 401, so a permission-denied 403 also logs the user out.\n- I did not check the backend token validation in `backend/app/api/deps.py`, so I haven't confirmed which status code an expired token actually returns.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0021445,
+  "duration_ms": 12446,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5279,
+    "cache_read": 22410,
+    "output": 1728,
+    "context": 5285,
+    "total": 29423
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "login token auth logged in"
+      },
+      "result_chars": 1256,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "token|logged|401|isAuthenticated|expired|invalid",
+        "-i": true,
+        "glob": "!**/node_modules/**",
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 2294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\hooks\\useAuth.ts"
+      },
+      "result_chars": 1933,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\routes\\_layout.tsx"
+      },
+      "result_chars": 1146,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\main.tsx"
+      },
+      "result_chars": 1698,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 15.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": false,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

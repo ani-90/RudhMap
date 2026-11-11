@@ -1,0 +1,97 @@
+{
+  "answer": "**DigestAuth** (`httpx/_auth.py:175`) is an `Auth` subclass that implements RFC 7616-style digest auth as a generator-based flow.\n\n**The flow (`auth_flow`, `httpx/_auth.py:193-222`):**\n1. If a previous challenge is cached (`self._last_challenge`), it builds an `Authorization` header from it and attaches it before the first send (L194-197). This is how later requests reuse the server's nonce.\n2. It yields the request, so the client sends it and gets the response back (L199).\n3. If the response is not a 401, or has no `WWW-Authenticate` header, the flow ends (L201-204).\n4. It scans the `www-authenticate` values for one starting with `digest ` (L206-212).\n5. It parses the header into a `_DigestAuthChallenge` (`_parse_challenge`, L224-253), stores it as `_last_challenge`, and resets `_nonce_count = 1` (L214-215).\n6. It builds the `Authorization` header (`_build_auth_header`, L255-301), copies any response cookies onto the request (L220-221), and yields the request again for the retry (L222).\n\nHeader construction is split into helpers: `_get_client_nonce` (L303), `_resolve_qop` (L329), and `_get_header_value` (L311). The nested `digest()` helper at L260 does the hashing.\n\n**How the client drives it:**\n- `Client.send` (`httpx/_client.py:879`) passes the `auth` argument to `_send_handling_auth`, called at `httpx/_client.py:914`.\n- `_send_handling_auth` (`httpx/_client.py:930-962`) calls `auth.sync_auth_flow(request)` (L937) and runs the generator. It gets the first request with `next()`, sends it through `_send_handling_redirects` (L942), and feeds the response back in with `auth_flow.send(response)` (L949).\n- If the generator yields again, the client reads the earlier response (`response.read()`, L954), records it in history, and sends the next request. If the generator stops (`StopIteration`), the last response is returned (L950-951).\n- On error, the response is closed (L959), and the generator is closed in `finally` (L962).\n\nThe async client mirrors this in `AsyncClient._send_handling_auth` (`httpx/_client.py:1645`).\n\nRudhmap reports no callers of `auth_flow` inside the repo. The dispatch happens through the generic `Auth` protocol, not a direct call.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0019721599999999997,
+  "duration_ms": 11540,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5129,
+    "cache_read": 22256,
+    "output": 1446,
+    "context": 5137,
+    "total": 28839
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1121,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth"
+      },
+      "result_chars": 920,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth.auth_flow"
+      },
+      "result_chars": 2718,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "DigestAuth.auth_flow",
+        "direction": "up"
+      },
+      "result_chars": 99,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_send_handling_auth"
+      },
+      "result_chars": 1407,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_auth"
+      },
+      "result_chars": 2621,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 14.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": false,
+      "qop": false,
+      "reuse": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

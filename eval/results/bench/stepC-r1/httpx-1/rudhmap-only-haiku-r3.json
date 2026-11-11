@@ -1,0 +1,123 @@
+{
+  "answer": "**Flow:** `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` against the client default (L904-908), then calls `_send_handling_auth` (L914). That method runs the auth flow and calls `_send_handling_redirects` (`_client.py:942`). The redirect loop is at `_client.py:964-999`:\n\n1. Sends the request via `_send_single_request` (L979).\n2. If the response has a `Location` (L985), builds the next request with `_build_redirect_request` (L988).\n3. If `follow_redirects` is true, reads the response and loops (L991-992). Otherwise it sets `response.next_request` and returns (L993-995).\n4. Stops with `TooManyRedirects` once `len(history) > max_redirects` (L971-974).\n\n`_build_redirect_request` (`_client.py:475-492`) assembles the new `Request` from four helpers, plus a fresh `Cookies(self.cookies)` (L484):\n\n**Method** (`_redirect_method`, L494-515):\n- 303 changes the method to GET unless it was HEAD (L502-503).\n- 302 changes it to GET unless it was HEAD (L507-508).\n- 301 changes POST to GET (L512-513).\n- Other statuses, including 307 and 308, keep the method.\n\n**URL** (`_redirect_url`, L517): resolved from the `Location` header.\n\n**Headers** (`_redirect_headers`, L546-571):\n- Copies the original headers (L550).\n- On a cross-origin redirect (L552), strips `Authorization` unless the redirect is a direct HTTP\u2192HTTPS upgrade (L553-556). It also rewrites `Host` (L559).\n- If the method switched to GET, removes `Content-Length` and `Transfer-Encoding` (L561-565).\n- Always removes `Cookie` (L569), so the client's cookie jar supplies cookies instead.\n\n**Body** (`_redirect_stream`, L573-582): returns `None` if the method switched to GET (L579-580). Otherwise it reuses the original `request.stream` (L582).\n\n`extensions` are carried over unchanged (L491).\n\nThe `_same_origin` and `_is_https_redirect` checks (L83 and L62) both rely on `_port_or_default` (L77).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 3,
+  "cost_usd": 0.0024732200000000004,
+  "duration_ms": 10261,
+  "tokens": {
+    "input": 6,
+    "cache_write": 7365,
+    "cache_read": 17612,
+    "output": 1647,
+    "context": 7371,
+    "total": 26630
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 3747,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 1062,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "rebuild_method"
+      },
+      "result_chars": 378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "rebuild_auth"
+      },
+      "result_chars": 1390,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3199,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._build_redirect_request"
+      },
+      "result_chars": 2471,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_method"
+      },
+      "result_chars": 1336,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_headers"
+      },
+      "result_chars": 2286,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_stream"
+      },
+      "result_chars": 728,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": false,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a news-feed pipeline run in the background and returns immediately.\n\n**What it does, in order:**\n\n1. **Cooldown check** (`:27-42`): calls `crud.get_last_successful_run(db)` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` ago, it returns a `\"skipped\"` response with the remaining cooldown and minutes since the last refresh. Naive datetimes are treated as UTC (`:30-31`).\n2. **Resolve domains** (`:44`): `request.resolved_domains()` (`app/schemas/feed.py:11-14`) returns the requested domains filtered to the known `DOMAINS` list, or all of them if none were given.\n3. **Create the run** (`:45-48`): generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`), which commits.\n4. **Schedule work** (`:50`): `background_tasks.add_task(_run_pipeline_bg, run_id, request.user_id, domains)`.\n5. **Respond** (`:52`): returns `FeedRefreshResponse(run_id, status=\"running\", domains)`.\n\n**What happens after it returns:**\n\nFastAPI sends the response first, then runs `_run_pipeline_bg` (`app/api/feed.py:55`). That calls `run_pipeline` (`app/pipeline/graph.py:69`) and updates the run's status through `update_pipeline_run`. The client only gets the `run_id`; it has to poll for the outcome. Nothing in the code calls `refresh_feed` directly; it is only reached over HTTP.\n\n**Observation (from reading, not tested):** the cooldown looks only at the last *successful* run. A run stays `\"running\"` until it finishes, so two refresh requests sent close together could both pass the check and start two pipelines. I did not open `get_last_successful_run` to confirm how it filters, so treat this as a likely gap to verify.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 2,
+  "model_calls": 2,
+  "cost_usd": 0.00110274,
+  "duration_ms": 7623,
+  "tokens": {
+    "input": 4,
+    "cache_write": 2231,
+    "cache_read": 8864,
+    "output": 1135,
+    "context": 2235,
+    "total": 12234
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3075,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 11.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

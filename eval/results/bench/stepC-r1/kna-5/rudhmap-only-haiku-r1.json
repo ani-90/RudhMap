@@ -1,0 +1,120 @@
+{
+  "answer": "**Quiz generation** (`app/api/quiz.py:23-64`, `POST /api/quiz/generate`):\n\n1. Loads the article (`crud.get_article`, L24). If it has no summary, it calls `groq_client.summarize` on `raw_content` and saves the result (L28-31).\n2. Calls `groq_client.generate_quiz(article.summary)` (L33). That sends a system prompt and the summary to the LLM via `_call` (`app/services/groq_client.py:90`), parses the reply with `_extract_json`, and keeps the first 3 questions (`groq_client.py:88-97`). Malformed output returns `[]`, which the endpoint turns into a 422 (L34-35).\n3. Stores the questions, including the answer keys, in a `QuizSession` row via `crud.create_quiz_session` (L37-43).\n4. Returns only the question text, options A-D, and explanation (L45-63). The `answer` field is not in the response schema, so the client never sees the key.\n\n**Quiz scoring** (`app/api/quiz.py:68-96`, `POST /api/quiz/submit`):\n\n1. Rejects unknown sessions with 404 and already-submitted sessions with 409 (L69-73).\n2. `crud.submit_quiz_session` (`app/db/crud.py:155-171`) reloads the stored questions and counts a question as correct when `user_answers[str(i)]` matches `q[\"answer\"]`, compared case-insensitively. It then saves the answers, `correct_count`, `total_questions`, `score = correct / len(questions)`, and `submitted_at`.\n3. The endpoint rebuilds a per-question breakdown with `your_answer`, `correct_answer`, `is_correct`, and `explanation` (L78-88). It returns the score rounded to 3 decimals, with the counts and breakdown (L90-96).\n\nBecause the stored session has a fixed number of questions, a score of 1.0 means every question was answered correctly. Missing answers count as wrong, since `.get(str(i), \"\")` produces an empty string that will not match.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 5,
+  "cost_usd": 0.00223529,
+  "duration_ms": 12134,
+  "tokens": {
+    "input": 10,
+    "cache_write": 6022,
+    "cache_read": 29139,
+    "output": 1477,
+    "context": 6032,
+    "total": 36648
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "quiz"
+      },
+      "result_chars": 711,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "score"
+      },
+      "result_chars": 749,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/api/quiz.py",
+        "detail": "full"
+      },
+      "result_chars": 268,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "submit_quiz_session",
+        "detail": "full"
+      },
+      "result_chars": 1179,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "generate_quiz",
+        "detail": "full"
+      },
+      "result_chars": 334,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "submit_quiz",
+        "detail": "full"
+      },
+      "result_chars": 2219,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/api/quiz.py:generate_quiz",
+        "detail": "full"
+      },
+      "result_chars": 3363,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/services/groq_client.py:generate_quiz",
+        "detail": "full"
+      },
+      "result_chars": 1048,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-5",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 15.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "summary-first": true,
+      "generate": true,
+      "answers-hidden": true,
+      "scoring": true,
+      "groq-retry": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

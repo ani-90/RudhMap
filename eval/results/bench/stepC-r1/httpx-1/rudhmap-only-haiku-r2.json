@@ -1,0 +1,132 @@
+{
+  "answer": "**Flow:** `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` from the client default when not passed (904-908), then calls `_send_handling_auth` (914). That calls `_send_handling_redirects` (`_client.py:942`), which holds the redirect loop.\n\n**The loop** (`_client.py:964-999`):\n- Raises `TooManyRedirects` once history exceeds `max_redirects` (971).\n- Sends one hop via `_send_single_request` (979).\n- Returns the response if it has no redirect location (985-986).\n- Otherwise builds the next request with `_build_redirect_request` (988) and appends to history (989).\n- If `follow_redirects` is true, it reads the response body and loops (991-992). If false, it sets `response.next_request` and returns (993-995).\n\n**How the new request is built** (`_build_redirect_request`, `_client.py:475-492`) delegates each part:\n\n- **Method** (`_redirect_method`, 494-515): 303 turns any method except HEAD into GET. 302 does the same (browser behaviour). 301 turns POST into GET. Other codes keep the method.\n- **URL** (`_redirect_url`, 517): the redirect target, resolved from `Location`.\n- **Headers** (`_redirect_headers`, 546-571), starting from a copy of the original headers:\n  - If the target is a different origin, `Authorization` is dropped, unless the change is a direct HTTP\u2192HTTPS upgrade (552-556, via `_is_https_redirect` at 62).\n  - `Host` is updated to the new netloc (559).\n  - If the method changed to GET, `Content-Length` and `Transfer-Encoding` are removed (561-565).\n  - `Cookie` is always removed, so cookies come from the client jar (569). The new `Request` gets `Cookies(self.cookies)` (484).\n- **Body** (`_redirect_stream`, 573-582): if the method became GET, the body is `None`. Otherwise the original `request.stream` is reused (579-582). The original body is therefore resent as-is, which only works for replayable streams.\n\n`extensions` are copied from the original request (491). Auth is re-run on each hop because `_send_handling_auth` wraps the loop (`_client.py:930-954`).\n\nI read these functions from the rudhmap call graph and did not execute a redirect against a live server.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 11,
+  "model_calls": 3,
+  "cost_usd": 0.00261751,
+  "duration_ms": 10161,
+  "tokens": {
+    "input": 6,
+    "cache_write": 8079,
+    "cache_read": 18311,
+    "output": 1636,
+    "context": 8085,
+    "total": 28032
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 3747,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 1062,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "rebuild_method"
+      },
+      "result_chars": 378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "rebuild_auth"
+      },
+      "result_chars": 1390,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "redirect_body"
+      },
+      "result_chars": 1620,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3199,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._build_redirect_request"
+      },
+      "result_chars": 2471,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_method"
+      },
+      "result_chars": 1336,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_headers"
+      },
+      "result_chars": 2286,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_stream"
+      },
+      "result_chars": 728,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 13.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

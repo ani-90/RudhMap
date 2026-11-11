@@ -1,0 +1,157 @@
+{
+  "answer": "**Logged-in check:** The frontend treats the user as logged in if a token exists in `localStorage`. `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`). It doesn't validate the token. It's used as a route gate in `_layout.tsx:15` and by the login, signup, and password-reset routes. `useAuth` also only fetches `/users/me` when `isLoggedIn()` is true (`useAuth.ts:23-27`).\n\n**Token storage:** Login writes the token with `localStorage.setItem(\"access_token\", ...)` (`useAuth.ts:41-46`). Logout removes it and navigates to `/login` (`useAuth.ts:56-59`).\n\n**Attaching the token:** `getAuthToken` builds the `Bearer` header from the token and returns `undefined` if there isn't one (`frontend/src/client/core/auth.gen.ts:22-41`), called via `setAuthParams` (`frontend/src/client/client/utils.gen.ts:95`).\n\n**Expired or invalid token, backend side:** `get_current_user` decodes the JWT with `jwt.decode`. Any `InvalidTokenError` or `ValidationError` returns **403** \"Could not validate credentials\" (`backend/app/api/deps.py:30-40`). A missing user returns 404, and an inactive user returns 400 (`deps.py:41-45`).\n\n**Expired or invalid token, frontend side:** `handleApiError` in `main.tsx` is the intended handler. On a 401 or 403 from axios, it removes `access_token` and sets `window.location.href = \"/login\"` (`frontend/src/main.tsx:22-30`). However, the call graph shows no callers for it, so it may not be wired into the query/mutation cache. I didn't confirm this by reading the QueryCache setup in `main.tsx`.\n\n**Gap:** Without that wiring, an expired token isn't cleared automatically. The user stays \"logged in\" per `isLoggedIn()` until a request fails in a way that is handled, or they log out. Other requests show errors through `handleError` (`frontend/src/utils.ts:17-20`), which doesn't clear the token.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 12,
+  "model_calls": 5,
+  "cost_usd": 0.0031980000000000003,
+  "duration_ms": 14508,
+  "tokens": {
+    "input": 10,
+    "cache_write": 8624,
+    "cache_read": 42220,
+    "output": 2100,
+    "context": 8634,
+    "total": 52954
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {
+        "path": ""
+      },
+      "result_chars": 5469,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "token expired logout auth"
+      },
+      "result_chars": 1307,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "useAuth",
+        "detail": "full"
+      },
+      "result_chars": 3404,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "isLoggedIn",
+        "detail": "full"
+      },
+      "result_chars": 725,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "handleApiError",
+        "detail": "full"
+      },
+      "result_chars": 482,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "getAuthToken",
+        "detail": "full"
+      },
+      "result_chars": 881,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "get_current_user",
+        "detail": "full"
+      },
+      "result_chars": 1225,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Layout",
+        "detail": "full"
+      },
+      "result_chars": 303,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "handleApiError",
+        "direction": "up"
+      },
+      "result_chars": 99,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/_layout.tsx:Layout",
+        "detail": "full"
+      },
+      "result_chars": 1510,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/main.tsx",
+        "detail": "full"
+      },
+      "result_chars": 162,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 17.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": true,
+      "backend-rejects": true,
+      "global-handler": false,
+      "login-stores": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [
+      "handleApiError may not be wired into the query/mutation cache (call graph shows no callers); the answer says an expired token isn't cleared automatically without that wiring, contradicting the key that the global handler catches 401/403 and redirects to /login",
+      "Gap claim: user stays 'logged in' until logout, implying no automatic token clearing/redirect on 401/403",
+      "handleApiError may not be wired into the query/mutation cache (call graph shows no callers); in reality it is the global react-query error handler in main.tsx",
+      "Without that wiring, an expired token isn't cleared automatically; the user stays logged in until logout, which contradicts the global handler clearing the token and redirecting on 401/403",
+      "handleApiError may not be wired into the query/mutation cache (call graph shows no callers); in fact main.tsx wires it as the global react-query error handler",
+      "Without that wiring, an expired token isn't cleared automatically; the user stays logged in until logout, which contradicts the global handler clearing the token and redirecting on 401/403"
+    ],
+    "major_false_claim": true,
+    "correct": false,
+    "unanimous": true
+  }
+}

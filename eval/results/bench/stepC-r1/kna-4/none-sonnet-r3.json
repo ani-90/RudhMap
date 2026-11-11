@@ -1,0 +1,83 @@
+{
+  "answer": "**Changing `similarity_threshold` in `app/config.py` currently changes nothing in article deduplication.**\n\n- The setting is defined at `app/config.py:28` as `similarity_threshold: float = 0.85`.\n- Its only reader is the fallback in `search_similar`, at `app/db/qdrant.py:40-41`. It is used only when the caller passes no `threshold`.\n- The deduplication code in `app/pipeline/aggregator.py:31` does pass one. It calls `search_similar(article.embedding, threshold=0.85)`, with `0.85` hard-coded. The config value is therefore never used on this path.\n- I found no other caller of `search_similar`, so nothing else reads the setting.\n\n**How deduplication works, and what would change if the setting were wired in:**\n- Semantic dedup is \"Pass 1\" (`aggregator.py:26-38`). Each article's embedding is searched against Qdrant. `limit` defaults to 1, and `score_threshold` is the threshold (`qdrant.py:43-48`).\n- If any stored vector scores at or above the threshold, the article is skipped as a duplicate and `duplicate_count` goes up (`aggregator.py:32-35`).\n- The collection uses cosine distance (`qdrant.py:35`). A higher threshold flags fewer duplicates, so more near-identical articles get through. A lower one flags more, and may drop articles that are only related.\n- Exact-URL dedup is separate. It happens at insert time in Pass 2 (`aggregator.py:40`), so no threshold affects it.\n- If the Qdrant search raises an error, the article is kept and dedup is skipped for it (`aggregator.py:36-38`).\n\n**Fix:** change `aggregator.py:31` to `search_similar(article.embedding)`, or pass `settings.similarity_threshold`. The config value then takes effect.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.027347299999999998,
+  "duration_ms": 10086,
+  "tokens": {
+    "input": 8,
+    "cache_write": 3430,
+    "cache_read": 25513,
+    "output": 1106,
+    "context": 3438,
+    "total": 30057
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "similarity_threshold",
+        "output_mode": "content"
+      },
+      "result_chars": 125,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\qdrant.py"
+      },
+      "result_chars": 2724,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "is_duplicate|find_similar|qdrant",
+        "output_mode": "content",
+        "glob": "*.py"
+      },
+      "result_chars": 2773,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "search_similar",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py",
+        "output_mode": "content",
+        "-B": 8,
+        "-A": 8
+      },
+      "result_chars": 1489,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-4",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 11.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "no-effect": true,
+      "default-only": true,
+      "mechanics": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

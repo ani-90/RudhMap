@@ -1,0 +1,110 @@
+{
+  "answer": "**No.** The daily refresh is defined but never started when the API server boots.\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:43-53` `start_scheduler()` registers a `CronTrigger` job (`daily_refresh`) that runs `_daily_refresh` and then calls `scheduler.start()`.\n- `app/scheduler.py:15-40` `_daily_refresh()` creates a pipeline run for `user_id=1` and runs `run_pipeline` for all `DOMAINS`.\n- `app/config.py:31-32` defines `schedule_hour` and `schedule_minute` for the trigger.\n\n**What's missing:**\n- `app/main.py:17-20` the `lifespan` hook only calls `init_db()`. It does not import or call the scheduler.\n- A grep of all `*.py` files finds no caller of `start_scheduler` or `stop_scheduler` anywhere except their definitions in `app/scheduler.py:43` and `:56`.\n- `apscheduler` is pinned in `requirements.txt:35`, and `README.md:138-139` documents `SCHEDULE_HOUR`/`SCHEDULE_MINUTE` as if the job runs, but nothing wires it up.\n\nThe only refresh path that actually runs is the manual `POST /api/feed/refresh` (`app/api/feed.py:20-52`), which has a 2-hour cooldown.\n\n**Config inconsistency:** `app/config.py:30` says \"01:30 UTC = 07:00 IST\", but the defaults are `schedule_hour = 7`, `schedule_minute = 0`, which is 07:00 UTC (12:30 IST). `README.md:138-139` gives `SCHEDULE_HOUR=1` and `SCHEDULE_MINUTE=30`. The code default and the README disagree, and the code's comment doesn't match its own values.\n\n**To fix:** in `lifespan`, call `start_scheduler(settings.schedule_hour, settings.schedule_minute)` after `init_db()`, and call `stop_scheduler()` after the `yield`. Also set the defaults to match the intended time (01:30 UTC if that's what's meant). If the server runs more than one worker process, each would start its own scheduler, so the deployment should use a single worker or the job should be guarded.\n\nI did not run the server, so this is based on reading the code.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00280097,
+  "duration_ms": 13010,
+  "tokens": {
+    "input": 8,
+    "cache_write": 6970,
+    "cache_read": 38167,
+    "output": 2049,
+    "context": 6978,
+    "total": 47194
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "schedule|cron|setInterval|node-cron|refresh",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 100
+      },
+      "result_chars": 7328,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule refresh news"
+      },
+      "result_chars": 997,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|schedule_hour|schedule_minute|lifespan|on_event",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "glob": "*.py"
+      },
+      "result_chars": 307,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\scheduler.py"
+      },
+      "result_chars": 1895,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\main.py"
+      },
+      "result_chars": 1244,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "scheduler",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e"
+      },
+      "result_chars": 798,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 16.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [
+      "app/config.py defines schedule_hour and schedule_minute 'for the trigger' \u2014 implies they are used, though the key says they are unused (the answer does not note they are unused; it suggests wiring them in the fix)",
+      "Claims config comment says '01:30 UTC = 07:00 IST' and README gives SCHEDULE_HOUR=1 \u2014 not verifiable against key, possibly fine",
+      "app/config.py:31-32 defines schedule_hour and schedule_minute 'for the trigger' implies settings are tied to the trigger, though the key says they are unused by any code (the answer's fix suggests wiring them, but doesn't state they're unused)",
+      "app/config.py:31-32 defines schedule_hour and schedule_minute 'for the trigger' implies they are used by the trigger, though the key says they are unused (the answer does hint they are not wired by suggesting passing them in the fix)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "answer": "**Application callers of `crud.get_user_by_email`** (defined at `backend/app/crud.py:34`, returns `User | None`):\n\n1. **`recover_password`**, `backend/app/api/routes/login.py:58`: checks truthiness. If a user exists, it reads `user.email` (line 65) and sends a reset email. The response is the same either way, to prevent enumeration.\n2. **`reset_password`**, `login.py:85`: `None` returns 400 \"Invalid token\". Then it checks `user.is_active` (line 89) and passes the user to `crud.update_user` (line 92).\n3. **`recover_password_html_content`**, `login.py:109`: `None` returns 404 (line 111). Otherwise it reads `user.email` (line 118) to build the email.\n4. **`create_user`**, `backend/app/api/routes/users.py:61`: if a user exists, returns 400 (line 62).\n5. **`update_user_me`**, `users.py:90`: if a different user (`existing_user.id != current_user.id`) owns the email, returns 409 (line 91).\n6. **`register_user`**, `users.py:151`: if a user exists, returns 400 (line 152).\n7. **`update_user`**, `users.py:204`: if a different user (`existing_user.id != user_id`) owns the email, returns 409 (line 205).\n8. **`authenticate`**, `backend/app/crud.py:46`: `None` triggers a dummy hash check for timing safety (line 50) and returns `None`. Otherwise it reads `db_user.hashed_password` (line 52). `authenticate` is called from `login_access_token` (`login.py:30`).\n\n**Implications for a signature change:**\n\n- All app callers use keyword arguments (`session=`, `email=`). Renaming either parameter touches all eight sites.\n- Most callers depend on the `User | None` contract: truthiness checks plus attribute reads (`email`, `id`, `is_active`, `hashed_password`). Changing the return type (e.g. raising on not-found) would change behavior in each.\n- Test code also calls it: `backend/tests/utils/user.py:39` and `backend/tests/api/routes/test_users.py` lines 55, 74, 112, 496. Those would need updating too.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0023723,
+  "duration_ms": 13300,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5405,
+    "cache_read": 22470,
+    "output": 2132,
+    "context": 5411,
+    "total": 30013
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "offset": 50,
+        "limit": 70
+      },
+      "result_chars": 2624,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\users.py",
+        "offset": 55,
+        "limit": 170
+      },
+      "result_chars": 5944,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 25
+      },
+      "result_chars": 1140,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 17.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

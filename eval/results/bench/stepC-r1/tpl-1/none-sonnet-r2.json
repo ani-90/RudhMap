@@ -1,0 +1,85 @@
+{
+  "answer": "**Flow for `POST /login/access-token`**\n\n1. **Route.** `login_access_token` (`backend/app/api/routes/login.py:23-26`) takes an OAuth2 form (`OAuth2PasswordRequestForm`). The email arrives in the form's `username` field.\n\n2. **Authenticate.** The route calls `crud.authenticate(...)` with that username and password (`login.py:30-32`).\n   - `authenticate` looks up the user with `get_user_by_email`, a SQLModel `select` on `User.email` (`crud.py:34-37, 46`).\n   - If the password check passes, it returns the user (`crud.py:60`).\n\n3. **Password check.** `verify_password` calls pwdlib's `verify_and_update` (`security.py:29-32`). The hashers are Argon2 and Bcrypt (`security.py:11-16`).\n   - If the stored hash needs an upgrade, for example an old bcrypt hash, `authenticate` saves the new hash (`crud.py:55-59`).\n   - If the password is wrong, it returns `None` (`crud.py:53-54`).\n\n4. **Failure and inactive checks.** If `authenticate` returns nothing, the route raises HTTP 400 \"Incorrect email or password\" (`login.py:33-34`). If `user.is_active` is false, it raises HTTP 400 \"Inactive user\" (`login.py:35-36`).\n\n5. **Token.** The route builds an expiry from `settings.ACCESS_TOKEN_EXPIRE_MINUTES` (`login.py:37`). `create_access_token` then makes an HS256 JWT signed with `settings.SECRET_KEY`. The JWT carries `sub` set to the user id and an `exp` claim (`security.py:22-26`). The route returns it as `Token(access_token=...)` (`login.py:38-42`).\n\n**When the email doesn't exist**\n\n- `get_user_by_email` returns `None`, so `authenticate` takes the `if not db_user` branch (`crud.py:47`).\n- It still runs `verify_password(password, DUMMY_HASH)` against a fixed Argon2 hash (`crud.py:40-50`). This keeps the response time close to that of a real user with a wrong password, which blocks timing-based email enumeration.\n- It then returns `None` (`crud.py:51`).\n- The route returns the same 400 \"Incorrect email or password\" as for a wrong password (`login.py:33-34`). The response doesn't reveal whether the email exists.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.037161,
+  "duration_ms": 10538,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5416,
+    "cache_read": 14850,
+    "output": 1400,
+    "context": 5422,
+    "total": 21672
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "access-token|def authenticate|def get_user_by_email|def create_access_token",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "glob": "backend/app/**/*.py",
+        "output_mode": "content"
+      },
+      "result_chars": 462,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "limit": 45
+      },
+      "result_chars": 1616,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 1,
+        "limit": 65
+      },
+      "result_chars": 2579,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\security.py",
+        "limit": 60
+      },
+      "result_chars": 1009,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 11.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "unknown-email": true,
+      "verify": true,
+      "inactive": true,
+      "token": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

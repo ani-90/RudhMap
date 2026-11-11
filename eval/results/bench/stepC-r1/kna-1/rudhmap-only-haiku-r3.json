@@ -1,0 +1,52 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It returns quickly and runs the actual refresh in the background.\n\n**What it does, in order:**\n\n1. **Cooldown check (lines 27-42).** It loads the last successful pipeline run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` ago, it returns early with `status=\"skipped\"`, the remaining cooldown, and minutes since the last refresh. Naive timestamps are treated as UTC (lines 30-31).\n2. **Resolve domains (line 44).** `request.resolved_domains()` (`app/schemas/feed.py:11`) returns the full `DOMAINS` list if none were requested, otherwise only the requested values that are in `DOMAINS`.\n3. **Create the run record (lines 45-48).** It generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`), which commits.\n4. **Schedule the work (line 50).** `background_tasks.add_task(_run_pipeline_bg, run_id, user_id, domains)` queues `_run_pipeline_bg` (`app/api/feed.py:55`).\n\n**What happens after it returns:**\n\n- The response is `FeedRefreshResponse(run_id, status=\"running\", domains)` (line 52), so the client gets the run ID immediately.\n- After the response is sent, FastAPI runs `_run_pipeline_bg`. Per the call graph, it calls `run_pipeline` (`app/pipeline/graph.py:69`) and `update_pipeline_run`, which presumably records the final status. I did not open `_run_pipeline_bg` to confirm its error handling.\n- Clients can use the returned `run_id` to follow progress, but I did not check which endpoint exposes that.\n\n**Observations:**\n\n- The cooldown check and the run creation are separate steps with no lock. Two concurrent requests could both pass the check before either run is recorded, so the cooldown is not strictly enforced under concurrency. This is inferred from the code, not tested.\n- The call graph lists no callers inside the repo, so the only entry point is the HTTP route.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 2,
+  "model_calls": 2,
+  "cost_usd": 0.00107124,
+  "duration_ms": 6673,
+  "tokens": {
+    "input": 4,
+    "cache_write": 2231,
+    "cache_read": 8864,
+    "output": 1072,
+    "context": 2235,
+    "total": 12171
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3075,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 10.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

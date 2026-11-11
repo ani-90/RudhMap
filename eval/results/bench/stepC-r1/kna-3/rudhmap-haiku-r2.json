@@ -1,0 +1,105 @@
+{
+  "answer": "**No.** The scheduler code exists, but nothing starts it, so the daily refresh does not run when the API server starts.\n\n**What's wired up:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:43-53` `start_scheduler()` registers a `CronTrigger` job (`daily_refresh`) for `_daily_refresh` and calls `scheduler.start()`.\n- `app/scheduler.py:15-40` `_daily_refresh()` creates a pipeline run for `user_id=1` and runs `run_pipeline` for all `DOMAINS`.\n\n**What's missing:**\n- `app/main.py:17-19` the `lifespan` hook only calls `init_db()`. It never calls `start_scheduler()`.\n- A repo-wide search finds no call site for `start_scheduler` or `stop_scheduler`. They are defined in `app/scheduler.py` and never used. The `stop_scheduler` shutdown is also not called.\n- `app/config.py:31-32` defines `schedule_hour` and `schedule_minute`, but nothing passes them into `start_scheduler`. Even if it were called, the default args are used.\n\n**Inconsistencies:**\n- `app/config.py:30` says \"01:30 UTC = 07:00 IST\", but the values are `7` and `0`, which is 07:00 UTC (12:30 IST).\n- `README.md:138-139` documents `SCHEDULE_HOUR=1` and `SCHEDULE_MINUTE=30` as the way to set the time. Those env vars have no effect because the values are never read.\n\n**Effect:** Only manual refreshes via `POST /api/feed/refresh` (`app/api/feed.py:20-52`, with a 2-hour cooldown) trigger the pipeline. The daily job never fires.\n\n**Fix:** In `app/main.py`'s `lifespan`, call `start_scheduler(settings.schedule_hour, settings.schedule_minute)` after `init_db()`, and call `stop_scheduler()` after the `yield`. Then correct the config comment and the README values. I haven't made these changes. Let me know if you want me to.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00265386,
+  "duration_ms": 12346,
+  "tokens": {
+    "input": 8,
+    "cache_write": 6727,
+    "cache_read": 38216,
+    "output": 1851,
+    "context": 6735,
+    "total": 46802
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "schedul|cron|setInterval|node-cron|refresh",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "head_limit": 100
+      },
+      "result_chars": 7328,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule refresh news"
+      },
+      "result_chars": 997,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|lifespan|on_event|SCHEDULE_",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "glob": "!**/frontend/**"
+      },
+      "result_chars": 331,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\scheduler.py"
+      },
+      "result_chars": 1895,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\main.py"
+      },
+      "result_chars": 1244,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\config.py",
+        "offset": 25,
+        "limit": 12
+      },
+      "result_chars": 302,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 15.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

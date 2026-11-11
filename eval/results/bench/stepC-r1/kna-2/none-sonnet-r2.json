@@ -1,0 +1,98 @@
+{
+  "answer": "**Lifecycle of one article** (the summary isn't generated here; `summary=\"\"` at `base_agent.py:70`)\n\n1. **Fetch** \u2013 `BaseAgent._fetch_all` pulls Tavily results for LLM-generated queries (falling back to hardcoded ones) and NewsAPI results for keywords (`base_agent.py:90-117`).\n2. **Dedup 1: URL normalisation.** `_normalise_url` strips tracking params such as `utm_*`, `fbclid` and `ref` (`base_agent.py:13-25`). It is applied to every result (`:100`, `:111`).\n3. **Dedup 2: per-agent `seen_urls` set.** A normalised URL already seen in this agent's fetch is dropped (`base_agent.py:86, 101-104, 112-115`). It is scoped to one agent, so it doesn't catch overlap between the 7 parallel agents.\n4. **Enrich and filter** \u2013 `run()` skips items with no URL or title (`:52`). It scrapes full content (`:55`) and drops articles under 40 words or averaging under 5 words per line (`_is_quality`, `:28-36, 56-58`). It also computes a SHA-256 of the URL as `content_hash` (`:61`). I found no other use of it in the dedup code, so it isn't a dedup step.\n5. **Embed** \u2013 `embedder.embed` is a stub that returns `[]` (`services/embedder.py:4-5`).\n6. **Aggregator, pass 1: semantic dedup.** If the article has an embedding, `search_similar(threshold=0.85)` against Qdrant skips it on a match (`aggregator.py:28-38`). Because the embedding is always empty, this step is currently dead code, which matches the Railway note in `requirements.txt:28`. A Qdrant error is logged and the article is kept (`:36-37`).\n7. **Pass 2: SQLite insert with URL dedup.** `bulk_insert_articles` first runs an existence check on `Article.url` (`crud.py:43-45`). It then commits row by row and rolls back on a failure such as a race with another agent (`crud.py:58-63`). The `UNIQUE` constraint on `url` backs this up (`models.py:27`). Skipped rows are counted as `len(clean) - len(inserted)` (`aggregator.py:60`).\n8. **Pass 3: Qdrant upsert.** Newly inserted articles that have embeddings are upserted (`aggregator.py:64-82`). With empty embeddings, nothing is upserted.\n\nThe final counts are saved to the pipeline run record (`aggregator.py:98-106`).\n\n**Effective dedup today:** URL normalisation, the per-agent `seen_urls` set, and SQLite URL-exact matching.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.0528874,
+  "duration_ms": 13559,
+  "tokens": {
+    "input": 8,
+    "cache_write": 8302,
+    "cache_read": 31434,
+    "output": 1652,
+    "context": 8310,
+    "total": 41396
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "dedup|duplicate|seen|hash|unique",
+        "-i": true,
+        "output_mode": "content",
+        "head_limit": 80,
+        "glob": "!node_modules"
+      },
+      "result_chars": 6886,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py"
+      },
+      "result_chars": 4784,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\agents\\base_agent.py"
+      },
+      "result_chars": 4734,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def bulk_insert_articles",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py",
+        "output_mode": "content",
+        "-A": 30
+      },
+      "result_chars": 1081,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def embed",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\embedder.py",
+        "output_mode": "content",
+        "-A": 8
+      },
+      "result_chars": 95,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 14.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.833,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

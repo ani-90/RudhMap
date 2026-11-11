@@ -1,0 +1,100 @@
+{
+  "answer": "**No. The daily refresh never starts when the API server starts.** The scheduler code exists, but nothing calls it.\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:43-53` `start_scheduler()` registers a `CronTrigger` job (`daily_refresh`, pointing at `_daily_refresh`) and calls `scheduler.start()`.\n- `app/scheduler.py:15-40` `_daily_refresh()` creates a pipeline run and calls `run_pipeline` for `user_id=1` across all `DOMAINS`.\n- `app/scheduler.py:56-58` `stop_scheduler()` shuts it down.\n- `app/config.py:31-32` defines `schedule_hour` (default 7) and `schedule_minute` (default 0).\n\n**What's missing:**\n- `app/main.py:17-20` is the only lifespan hook, and it only calls `init_db()`. It has no call to `start_scheduler` or `stop_scheduler`.\n- A search of the repo (excluding `frontend/`) finds `start_scheduler` and `stop_scheduler` only at their definitions in `app/scheduler.py`. Nothing else in the Python code, Procfile, or Dockerfile calls them. I did not check other config files for a startup command that imports them.\n\nAs a result, the APScheduler job is never registered, and the server never runs a daily refresh. The only way news gets refreshed is a manual `POST /api/feed/refresh` (`app/api/feed.py:20-52`), which has a 2-hour cooldown.\n\n**Secondary inconsistencies:**\n- The comment at `app/config.py:30` says \"01:30 UTC = 07:00 IST\", but the defaults are 07:00 with no timezone set. The README (`README.md:138-139`) suggests `SCHEDULE_HOUR=1` and `SCHEDULE_MINUTE=30` for 07:00 IST. Since the comment, defaults, and README disagree, the intended time is unclear.\n- `CronTrigger` is created without an explicit timezone, so it uses the scheduler's default (server local time). That matters on a host that isn't set to UTC.\n\n**Fix (not applied):** in `app/main.py`, call `start_scheduler(settings.schedule_hour, settings.schedule_minute)` after `init_db()`, then `stop_scheduler()` after `yield`. Also run the server as a single worker. Otherwise each worker process starts its own scheduler and the job runs multiple times. Also set an explicit timezone on the trigger so the time is unambiguous.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0029850099999999997,
+  "duration_ms": 14740,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7358,
+    "cache_read": 36261,
+    "output": 2300,
+    "context": 7366,
+    "total": 45927
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "(?i)(cron|schedule|setInterval|node-cron|refresh)",
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 80
+      },
+      "result_chars": 6243,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule refresh news"
+      },
+      "result_chars": 997,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|lifespan|on_event|schedule_hour|SCHEDULE_|UVICORN|--workers|gunicorn",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "!frontend/**"
+      },
+      "result_chars": 375,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\scheduler.py"
+      },
+      "result_chars": 1895,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\main.py"
+      },
+      "result_chars": 1244,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\config.py"
+      },
+      "result_chars": 1306,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 17.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "answer": "**Short answer:** `Response.text` doesn't decompress anything itself. It reads `self.content`, which is already decompressed bytes, then decodes those bytes with an encoding chosen by `Response.encoding`.\n\n**1. Decompression (upstream of `text`)**\n- `Response.text` reads `self.content` (`httpx/_models.py:644`). `content` returns the stored `_content` or raises `ResponseNotRead` if the body was never read (`httpx/_models.py:636-639`).\n- `_content` is filled by `Response.read()`, which iterates `iter_bytes()` (`httpx/_models.py:881`).\n- `iter_bytes()` picks a decoder from `_get_content_decoder()` (`httpx/_models.py:894`, defined at `httpx/_models.py:699`). That method builds a `MultiDecoder` for the `Content-Encoding` header values, or an `IdentityDecoder` when there is none (`httpx/_decoders.py:203`, `httpx/_decoders.py:44`). Each raw chunk goes through `decoder.decode()`, then `decoder.flush()` at the end (`httpx/_models.py:898`, `:901`). The decoders handle gzip, deflate, brotli, and zstd.\n\n**2. Encoding selection**\n`Response.encoding` (`httpx/_models.py:653-672`) resolves in this order, and caches the result in `_encoding`:\n1. An explicit `.encoding = ...` assignment.\n2. The `charset` parameter from the Content-Type header (`self.charset_encoding`, line 665). It is used only if `_is_known_encoding()` (`httpx/_models.py:56`) confirms Python knows the codec (line 666).\n3. Otherwise, `default_encoding`. If it is a string, that string is used. If it is a callable, it is called with `_content` for autodetection (lines 667-670).\n4. If all of that yields nothing, the fallback is `\"utf-8\"` (line 671).\n\n**3. Decoding to str**\n`text` returns `\"\"` for an empty body. Otherwise it creates `TextDecoder(encoding=self.encoding or \"utf-8\")` (`httpx/_models.py:648`). `TextDecoder` is an incremental decoder (`httpx/_decoders.py:306-318`). The `text` property calls `decode(self.content)` and then `flush()` and joins the results (`httpx/_models.py:649`). The `flush()` call handles any partial multibyte sequence left at the end.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.0014346099999999998,
+  "duration_ms": 9539,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2678,
+    "cache_read": 16691,
+    "output": 1463,
+    "context": 2684,
+    "total": 20838
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Response.text"
+      },
+      "result_chars": 1244,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding"
+      },
+      "result_chars": 1649,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.content"
+      },
+      "result_chars": 622,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "TextDecoder"
+      },
+      "result_chars": 474,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.iter_bytes"
+      },
+      "result_chars": 3018,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 12.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

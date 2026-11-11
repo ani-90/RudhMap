@@ -1,0 +1,114 @@
+{
+  "answer": "**Short answer:** `Response.text` does no decompression itself. It decodes the already-decompressed `content` bytes, using a charset chosen by `Response.encoding`.\n\n**Step 1: get the bytes.** `text` reads `self.content` (`httpx/_models.py:644`). That property returns the stored `_content` and raises `ResponseNotRead` for streamed responses that were never read (`_models.py:636-639`). `read()` fills `_content` by calling `iter_bytes()` (`_models.py:881`).\n\n**Step 2: decompression.** `iter_bytes()` pulls raw chunks from `iter_raw()` and passes them through `self._get_content_decoder()` (`_models.py:894-898`). That method reads every `Content-Encoding` header value, splits on commas, lowercases each one, and looks it up in `SUPPORTED_DECODERS` (`_models.py:704-713`):\n- One decoder: use it directly.\n- Several (e.g. `gzip, br`): wrap them in `MultiDecoder`, which applies them in order (`_models.py:715-718`, `httpx/_decoders.py:203-225`).\n- None, or only unknown values: use `IdentityDecoder` (`_models.py:719-720`). Unknown encodings are silently skipped.\n\n**Step 3: charset selection.** `text` builds `TextDecoder(encoding=self.encoding or \"utf-8\")` (`_models.py:648`). `encoding` (`_models.py:664-671`) uses the first source that yields a known codec:\n1. An explicit `.encoding = ...` assignment.\n2. The `charset` parameter from the `Content-Type` header (`charset_encoding`). This is used only if `_is_known_encoding()` accepts it (`_models.py:666`, defined at `_models.py:56`).\n3. `default_encoding`: if it is a string, use it; if it is a callable, call it with the content for autodetection.\n\nIf nothing applies, it falls back to `\"utf-8\"` (`_models.py:671`).\n\n**Step 4: decode.** Empty content returns `\"\"` (`_models.py:645-646`). Otherwise the `TextDecoder` (`httpx/_decoders.py:306-318`) runs `decode(content)` and then `flush()`. Both calls use an incremental decoder, so multi-byte characters split across chunks are handled correctly. The result is cached in `_text`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 4,
+  "cost_usd": 0.00221672,
+  "duration_ms": 11658,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5872,
+    "cache_read": 23402,
+    "output": 1615,
+    "context": 5880,
+    "total": 30897
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Response.text"
+      },
+      "result_chars": 1244,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding"
+      },
+      "result_chars": 1649,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.content"
+      },
+      "result_chars": 622,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "TextDecoder"
+      },
+      "result_chars": 474,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.iter_bytes"
+      },
+      "result_chars": 3018,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response._get_content_decoder"
+      },
+      "result_chars": 1970,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "MultiDecoder"
+      },
+      "result_chars": 572,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 14.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

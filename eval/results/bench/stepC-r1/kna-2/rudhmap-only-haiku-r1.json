@@ -1,0 +1,206 @@
+{
+  "answer": "**Path of one article (fetch \u2192 store)**\n\n1. **Fetch.** `BaseAgent.run` (`app/pipeline/agents/base_agent.py:44`) calls `_fetch_all` (`:84`). That queries Tavily and NewsAPI, and skips any item whose normalised URL is already in `seen_urls`. This dedup is per agent, per run (`:86`, `:101`, `:112`).\n\n2. **URL normalisation.** `_normalise_url` (`:19`) strips query params listed in `_STRIP_PARAMS` (`:13`), so tracking variants of the same link collapse to one URL.\n\n3. **Content check.** `scraper.enrich_content` (`app/services/scraper.py:28`) keeps the snippet if it's long enough, otherwise scrapes with trafilatura and caps at 8000 chars. `_is_quality` (`base_agent.py:28`) requires at least 40 words and an average of 5 words per line.\n\n4. **Embedding and hash.** The article is embedded from title + first 500 chars (`base_agent.py:60`). `content_hash` is a SHA-256 of the URL (`:61`).\n\n5. **Dedup pass 1 (semantic).** `aggregator_node` (`app/pipeline/aggregator.py:26-38`) calls `search_similar` with threshold 0.85 (`app/config.py:28`, `app/db/qdrant.py:39`). Any hit drops the article. Qdrant errors are logged and the article is kept.\n\n6. **Dedup pass 2 (exact URL).** `crud.bulk_insert_articles` (`app/db/crud.py:40`) queries by URL before each insert (`:43`). It also commits per row and rolls back on error, which catches races between parallel agents (`:58-63`).\n\n7. **Store.** The row is written to SQLite with a fresh `qdrant_id` UUID (`aggregator.py:44`, `:59`).\n\n8. **Vector upsert.** Surviving rows are upserted to Qdrant (`aggregator.py:64-82`). If this fails, the article stays in SQLite only.\n\n9. **Run record.** `update_pipeline_run` stores `persisted_count` and `duplicate_count` (`aggregator.py:98-106`).\n\n**Gaps I noticed**\n\n- `content_hash` is computed (`base_agent.py:61`) but never persisted. `sqlite_records` omits it (`aggregator.py:46-57`), so it does nothing.\n- Pass 1 only checks Qdrant, which is updated after the batch (`aggregator.py:79`). Two semantically similar articles with different URLs in the same run are both stored.\n- `get_articles_by_urls` (`crud.py:85`) exists but is unused.\n- I could not read the `Article` model's column definitions (`models.py:22-38`), so I have not confirmed a unique constraint on `url`. The code in step 6 suggests one exists.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 18,
+  "model_calls": 6,
+  "cost_usd": 0.00453421,
+  "duration_ms": 19208,
+  "tokens": {
+    "input": 12,
+    "cache_write": 12803,
+    "cache_read": 57841,
+    "output": 2788,
+    "context": 12815,
+    "total": 73444
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedup"
+      },
+      "result_chars": 448,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch article"
+      },
+      "result_chars": 1297,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run"
+      },
+      "result_chars": 2847,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5795,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent._fetch_all"
+      },
+      "result_chars": 2898,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "enrich_content"
+      },
+      "result_chars": 1100,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles"
+      },
+      "result_chars": 1358,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar"
+      },
+      "result_chars": 759,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_normalise_url"
+      },
+      "result_chars": 569,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_is_quality"
+      },
+      "result_chars": 603,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article"
+      },
+      "result_chars": 395,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "similarity_threshold"
+      },
+      "result_chars": 308,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_STRIP_PARAMS"
+      },
+      "result_chars": 364,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "content_hash"
+      },
+      "result_chars": 524,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "unique url constraint"
+      },
+      "result_chars": 978,
+      "model_call": 5,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "run_all_agents_node"
+      },
+      "result_chars": 1610,
+      "model_call": 5,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 22.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": false,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [
+      "Describes the semantic (Qdrant) dedup pass as active, dropping articles on a hit, when embedder.embed() returns [] so it never runs",
+      "Claims the article is embedded from title + first 500 chars and surviving rows are upserted to Qdrant, implying vectors are produced and stored; in reality embedding is empty and upsert never happens",
+      "Claims a SHA-256 content_hash of the URL is computed (unverified against key)",
+      "Describes the semantic Qdrant dedup pass as active (dedup pass 1 drops articles on a hit), when embedder.embed() returns [] so it never runs",
+      "Claims the article is embedded from title + first 500 chars as a working step and that surviving rows are upserted to Qdrant, when embeddings are empty and upsert never happens",
+      "Claims two semantically similar articles in the same run are both stored due to batch timing, rather than because semantic dedup never runs",
+      "Says content_hash is SHA-256 of URL (unverified), minor",
+      "Describes the semantic Qdrant dedup pass as active (drops article on any hit) and says embedding is produced from title + first 500 chars, without noting embedder.embed() returns [] so semantic dedup never runs",
+      "Claims surviving rows are upserted to Qdrant (vector upsert step), which never happens since embeddings are empty",
+      "Claims two semantically similar articles in the same run are both stored because Qdrant is updated after the batch, misattributing the reason (semantic dedup doesn't run at all)",
+      "Does not mention Groq-generated queries; fetch step omits query generation"
+    ],
+    "major_false_claim": true,
+    "correct": false,
+    "unanimous": true
+  }
+}

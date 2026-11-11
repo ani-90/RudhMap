@@ -1,0 +1,102 @@
+{
+  "answer": "**Short answer:** only two of the four documented dedup layers are live. The semantic layer is a no-op in this checkout because `embedder.embed` is a stub.\n\n**Path of one article**\n\n1. **Fetch.** `BaseAgent._fetch_all` queries Tavily and NewsAPI per agent (`app/pipeline/agents/base_agent.py:84-119`).\n2. **Dedup 1: URL normalisation + in-agent set.** Each URL goes through `_normalise_url`, which strips tracking params like `utm_*`, `fbclid`, `_ga` (`base_agent.py:13-25`). It is then checked against a per-agent `seen_urls` set (`base_agent.py:86-117`). Duplicates are dropped before scraping.\n3. **Enrich and quality gate.** `scraper.enrich_content` fetches the full text. `_is_quality` requires at least 40 words and an average of 5+ words per line (`base_agent.py:28-36, 55-58`).\n4. **Embed and hash.** `embedder.embed` is called (`base_agent.py:60`), and a SHA-256 of the URL is computed as `content_hash` (`base_agent.py:61`). `content_hash` is never read anywhere, so it does no dedup work.\n5. **Aggregate.** `aggregator_node` runs three passes (`app/pipeline/aggregator.py:24-109`):\n   - **Dedup 2: semantic (Qdrant).** For each article with an embedding, `search_similar(threshold=0.85)` runs and skips matches (`aggregator.py:28-38`). On Qdrant error it logs a warning and keeps the article.\n   - **Dedup 3: URL-exact in SQLite.** `crud.bulk_insert_articles` looks up each URL and skips existing rows (`app/db/crud.py:40-64`). The commit is wrapped in try/rollback so a race with a parallel agent is absorbed. `Article.url` is also `unique=True` (`app/db/models.py:27`), which backs this up.\n   - **Pass 3: Qdrant upsert.** Only rows actually inserted get vectors written (`aggregator.py:64-82`).\n6. **Record.** `duplicate_count` is `skipped semantic + (clean \u2212 inserted)` and is written to `PipelineRun` (`aggregator.py:60, 98-106`).\n\n**Important finding:** `app/services/embedder.py:4-5` returns `[]` unconditionally. So `article.embedding` is always empty. Dedup 2 is skipped, and Pass 3 produces no Qdrant points. The effective dedup is URL normalisation, the in-agent set, and the SQLite URL check.\n\n**Doc mismatch:** `decisions and tradeoffs.md:178-190` describes a 4-layer chain, including semantic dedup at \u22650.85. The README says embeddings are disabled on Railway, but the stub means they are disabled everywhere in this checkout. Either the stub is intentional or the docs are stale. I did not verify which.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0034173700000000003,
+  "duration_ms": 14534,
+  "tokens": {
+    "input": 8,
+    "cache_write": 9590,
+    "cache_read": 41057,
+    "output": 2176,
+    "context": 9598,
+    "total": 52831
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "dedup|duplicate|hash|fingerprint|seen|exists",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 80
+      },
+      "result_chars": 6669,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\agents\\base_agent.py"
+      },
+      "result_chars": 4734,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py"
+      },
+      "result_chars": 4784,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles"
+      },
+      "result_chars": 1358,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def embed|return \\[\\]|return None|unique=True|UNIQUE|content_hash|def search_similar",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1112,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 17.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

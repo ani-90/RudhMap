@@ -1,0 +1,99 @@
+{
+  "answer": "**Direct callers of `BaseTransport.handle_request` (non-test):**\n\n- **`Client._send_single_request`**, `httpx/_client.py:1014`: `response = transport.handle_request(request)`. This is the only real call site that invokes the base method. The transport comes from `self._transport_for_url(request.url)` at `_client.py:1005`. The rudhmap trace shows it is reached from `_send_handling_redirects` (`_client.py:964`) and `_send_handling_auth` (`_client.py:930`).\n\n**Overrides that must match the new signature** (`BaseTransport` is defined at `httpx/_transports/base.py:14`):\n\n- `HTTPTransport.handle_request`, `httpx/_transports/default.py:230`\n- `MockTransport.handle_request`, `httpx/_transports/mock.py:19`\n- `WSGITransport.handle_request`, `httpx/_transports/wsgi.py:91`\n\n**Not affected:**\n\n- `httpx/_transports/default.py:250` calls `self._pool.handle_request(req)`. That is httpcore's pool method, not this base method.\n- `httpx/_transports/base.py:48` is inside the docstring example, not executed code.\n- Async code uses a separate `handle_async_request` path, so it is not touched by this change.\n\n**Caveats:**\n\n- Call sites are found by name, so a dynamic call or a third-party subclass would not show up here. Any user-defined `BaseTransport` subclass passed to `Client(transport=...)` or `mounts` would break at runtime at `_client.py:1014`.\n- I did not read `_transport_for_url` or the `Client` constructor, so I have not confirmed which transport types can reach line 1014 beyond the three overrides above.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0015141300000000002,
+  "duration_ms": 10716,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2306,
+    "cache_read": 22733,
+    "output": 1650,
+    "context": 2312,
+    "total": 26695
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "detail": "full"
+      },
+      "result_chars": 2039,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def handle_request\\(",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 287,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "\\.handle_request\\(",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 243,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 1000,
+        "limit": 20
+      },
+      "result_chars": 782,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": true,
+      "httpcore": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "Says Client._send_single_request is the 'only real call site'; consistent with key. No clear false claims."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

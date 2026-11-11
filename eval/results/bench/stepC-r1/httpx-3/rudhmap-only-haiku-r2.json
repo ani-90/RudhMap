@@ -1,0 +1,109 @@
+{
+  "answer": "**Where it's configured:** `httpx/_config.py:72` defines `Timeout`. Its `__init__` (`_config.py:86-130`) takes a default plus optional `connect`, `read`, `write`, and `pool` overrides. It also accepts a tuple or another `Timeout`. Passing a bare default with none of the four overrides leaves the rest set to that default. Calling it with no arguments raises `ValueError` (`_config.py:122-126`).\n\n**How it reaches the network layer:**\n1. **Client level:** `BaseClient.timeout` (`httpx/_client.py:254`) exposes the client's configured value.\n2. **Per request:** `Client.send` (`httpx/_client.py:910`) calls `BaseClient._set_timeout` (`_client.py:584-591`). If the request has no `timeout` in its extensions, it uses the client's timeout, or `Timeout(...)` built from a plain value. It stores `timeout.as_dict()` in `request.extensions[\"timeout\"]`. Async follows the same path at `_client.py:1625`.\n3. **Transport:** `HTTPTransport.handle_request` (`httpx/_transports/default.py:230-259`) copies `request.extensions` into an `httpcore.Request` (line 247) and calls the httpcore pool (line 250). httpcore reads the `timeout` extension and enforces the limits on the socket and pool. That enforcement code is not in this repo, so I could not trace it here.\n\n**Exceptions when it fires:** httpcore raises its own timeout errors. `map_httpcore_exceptions` (`_transports/default.py:96-118`) wraps the transport call and re-raises them as httpx types using the table in `_load_httpcore_exceptions` (`default.py:74-92`):\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout` (connect phase)\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout`\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout`\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout` (waiting for a pooled connection)\n- any other `httpcore.TimeoutException` \u2192 `httpx.TimeoutException`\n\nThe mapper picks the most specific match and chains the original with `raise ... from exc` (`default.py:111-118`). All of these subclass `TimeoutException` (`_exceptions.py:132-158`), which is a `TransportError`. The same mapping applies during response streaming (`ResponseStream.__iter__`, `default.py:126`), so a read timeout while iterating the body surfaces as `httpx.ReadTimeout` too.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.00223483,
+  "duration_ms": 11357,
+  "tokens": {
+    "input": 8,
+    "cache_write": 6114,
+    "cache_read": 23073,
+    "output": 1561,
+    "context": 6122,
+    "total": 30756
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout"
+      },
+      "result_chars": 1090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "HTTPTransport.handle_request"
+      },
+      "result_chars": 1899,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "map_httpcore_exceptions"
+      },
+      "result_chars": 1800,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions"
+      },
+      "result_chars": 1100,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout.__init__"
+      },
+      "result_chars": 2894,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": false,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [
+      "Passing a bare default with none of the four overrides leaves the rest set to that default is fine, but the answer says calling with no arguments raises ValueError, which is roughly right; no clear false claims.",
+      "Calling Timeout with no arguments raises ValueError is roughly right, but the answer omits the 'not all four set' condition (minor).",
+      "Passing no arguments to Timeout raises ValueError is stated, but the key says it raises only without a default and when not all four are set; this is roughly consistent, not clearly false."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "answer": "**Digest auth in httpx** is a two-step `Auth` flow: send the request unauthenticated, and if the server answers with a Digest challenge, retry once with a computed `Authorization` header.\n\n**The flow (`httpx/_auth.py`)**\n\n- `DigestAuth.__init__` (`_auth.py:187`) stores the credentials as bytes, sets `_last_challenge = None`, and starts `_nonce_count` at 1.\n- `auth_flow` (`_auth.py:193`) is a generator:\n  - If a previous challenge is cached, it adds an `Authorization` header up front (`:194-197`). This is how later requests on the same auth object are pre-signed.\n  - It yields the request (`:199`) and receives the response back.\n  - It returns without changes unless the response is a 401 with a `WWW-Authenticate: Digest ...` header (`:201-212`).\n  - On a challenge, it parses it (`_parse_challenge`, `:224`), which extracts `realm`, `nonce`, `algorithm` (default MD5), `opaque`, and `qop`. A missing `realm` or `nonce` raises `ProtocolError`.\n  - It resets `_nonce_count` to 1, builds the header with `_build_auth_header` (`:255`), copies any response cookies onto the request, and yields the request again (`:214-222`).\n- `_build_auth_header` picks a hash from `_ALGORITHM_TO_HASH_FUNCTION` (`:176-185`) and computes HA1/HA2 and the response digest. The `qop` handling is in `_resolve_qop` (`:329`) and the client nonce in `_get_client_nonce` (`:303`).\n\n**How the client drives it (`httpx/_client.py`)**\n\n- `_send_handling_auth` (`_client.py:930`) is the sync driver. It calls `auth.sync_auth_flow(request)` (`:937`), which by default defers to `auth_flow()`.\n- It advances the generator with `next()` to get the first request (`:939`).\n- Inside a loop, it sends that request through `_send_handling_redirects` (`:942`), so redirects are followed normally.\n- It calls `auth_flow.send(response)` (`:949`). A `StopIteration` means the flow is done and the response is returned (`:950-951`).\n- Otherwise it reads the response body (`:954`), so the connection can be reused, and loops with the next request (`:955-956`).\n- A `finally` block closes the generator (`:961-962`).\n- `AsyncClient` does the same via `async_auth_flow` / `asend` / `aclose` (`_client.py:1652-1677`).\n\n**Caveat:** I didn't read the rest of `_build_auth_header` (after `_auth.py:264`), so I haven't verified exactly where `_nonce_count` is incremented.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.00201373,
+  "duration_ms": 10418,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4889,
+    "cache_read": 23833,
+    "output": 1594,
+    "context": 4895,
+    "total": 30322
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1121,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|sync_auth_flow|def _build_auth_header",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 4202,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 90
+      },
+      "result_chars": 3930,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 35
+      },
+      "result_chars": 1199,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": false,
+      "reuse": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}
