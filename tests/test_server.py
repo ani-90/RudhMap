@@ -3,7 +3,7 @@ from pathlib import Path
 import anyio
 from mcp import Client
 
-from rudhmap.server import mcp
+from rudhmap.server import legacy_mcp as mcp
 
 SERVICE_PY = """\
 from app.store import save_upload

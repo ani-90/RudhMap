@@ -34,7 +34,7 @@ TIER = 2
 CONFIDENCE = 1.0
 # Bump the version whenever this extractor's output changes, so cached
 # results from the old version are never served (see rudhmap.cache).
-_EXTRACTOR_NAME = "python@6"
+_EXTRACTOR_NAME = "python@8"
 
 _SKIP_DIRS = COMMON_SKIP_DIRS
 
@@ -109,6 +109,11 @@ def _annotation_chain(node: Node, source: bytes) -> list[str] | None:
     return None
 
 
+def _join_module(module: str, name: str) -> str:
+    """`from . import x` binds `.x`, not `..x`."""
+    return module + name if module.endswith(".") else f"{module}.{name}"
+
+
 def _bound_names(node: Node, source: bytes) -> list[str]:
     """Every plain name an assignment/for/with target binds."""
     if node.type == "identifier":
@@ -178,6 +183,8 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
     # class qualname -> its EvidenceRecord, so `self.x = Foo()` can record x's type.
     class_records: dict[str, EvidenceRecord] = {}
     in_param_default = [False]
+    # module-level `name = f(...)`: name -> callee chain of f (see handle_call).
+    module_builders: dict[str, list[str]] = {}
 
     if source.strip():
         nodes.append(
@@ -272,14 +279,14 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
                 if child.type == "dotted_name":
                     name = _text(child, source)
                     names.append(name)
-                    import_table[name] = {"module": module, "name": name, "bound": f"{module}.{name}"}
+                    import_table[name] = {"module": module, "name": name, "bound": _join_module(module, name)}
                 elif child.type == "aliased_import":
                     dotted = child.child_by_field_name("name")
                     alias = child.child_by_field_name("alias")
                     name = _text(dotted, source) if dotted is not None else ""
                     alias_name = _text(alias, source) if alias is not None else name
                     names.append(name)
-                    import_table[alias_name] = {"module": module, "name": name, "bound": f"{module}.{name}"}
+                    import_table[alias_name] = {"module": module, "name": name, "bound": _join_module(module, name)}
                 elif child.type == "wildcard_import":
                     names.append("*")
             emit_import(src_identity, module, names, raw, line)
@@ -346,6 +353,25 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
                 attrs=attrs,
             )
         )
+        # `pipeline.ainvoke(...)` where the module says `pipeline = _build_graph()`:
+        # the method itself is unknowable here, but the value comes from
+        # _build_graph, so record that dependency (relation "built_by").
+        builder = module_builders.get(chain[0]) if len(chain) >= 2 else None
+        if builder is not None and scope_stack and not locally_bound(chain[0], scope_stack):
+            builder_attrs = name_attrs(builder)
+            builder_attrs.pop("via", None)
+            builder_attrs.update({"relation": "built_by", "value_name": chain[0]})
+            edges.append(
+                EdgeRecord(
+                    src=scope_identity(scope_stack),
+                    dst=".".join(builder),
+                    file=file_str,
+                    line=_line(node),
+                    tier=TIER,
+                    confidence=CONFIDENCE,
+                    attrs=builder_attrs,
+                )
+            )
         handle_references(node.child_by_field_name("arguments"), scope_stack)
 
     def handle_references(arguments: Node | None, scope_stack: list[str]) -> None:
@@ -388,6 +414,10 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
             if func is not None and func.type in ("identifier", "attribute"):
                 chain = _flatten_callee(func, source)
         ref = type_ref(chain)
+        # `x = self.make()`: the type is whatever that method says it returns.
+        if (annotation is None and chain is not None and len(chain) == 2 and chain[0] == "self"
+                and enclosing_class(scope_stack) is not None):
+            ref = {"self_call": chain[1], "class": enclosing_class(scope_stack)}
         if left.type == "attribute":
             obj = left.child_by_field_name("object")
             attr = left.child_by_field_name("attribute")
@@ -478,6 +508,11 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
             if bases:
                 record.attrs["bases"] = bases
         else:
+            # `-> Foo`: lets `x = make()` / `x = self.make()` give x the type Foo.
+            returns = node.child_by_field_name("return_type")
+            returns_ref = type_ref(_annotation_chain(returns, source)) if returns is not None else None
+            if returns_ref is not None:
+                record.attrs["returns"] = returns_ref
             handle_parameters(node.child_by_field_name("parameters"), scope_stack + [name])
         body = node.child_by_field_name("body")
         if body is not None:
@@ -538,6 +573,20 @@ def _process_file(py_file: Path, source: bytes, tree: Tree) -> tuple[list[Eviden
     def walk(node: Node, scope_stack: list[str]) -> None:
         for child in node.children:
             visit(child, scope_stack)
+
+    # Module-level `name = some_function(...)` values, collected before the
+    # walk because functions often use a module value assigned below them.
+    for child in tree.root_node.children:
+        assign = child.children[0] if child.type == "expression_statement" and child.children else None
+        if assign is None or assign.type != "assignment":
+            continue
+        left, right = assign.child_by_field_name("left"), assign.child_by_field_name("right")
+        if left is None or right is None or left.type != "identifier" or right.type != "call":
+            continue
+        func = right.child_by_field_name("function")
+        builder_chain = _flatten_callee(func, source) if func is not None else []
+        if builder_chain and _is_plain_chain(builder_chain):
+            module_builders[_text(left, source)] = builder_chain
 
     walk(tree.root_node, [])
 

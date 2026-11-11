@@ -93,7 +93,7 @@ def build_assembly(repo_path: str, *, verbose: bool) -> AssemblyStats:
     # A `references` edge is emitted for every bare name passed as an
     # argument; the ones that matched no definition are ordinary variables,
     # not missed connections, so they don't count as dropped.
-    result.dropped_edges = [e for e in result.dropped_edges if e.attrs.get("relation") != "references"]
+    result.dropped_edges = [e for e in result.dropped_edges if e.attrs.get("relation") not in ("references", "built_by")]
 
     before_containment_edges = result.graph.number_of_edges()
     result = resolve_build_context_containment(result)

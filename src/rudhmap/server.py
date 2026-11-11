@@ -31,8 +31,8 @@ from rudhmap.paths import Relativizer
 from rudhmap.pipeline import VerifiedView, build_view
 from rudhmap.render.drawio import edge_relation
 
-mcp = MCPServer(
-    name="rudhmap",
+legacy_mcp = MCPServer(
+    name="rudhmap-legacy",
     instructions=(
         "RudhMap builds an evidence-cited architecture graph of a local code repository. "
         "Every node and edge it returns cites the file:line that proves it, and anything "
@@ -193,7 +193,7 @@ def context_repo(
     }
 
 
-@mcp.tool(annotations=_READ_ONLY)
+@legacy_mcp.tool(annotations=_READ_ONLY)
 async def scan(repo_path: str) -> dict[str, Any]:
     """Build the full verified architecture graph of a local repository.
 
@@ -209,7 +209,7 @@ async def scan(repo_path: str) -> dict[str, Any]:
     return await anyio.to_thread.run_sync(scan_repo, repo_path)
 
 
-@mcp.tool(name="slice", annotations=_READ_ONLY)
+@legacy_mcp.tool(name="slice", annotations=_READ_ONLY)
 async def slice_tool(repo_path: str, query: str, max_nodes: int = 60) -> dict[str, Any]:
     """Return the part of a repository's architecture graph relevant to a question.
 
@@ -228,7 +228,7 @@ async def slice_tool(repo_path: str, query: str, max_nodes: int = 60) -> dict[st
     return await anyio.to_thread.run_sync(slice_repo, repo_path, query, max_nodes)
 
 
-@mcp.tool(name="generate_diagram", annotations=_WRITES_DIAGRAM)
+@legacy_mcp.tool(name="generate_diagram", annotations=_WRITES_DIAGRAM)
 async def generate_diagram_tool(
     repo_path: str, query: str | None = None, max_nodes: int = 60, output_path: str | None = None
 ) -> dict[str, Any]:
@@ -251,7 +251,7 @@ async def generate_diagram_tool(
     return await anyio.to_thread.run_sync(diagram_repo, repo_path, query, max_nodes, output_path)
 
 
-@mcp.tool(name="get_context", annotations=_READ_ONLY)
+@legacy_mcp.tool(name="get_context", annotations=_READ_ONLY)
 async def get_context_tool(
     repo_path: str, query: str, token_budget: int = DEFAULT_TOKEN_BUDGET, max_nodes: int = 60
 ) -> dict[str, Any]:
@@ -276,7 +276,92 @@ async def get_context_tool(
     return await anyio.to_thread.run_sync(context_repo, repo_path, query, token_budget, max_nodes)
 
 
+# --------------------------------------------------------------------------
+# Step B context tools: the default MCP surface.
+#
+# Tool definitions are re-sent to the model on every call, so names,
+# descriptions and parameters are kept short (step B pass criterion: the
+# whole surface adds <= 800 tokens per model call). The legacy tools above
+# stay available with `rudhmap-mcp --legacy`.
+
+import os as _os
+import threading as _threading
+
+from rudhmap.tools import views as _views
+from rudhmap.tools.index import RepoIndex as _RepoIndex
+
+mcp = MCPServer(
+    name="rudhmap",
+    instructions="Call graph of this repo. Prefer these tools to Grep/Read to find and understand code.",
+)
+
+
+def _repo_root(repo: str | None = None) -> Path:
+    raw = repo or _os.environ.get("RUDHMAP_REPO") or _os.getcwd()
+    root = Path(raw).expanduser()
+    if not root.is_dir():
+        raise ToolError(f"repo is not a directory: {raw}")
+    return root.resolve()
+
+
+async def _run(fn, *args):
+    root = _repo_root()
+
+    def work():
+        return fn(_RepoIndex.get(root), *args)
+
+    return await anyio.to_thread.run_sync(work)
+
+
+@mcp.tool()
+async def find_symbol(query: str) -> str:
+    """Find functions, classes, files, HTTP routes by name or keywords. Returns file:line + signature."""
+    return await _run(_views.find_symbol, query)
+
+
+@mcp.tool()
+async def show(symbol: str, detail: str = "") -> str:
+    """A function/class/file with what it calls and who calls it, file:line cited.
+    detail: full (source; default for functions) | outline | signature."""
+    return await _run(_views.show, symbol, detail or None)
+
+
+@mcp.tool()
+async def trace(symbol: str, to: str = "", direction: str = "down") -> str:
+    """Call path from symbol to `to`; or without `to`, the call tree (direction=up: callers)."""
+    return await _run(_views.trace, symbol, to or None, direction)
+
+
+@mcp.tool()
+async def repo_map(path: str = "") -> str:
+    """Overview: files with their main functions, classes, routes. Optional folder path."""
+    return await _run(_views.repo_map, path or None)
+
+
+def _warm_index() -> None:
+    """Start indexing the working directory as soon as the server starts,
+    so the first tool call doesn't wait for a cold build."""
+    try:
+        root = _repo_root(None)
+    except ToolError:
+        return
+
+    def build():
+        try:
+            _RepoIndex.get(root)
+        except Exception:  # noqa: BLE001 -- a failed warm-up just means the first call builds
+            pass
+
+    _threading.Thread(target=build, daemon=True).start()
+
+
 def main() -> None:
+    import sys
+
+    if "--legacy" in sys.argv[1:]:
+        legacy_mcp.run("stdio")
+        return
+    _warm_index()
     mcp.run("stdio")
 
 

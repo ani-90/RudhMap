@@ -149,7 +149,37 @@ def main() -> None:
     context_p.add_argument("--budget", type=int, default=DEFAULT_TOKEN_BUDGET, help="approximate token budget")
     context_p.add_argument("--max-nodes", type=int, default=60)
 
+    # Step B context tools: same output as the MCP tools.
+    find_p = sub.add_parser("find", help="Find functions/classes/files/routes by name or keywords")
+    find_p.add_argument("query")
+    show_p = sub.add_parser("show", help="A function/class/file with what it calls and who calls it")
+    show_p.add_argument("symbol")
+    show_p.add_argument("--detail", choices=["full", "outline", "signature"])
+    trace_p = sub.add_parser("trace", help="Call path between two symbols, or the call tree below/above one")
+    trace_p.add_argument("symbol")
+    trace_p.add_argument("to", nargs="?")
+    trace_p.add_argument("--up", action="store_true", help="callers instead of callees")
+    trace_p.add_argument("--depth", type=int, default=3)
+    map_p = sub.add_parser("map", help="Overview of the repo or of one folder")
+    map_p.add_argument("path", nargs="?")
+    for tool_p in (find_p, show_p, trace_p, map_p):
+        tool_p.add_argument("--repo", default=".", help="repository root (default: current directory)")
+
     args = parser.parse_args()
+    if args.command in ("find", "show", "trace", "map"):
+        from rudhmap.tools import views
+        from rudhmap.tools.index import RepoIndex
+
+        index = RepoIndex.get(args.repo)
+        if args.command == "find":
+            print(views.find_symbol(index, args.query))
+        elif args.command == "show":
+            print(views.show(index, args.symbol, args.detail))
+        elif args.command == "trace":
+            print(views.trace(index, args.symbol, args.to, "up" if args.up else "down", args.depth))
+        else:
+            print(views.repo_map(index, args.path))
+        return
     if args.command == "scan":
         scan(args.repo_path)
     elif args.command == "slice":

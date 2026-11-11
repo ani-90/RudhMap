@@ -258,12 +258,38 @@ def _ts_export_target(target_file: str, name: str, node_files, node_ids, module_
     return None
 
 
+def _resolve_relative_python(importing_file: str, dotted: str, node_files: set[str], node_ids: set[str]) -> str | None:
+    """`._models.Request` imported in `httpx/_client.py` -> `httpx/_models.py:Request`.
+    Leading dots: one = the importing file's package, each extra = one level up.
+    Tries every split into (module path, qualname), like the absolute case;
+    resolves only when exactly one split names a scanned file and a node."""
+    level = len(dotted) - len(dotted.lstrip("."))
+    parts = [p for p in dotted[level:].split(".") if p]
+    base = os.path.dirname(importing_file)
+    for _ in range(level - 1):
+        base = os.path.dirname(base)
+    normalized = {os.path.normpath(f): f for f in node_files}
+    found = set()
+    for k in range(0, len(parts)):
+        stem = os.path.join(base, *parts[:k]) if k else base
+        for candidate_file in (stem + ".py", os.path.join(stem, "__init__.py")) if k else (os.path.join(stem, "__init__.py"),):
+            original = normalized.get(os.path.normpath(candidate_file))
+            if original is None:
+                continue
+            candidate = f"{original}:{'.'.join(parts[k:])}"
+            if candidate in node_ids:
+                found.add(candidate)
+    return next(iter(found)) if len(found) == 1 else None
+
+
 def _cross_file_candidate_identity(edge: EdgeRecord, node_files: set[str], node_ids: set[str],
                                    module_attrs: dict | None = None) -> str | None:
     if edge.tier != 2:
         return None
     dotted = edge.attrs.get("resolved_dotted_path")
-    if dotted is not None and edge.file.endswith(_PY_EXT) and not dotted.startswith("."):
+    if dotted is not None and edge.file.endswith(_PY_EXT):
+        if dotted.startswith("."):
+            return _resolve_relative_python(edge.file, dotted, node_files, node_ids)
         return _resolve_dotted_attribute_path(dotted, node_files, node_ids)
 
     module = edge.attrs.get("resolved_module")
@@ -280,7 +306,8 @@ def _cross_file_candidate_identity(edge: EdgeRecord, node_files: set[str], node_
         return _ts_export_target(target_file, name, node_files, node_ids, module_attrs or {})
     elif edge.file.endswith(_PY_EXT):
         if module.startswith("."):
-            return None  # leading-dot relative import -- not handled here
+            joined = module + name if module.endswith(".") else f"{module}.{name}"
+            return _resolve_relative_python(edge.file, joined, node_files, node_ids)
         target_file = _resolve_dotted_module_suffix(module, node_files)
     else:
         return None
@@ -401,17 +428,34 @@ def resolve_build_context_containment(assembly: AssemblyResult) -> AssemblyResul
 _MAX_BASE_DEPTH = 5
 
 
-def _resolve_type_ref(ref: dict | None, file: str, graph, node_files: set[str], node_ids: set[str]) -> str | None:
-    if not ref:
+def _resolve_type_ref(ref: dict | None, file: str, graph, node_files: set[str], node_ids: set[str],
+                      depth: int = 0) -> str | None:
+    """The class a type reference names. A reference to a function (from
+    `x = make()` / `x = self.make()`) stands for that function's stated
+    return type (`-> Foo`); followed at most 3 functions deep."""
+    if not ref or depth > 3:
         return None
     if "bound" in ref:
-        candidate = _resolve_dotted_attribute_path(ref["bound"], node_files, node_ids)
+        bound = ref["bound"]
+        candidate = (_resolve_relative_python(file, bound, node_files, node_ids) if bound.startswith(".")
+                     else _resolve_dotted_attribute_path(bound, node_files, node_ids))
     elif "local" in ref:
         candidate = f"{file}:{ref['local']}"
+    elif "self_call" in ref:
+        owner = f"{file}:{ref['class']}"
+        candidate = _find_member(graph, owner, [ref["self_call"]], node_files, node_ids) if graph.has_node(owner) else None
     else:
         return None
-    if candidate and graph.has_node(candidate) and _kind(graph, candidate) == "class":
+    if not candidate or not graph.has_node(candidate):
+        return None
+    kind = _kind(graph, candidate)
+    if kind == "class":
         return candidate
+    if kind == "function":
+        for ev in graph.nodes[candidate]["evidence"]:
+            returns = ev.attrs.get("returns")
+            if returns:
+                return _resolve_type_ref(returns, ev.file, graph, node_files, node_ids, depth + 1)
     return None
 
 

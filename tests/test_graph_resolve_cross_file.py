@@ -96,13 +96,28 @@ def test_bare_ts_module_specifier_is_never_resolved():
     assert result.dropped_edges == [edge]
 
 
-def test_python_leading_dot_relative_import_is_left_unresolved():
+def test_python_leading_dot_relative_import_resolves_within_the_package():
+    # `from .writer import put_object as write_object` in pkg/app.py -> pkg/writer.py,
+    # never a same-named writer.py elsewhere.
     nodes = [
-        _node("app.py:Handler.process", "app.py"),
-        _node("writer.py:put_object", "writer.py"),
+        _node("pkg/app.py:Handler.process", "pkg/app.py"),
+        _node("pkg/writer.py:put_object", "pkg/writer.py"),
+        _node("other/writer.py:put_object", "other/writer.py"),
     ]
     edge = _call_edge(
-        "app.py:Handler.process", "app.py", ["write_object"],
+        "pkg/app.py:Handler.process", "pkg/app.py", ["write_object"],
+        resolved_module=".writer", resolved_name="put_object",
+    )
+    result = resolve_cross_file_calls(assemble_graph(nodes, [edge]))
+
+    assert list(result.graph.edges()) == [("pkg/app.py:Handler.process", "pkg/writer.py:put_object")]
+    assert result.dropped_edges == []
+
+
+def test_python_relative_import_of_a_missing_module_stays_dropped():
+    nodes = [_node("pkg/app.py:Handler.process", "pkg/app.py"), _node("writer.py:put_object", "writer.py")]
+    edge = _call_edge(
+        "pkg/app.py:Handler.process", "pkg/app.py", ["write_object"],
         resolved_module=".writer", resolved_name="put_object",
     )
     result = resolve_cross_file_calls(assemble_graph(nodes, [edge]))
