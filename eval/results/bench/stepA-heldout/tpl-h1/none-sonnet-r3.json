@@ -1,0 +1,78 @@
+{
+  "answer": "The first superuser is created by `init_db`, which runs from the prestart script each time the backend starts up.\n\n**How:** `init_db(session)` is in `backend/app/core/db.py:15`.\n- It looks for a user whose email equals `settings.FIRST_SUPERUSER` (`db.py:24-26`).\n- If none exists, it builds a `UserCreate` with `email=settings.FIRST_SUPERUSER`, `password=settings.FIRST_SUPERUSER_PASSWORD` and `is_superuser=True` (`db.py:27-32`).\n- It then saves that user with `crud.create_user` (`db.py:33`).\n- Because of the existence check, running it again does nothing once the user exists.\n\n**Where the credentials come from:** `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` are required settings in `backend/app/core/config.py:65-66`. They are normally read from the environment or `.env`.\n\n**When:**\n- `backend/app/initial_data.py:5,13` opens a session and calls `init_db`.\n- `backend/scripts/prestart.sh:10` runs `python app/initial_data.py`. This happens during the prestart step, before the app server starts. The README (`backend/README.md:22,45`) shows running it by hand, and the Docker setup runs it through the prestart script.\n- Tests also call `init_db` in `backend/tests/conftest.py:8,18`, so the test database has the superuser too.\n\n**Tables:** The table-creation lines in `init_db` are commented out (`db.py:16-22`). The schema is expected to come from Alembic migrations, which must run before the user is inserted.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0202655,
+  "duration_ms": 11125,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2165,
+    "cache_read": 18135,
+    "output": 978,
+    "context": 2171,
+    "total": 21284
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "FIRST_SUPERUSER|init_db|prestart",
+        "output_mode": "content",
+        "glob": "!**/node_modules/**",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend"
+      },
+      "result_chars": 2503,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "initial_data",
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts"
+      },
+      "result_chars": 57,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 12.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": true,
+    "false_claims": [
+      "Says init_db runs 'each time the backend starts up' \u2014 it runs in the prestart script before the app starts, not at app startup (minor imprecision; idempotent though)",
+      "Says init_db runs from the prestart script 'each time the backend starts up' \u2014 it runs in prestart before the app starts, not at app startup itself (minor wording imprecision)",
+      "Does not mention alembic upgrade head runs first in prestart, though it implies migrations must run before",
+      "Says init_db runs from the prestart script 'each time the backend starts up', which slightly misframes it as running at app startup rather than before the app starts (though it later clarifies prestart runs before the app server)."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

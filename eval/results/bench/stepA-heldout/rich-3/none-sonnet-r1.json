@@ -1,0 +1,101 @@
+{
+  "answer": "`advance()` doesn't redraw anything. A background thread does the redrawing.\n\n**What `advance()` does:** it only updates data. Under `self._lock` it increments `task.completed` and appends a speed sample (`rich/progress.py:1518-1531`). It never calls `refresh()`, and it never touches the terminal.\n\n**What redraws the bar:**\n1. `Progress.__init__` builds a `Live` object (`progress.py:1093`) and passes it `auto_refresh`, which defaults to `True` (`progress.py:1074`, `1095`).\n2. `with Progress()` calls `start()` (`progress.py:1173`, `1161`), which starts the `Live`. When `auto_refresh` is on, `Live.start` creates and starts a `_RefreshThread` (`live.py:142-143`).\n3. That thread loops with `self.done.wait(1 / self.refresh_per_second)`. The default is 4 times per second (`live.py:64`). Each tick it takes `live._lock` and calls `live.refresh()` (`live.py:34-38`).\n4. `Live.refresh()` sets the live render's renderable (`live.py:247`). On a real terminal it then calls `console.print(Control())` (`live.py:269-271`). That emits the cursor-reposition codes and re-renders the progress table, so the bar is drawn over its previous position. The renderable comes from `Progress.get_renderable()` (`progress.py:1545`). It reads the current `task.completed` values.\n5. On exit, `stop()` stops the thread (`live.py:157-159`).\n\n**Consequences:**\n- The bar updates at most about 4 times per second, however fast your loop calls `advance`.\n- Several `advance` calls between ticks are shown together as one update.\n- With `auto_refresh=False`, nothing redraws until you call `progress.refresh()` (`progress.py:1540-1543`). You can also pass `refresh=True` to `update()`.\n- If the output is not a terminal (a file or a dumb terminal), the live display is not drawn on each tick. Only the final state is printed (`live.py:272-276`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0319817,
+  "duration_ms": 26318,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3829,
+    "cache_read": 17637,
+    "output": 1489,
+    "context": 3835,
+    "total": 22961
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def advance|def refresh|def update\\(|def start|class _RefreshThread|def run\\(self|def __enter__|self.live = Live|def get_renderable|auto_refresh",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "output_mode": "content"
+      },
+      "result_chars": 1506,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class _RefreshThread|def run\\(|def refresh|def start|def process_renderables|def _enable_redirect_io|self._refresh_thread|refresh_per_second",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "output_mode": "content"
+      },
+      "result_chars": 1095,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "offset": 1510,
+        "limit": 40
+      },
+      "result_chars": 1726,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 30,
+        "limit": 10
+      },
+      "result_chars": 291,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 244,
+        "limit": 34
+      },
+      "result_chars": 1564,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 27.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": true,
+      "in-place": false,
+      "redirect": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "The default refresh rate is 4 times per second (Live default); Progress default is 10 per second, so the 'at most about 4 times per second' claim is wrong for Progress.",
+      "Default refresh rate is stated as 4 times per second (live.py:64); Progress default is 10 per second, so the 'about 4 times per second' claim is wrong for Progress.",
+      "The default refresh rate is 4 times per second (Live's default); Progress defaults to 10 per second, so the bar updates at most about 4 times per second is wrong for Progress."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

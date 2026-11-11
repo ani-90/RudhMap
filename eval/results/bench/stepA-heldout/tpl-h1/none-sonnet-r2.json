@@ -1,0 +1,96 @@
+{
+  "answer": "The first superuser is created by a prestart script that runs after the database migrations. It is not created by the running API server.\n\n**When it runs**\n- `backend/scripts/prestart.sh:7` runs `alembic upgrade head` to apply the migrations.\n- `backend/scripts/prestart.sh:10` then runs `python app/initial_data.py`.\n- `backend/app/initial_data.py:13` opens a session and calls `init_db(session)`.\n- The script is run explicitly, not on API startup. The docs invoke it in these places:\n  - `backend/README.md:22` and `backend/README.md:45`\n  - `development.md:17` and `development.md:60`\n  - `deployment.md:74`\n  - `.github/workflows/deploy.yml:42`\n  - `.github/workflows/deploy-docker-compose.yml:39`\n  - `.github/workflows/playwright.yml:79`\n- The test setup also calls `init_db` directly, at `backend/tests/conftest.py:18`.\n\n**How it works**\n- `init_db` is in `backend/app/core/db.py:15`.\n- It looks up a `User` whose email equals `settings.FIRST_SUPERUSER` (`db.py:24-26`).\n- If no such user exists, it builds a `UserCreate` with that email, `settings.FIRST_SUPERUSER_PASSWORD` and `is_superuser=True` (`db.py:27-32`).\n- It then saves the user through `crud.create_user` (`db.py:33`).\n- Because of the existence check, running the script again does nothing.\n\n**Configuration**\n- `FIRST_SUPERUSER` is an `EmailStr` and `FIRST_SUPERUSER_PASSWORD` is a `str`, both required settings (`backend/app/core/config.py:65-66`).\n- Both are passed in as environment variables in `compose.yml:58-59` and `compose.override.yml:88-89`. Compose fails if either is unset.\n\nThe tables themselves come from Alembic migrations. The `SQLModel.metadata.create_all` alternative is commented out (`db.py:16-22`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.0396234,
+  "duration_ms": 20306,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5746,
+    "cache_read": 24234,
+    "output": 1420,
+    "context": 5754,
+    "total": 31408
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "FIRST_SUPERUSER|init_db",
+        "output_mode": "content",
+        "glob": "**/*.{py,sh,yml,yaml}",
+        "head_limit": 40
+      },
+      "result_chars": 3044,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "initial_data|prestart",
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "glob": "{compose*.yml,backend/scripts/*,backend/Dockerfile}"
+      },
+      "result_chars": 57,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "prestart",
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "glob": "*.{yml,yaml,md}",
+        "head_limit": 10
+      },
+      "result_chars": 975,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 21.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

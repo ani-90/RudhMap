@@ -1,0 +1,96 @@
+{
+  "answer": "A Client keeps cookies in a `Cookies` object, which wraps a stdlib `http.cookiejar.CookieJar`.\n\n**Storage**\n- `BaseClient.__init__` creates `self._cookies = Cookies(cookies)` (`httpx/_client.py:211`). The `cookies` property and setter are at `_client.py:319-327`.\n- `Cookies.jar` is a `CookieJar` (`httpx/_models.py:1086-1099`).\n\n**Sending**\n- `build_request` calls `_merge_cookies` (`_client.py:368`). That copies the client's cookies and updates them with any per-request cookies (`_client.py:413-422`).\n- `Request.__init__` receives the merged cookies and calls `Cookies(cookies).set_cookie_header(self)` (`_models.py:404`).\n- `set_cookie_header` calls `jar.add_cookie_header` on a urllib-compatible request wrapper (`_models.py:1110-1115`, wrapper at `_models.py:1243`). The jar applies domain, path and expiry matching and writes the `Cookie` header.\n\n**Receiving**\n- After each transport response, `_send_single_request` calls `self.cookies.extract_cookies(response)` (`_client.py:1022`). The async client does the same at `_client.py:1737`.\n- `extract_cookies` feeds the response's `Set-Cookie` headers into the jar (`_models.py:1101-1108`).\n- This runs for every hop, including intermediate 3xx responses, so cookies set by a redirect response are stored.\n\n**Redirects**\n- `_build_redirect_request` builds the follow-up request with `cookies = Cookies(self.cookies)` (`_client.py:484-489`).\n- That makes a fresh `Cookie` header from the jar for the new URL. Because the jar filters by domain and path, cookies are sent to the redirect target only if they match it.\n\n**Caveat**\n- Passing `cookies=` on an individual request is deprecated. The code warns that you should set cookies on the client instead (`_client.py:804-808`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.032001100000000005,
+  "duration_ms": 18185,
+  "tokens": {
+    "input": 8,
+    "cache_write": 3680,
+    "cache_read": 27251,
+    "output": 1454,
+    "context": 3688,
+    "total": 32393
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "cookies",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "output_mode": "content"
+      },
+      "result_chars": 3330,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 470,
+        "limit": 50
+      },
+      "result_chars": 2055,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def extract_cookies|def set_cookie_header|add_cookie_header|class _CookieCompatRequest|jar",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "output_mode": "content"
+      },
+      "result_chars": 1165,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 1005,
+        "limit": 25
+      },
+      "result_chars": 981,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "Cookies\\(cookies\\)|set_cookie_header",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "output_mode": "content"
+      },
+      "result_chars": 160,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 19.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": true,
+      "redirect": true,
+      "deprecated": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

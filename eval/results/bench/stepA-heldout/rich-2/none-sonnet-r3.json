@@ -1,0 +1,90 @@
+{
+  "answer": "Rich makes two separate decisions: whether the output is a terminal, and then which colour system to use. A third setting, `NO_COLOR`, strips colour afterwards.\n\n**1. Is it a terminal?** (`Console.is_terminal`, `rich/console.py:925-970`)\nChecks run in this order, and the first one that applies wins:\n- The `force_terminal` argument, if set (`:933`).\n- IDLE returns False (`:937`), and Jupyter returns False (`:943`).\n- `TTY_COMPATIBLE=0` returns False and `=1` returns True (`:949-955`).\n- If `FORCE_COLOR` is set, the result is True unless it is empty (`:958-960`).\n- Otherwise it uses `file.isatty()` (`:963-965`).\n\n**2. Which colour system?** (`_detect_color_system`, `:783-805`)\nIt runs only when `color_system=\"auto\"` (`:703-704`). An explicit name is looked up in `COLOR_SYSTEMS` (`:706`), and `None` disables colour (`:701`).\n- Jupyter gives TRUECOLOR (`:785`).\n- If the output is not a terminal, or `TERM` is `dumb` or `unknown`, it returns `None` (`:787`, `:980-982`).\n- On Windows it ignores `COLORTERM` and `TERM`. A legacy console gets WINDOWS (`:790`). Otherwise TRUECOLOR or EIGHT_BIT, depending on `get_windows_console_features().truecolor` (`:793-797`).\n- On other platforms, `COLORTERM` of `truecolor` or `24bit` gives TRUECOLOR (`:799-801`).\n- Failing that, it takes the suffix after the last `-` in `TERM`, for example `xterm-256color`. It maps that suffix through `_TERM_COLORS` and falls back to STANDARD (`:802-805`).\n\n**3. `NO_COLOR`** (`:719-723`)\nA non-empty value sets `no_color=True` unless you passed `no_color` explicitly. The colour system is still detected. Colour styling is stripped at render time, while other styles such as bold are kept. I didn't check the render code that does this.\n\n**4. Interactivity**\n`TTY_INTERACTIVE=0` or `1` overrides `force_interactive` (`:724-730`). Without it, interactive means a terminal that isn't dumb (`:732-736`).\n\n**Environment variables:** `FORCE_COLOR`, `NO_COLOR`, `TTY_COMPATIBLE`, `TTY_INTERACTIVE`, `COLORTERM`, `TERM`. `TERM_PROGRAM` is only listed in `rich/diagnose.py`, not in the detection logic.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.034602900000000006,
+  "duration_ms": 21295,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4069,
+    "cache_read": 25209,
+    "output": 1579,
+    "context": 4077,
+    "total": 30865
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "NO_COLOR|FORCE_COLOR|TTY_COMPATIBLE|COLORTERM|TERM_PROGRAM|\"TERM\"|TTY_INTERACTIVE|def is_terminal|def color_system|def _detect_color_system",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich",
+        "output_mode": "content"
+      },
+      "result_chars": 1104,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 690,
+        "t": "x",
+        "limit": 130
+      },
+      "result_chars": 135,
+      "model_call": 2,
+      "is_error": true
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 920,
+        "limit": 70
+      },
+      "result_chars": 2664,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 690,
+        "limit": 130
+      },
+      "result_chars": 5085,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 22.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": false,
+    "false_claims": [
+      "Says Jupyter returns False from is_terminal in the ordered list, which matches the key's context, so fine; however claims 'Colour styling is stripped at render time' while admitting not checking the render code (not false).",
+      "Says Jupyter returns False from is_terminal in a list where first applicable wins, but ordering is fine; however the answer places IDLE/Jupyter after force_terminal - consistent with key. No clear false claim.",
+      "Omits that dumb terminal gives no colour in is_terminal section, though stated in colour system section."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

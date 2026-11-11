@@ -1,0 +1,146 @@
+{
+  "answer": "**Short answer:** `advance()` never touches the screen. It only updates task data. A separate refresh thread redraws the display a few times per second.\n\n**1. `advance()` only updates state.** `Progress.advance` increments `task.completed`, records a speed sample, and sets `finished_time` when the task completes. All of this happens under `self._lock`. It never calls `refresh()` or prints anything (`rich\\progress.py:1510-1538`).\n\n**2. The refresh thread does the redrawing.** `Progress.__enter__` calls `start()`, which calls `self.live.start(refresh=True)` (`rich\\progress.py:1161-1175`). In `Live.start`, if `auto_refresh` is set, a `_RefreshThread` is created and started at a rate of `refresh_per_second` (`rich\\live.py:141-143`). `Progress` defaults `auto_refresh` to `True` (`rich\\progress.py:1074`). That thread calls `Live.refresh()` on a timer, so your `advance()` changes appear on the next tick.\n\n**3. What a refresh does.** `Live.refresh()` sets the live render's renderable to the current one. It then calls `console.print(Control())` on a terminal (`rich\\live.py:244-271`). That print goes through the console render hook, `Live.process_renderables`. In an interactive console, the hook prepends `position_cursor()` (or home, on the alt screen) and appends the live render (`rich\\live.py:278-297`). The cursor jumps back to the top of the old output, and the progress table is printed again over it.\n\n**4. Calling `refresh()` yourself.** `Progress.refresh()` does the same work, but only if the display is started and not disabled (`rich\\progress.py:1540-1543`). Use it when `auto_refresh=False`, or when you want an immediate update.\n\n**Caveat:** I read the code but did not run it, so the timing details are from reading only.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 6,
+  "cost_usd": 0.00292866,
+  "duration_ms": 15006,
+  "tokens": {
+    "input": 12,
+    "cache_write": 6190,
+    "cache_read": 51396,
+    "output": 2351,
+    "context": 6202,
+    "total": 59949
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def advance|def refresh|def __enter__|def start|def _live_render|def update\\(|def __exit__",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "**/{progress,live}.py"
+      },
+      "result_chars": 1044,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def refresh|def process_renderables|def stop|def start|def _enable_redirect_io|def __enter__|def __exit__",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "**/live.py"
+      },
+      "result_chars": 396,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "offset": 1510,
+        "limit": 60
+      },
+      "result_chars": 2508,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 230,
+        "limit": 30
+      },
+      "result_chars": 1240,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 111,
+        "limit": 35
+      },
+      "result_chars": 1488,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 259,
+        "limit": 20
+      },
+      "result_chars": 951,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 278,
+        "limit": 30
+      },
+      "result_chars": 1258,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "offset": 1161,
+        "limit": 20
+      },
+      "result_chars": 679,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "auto_refresh: bool",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 214,
+      "model_call": 5,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 16.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": false,
+      "in-place": true,
+      "redirect": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

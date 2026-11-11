@@ -1,0 +1,79 @@
+{
+  "answer": "The debate endpoint sends the model a system prompt containing the article, the full chat history, and the new user message. The article is cut to its first 3,000 characters.\n\n**Request flow**\n- `app/api/debate.py:12-23`: `POST /api/debate/message` loads the article by `article_id`, returns 404 if missing, and passes `article.title` and `article.raw_content or \"\"` to `debate_reply`.\n- `app/services/groq_client.py:131-137`: `debate_reply` builds the messages array:\n  1. A `system` message from `_DEBATE_SYSTEM` (lines 121-128), with the title and content substituted in.\n  2. Every entry in `request.history` appended as-is.\n  3. A final `user` message containing `user_message`.\n- `app/services/groq_client.py:38-54`: `_call_messages` sends that array to Groq with `temperature=0.3` and `max_tokens=settings.groq_max_tokens`.\n\n**Article content**\n- `groq_client.py:133`: `article_content[:3000]` is the only truncation. The article is cut to its first 3,000 characters, and that slice is embedded under `ARTICLE CONTENT:` in the system prompt.\n- The title is not truncated.\n- The 4,000-character cut at `groq_client.py:75` applies to the summarize call, not to debate.\n\n**Other things sent**\n- The system prompt tells the model to cite passages, concede valid points, keep replies to 2-3 paragraphs, and avoid sycophancy (`groq_client.py:122-125`).\n- `history` is `List[Dict[str, str]]` with default `[]` (`app/schemas/debate.py:9`). The server does not limit its length or check its roles, so the client controls the full transcript. Long histories can push the request past the model's context window.\n- `user_id` is accepted by the schema but not used by this endpoint.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.0016977300000000002,
+  "duration_ms": 10649,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4339,
+    "cache_read": 28613,
+    "output": 1086,
+    "context": 4347,
+    "total": 34046
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "debate",
+        "-i": true,
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 365,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\debate.py"
+      },
+      "result_chars": 922,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\groq_client.py"
+      },
+      "result_chars": 5633,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\schemas\\debate.py"
+      },
+      "result_chars": 292,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-h1",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "prompt": true,
+      "call": false,
+      "stateless": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

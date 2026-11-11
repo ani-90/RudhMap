@@ -37,6 +37,20 @@ Question set: `eval/bench/questions.yaml` (15 questions, 3 repos). Harness:
 If 3 rounds of step C changes don't meet the pass criteria, stop and rethink
 the product instead of shipping a token saver that doesn't save.
 
+## Held-out set (added 2026-11-11, still before any RudhMap run)
+
+`eval/bench/questions_heldout.yaml`: 8 questions. 4 are on `Textualize/rich` (~38k lines,
+4x the largest tuning repo) and 4 are new questions on the three tuning repos.
+- **Never used for tuning.** During steps B and C, nobody reads held-out answers or per-question
+  results. Only the plain-arm aggregate from step A is known.
+- **Scored once,** in the final step C run, with the same harness and grader.
+- **Step C passes only if pass criteria 1 and 2 also hold on the held-out set:**
+  - correct count of Haiku + RudhMap >= plain Haiku's;
+  - median total tokens <= 0.7 x plain Haiku's.
+
+  If the tuning set passes and the held-out set doesn't, that is reported as overfitting and
+  step C does not pass.
+
 ## Changes
 
-(none)
+- 2026-11-11: held-out set and rule added (above), before any RudhMap run.

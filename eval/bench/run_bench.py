@@ -71,8 +71,8 @@ Reply with ONLY a JSON object, no markdown:
 
 # ------------------------------------------------------------------ setup
 
-def load_questions() -> dict:
-    return yaml.safe_load(QUESTIONS.read_text(encoding="utf-8"))
+def load_questions(path: str | None = None) -> dict:
+    return yaml.safe_load((Path(path) if path else QUESTIONS).read_text(encoding="utf-8"))
 
 
 def export_repo(name: str, spec: dict) -> Path:
@@ -210,7 +210,7 @@ def run_one(q: dict, repo_dir: Path, arm: str, model: str, rep: int, out: Path) 
 
 
 def cmd_run(args) -> int:
-    data = load_questions()
+    data = load_questions(args.questions)
     repos = {name: export_repo(name, spec) for name, spec in data["repos"].items()}
     questions = [q for q in data["questions"] if not args.only or q["id"] in args.only.split(",")]
     jobs = []
@@ -258,7 +258,7 @@ def grade_one(q: dict, path: Path, model: str, votes: int = 3) -> dict:
     record = json.loads(path.read_text(encoding="utf-8"))
     facts = "\n".join(
         f"- {f['id']} ({'critical' if f['critical'] else 'supporting'}): "
-        + (f"MUST STATE: {f['must']}  (context: {' '.join(f['text'].split())})" if f.get("must")
+        + (f"MUST STATE: {f['must']}  (context: {' '.join(f.get('text', '').split()) or '-'})" if f.get("must")
            else " ".join(f["text"].split()))
         + f"  [{f['where']}]"
         for f in q["facts"]
@@ -283,7 +283,7 @@ def grade_one(q: dict, path: Path, model: str, votes: int = 3) -> dict:
 
 
 def cmd_grade(args) -> int:
-    data = load_questions()
+    data = load_questions(args.questions)
     by_id = {q["id"]: q for q in data["questions"]}
     todo = []
     for path in sorted((RESULTS / args.label).glob("*/*.json")):
@@ -385,11 +385,13 @@ def main() -> int:
     run.add_argument("--reps", type=int, default=3)
     run.add_argument("--workers", type=int, default=3)
     run.add_argument("--only", default="", help="comma-separated question ids")
+    run.add_argument("--questions", default=None, help="question file (default: questions.yaml)")
     grade = sub.add_parser("grade")
     grade.add_argument("--label", required=True)
     grade.add_argument("--grader", default="sonnet")
     grade.add_argument("--workers", type=int, default=4)
     grade.add_argument("--regrade", action="store_true")
+    grade.add_argument("--questions", default=None, help="question file (default: questions.yaml)")
     report = sub.add_parser("report")
     report.add_argument("--label", required=True)
     args = parser.parse_args()

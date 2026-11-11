@@ -1,0 +1,92 @@
+{
+  "answer": "The first superuser is created by an idempotent seed step that runs after migrations, not by a migration or at app startup.\n\n**When:** The Docker/deploy path runs `backend/scripts/prestart.sh`, which applies migrations with `alembic upgrade head` (`prestart.sh:7`) and then runs `python app/initial_data.py` (`prestart.sh:10`). The deploy docs describe the same ordering (`deployment.md:58`, `deployment.md:74`). The API server itself never creates the user.\n\n**How:**\n- `app/initial_data.py:11-13` opens a session and calls `init_db(session)`. `main()` at lines 16-19 is the entry point.\n- `app/core/db.py:24-26` looks up a `User` whose email equals `settings.FIRST_SUPERUSER`.\n- If none exists, `db.py:27-33` builds a `UserCreate` with that email, `settings.FIRST_SUPERUSER_PASSWORD`, and `is_superuser=True`, then calls `crud.create_user`. The password is hashed there.\n- The source of those values is `backend/app/core/config.py:65-66`, which reads them from environment variables. The local `.env` sets them at `.env:7-8`, and `compose.yml:58-59` requires them to be set.\n\n**Idempotency:** Because of the lookup at `db.py:24-27`, re-running the script does nothing if the user already exists. It also does not update the password or the superuser flag on an existing account.\n\n**Other callers:** `backend/tests/conftest.py:18` calls the same `init_db` to seed the test database.\n\n**Caveat:** `db.py:15-22` notes that tables should come from Alembic migrations. The `create_all` call is commented out, so the seed step assumes the schema already exists.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00299685,
+  "duration_ms": 10089,
+  "tokens": {
+    "input": 8,
+    "cache_write": 9470,
+    "cache_read": 41555,
+    "output": 1373,
+    "context": 9478,
+    "total": 52406
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "superuser|is_superuser|first_superuser|FIRST_SUPERUSER",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 15488,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "init_db|create_all|prestart|alembic",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2603,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\initial_data.py"
+      },
+      "result_chars": 465,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 11.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": true,
+      "secrets": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

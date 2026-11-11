@@ -1,0 +1,332 @@
+# HELD-OUT benchmark questions (step A, 2026-11-11).
+#
+# Rule (eval/THRESHOLDS.md): these are never used for tuning. During steps B and C
+# nobody reads these answers or per-question results; only the final step C run is
+# scored on them, once, and reported next to the tuning set. Written by reading the
+# source at the pinned commits, before any RudhMap run on `rich` and before any
+# step B tool existed. Same format and grading as questions.yaml.
+
+repos:
+  knowledge-news-app:
+    source: D:/ani_codes/AGENTICAI/Knowledge-News-App
+    commit: 20d352e
+  fastapi-template:
+    source: D:/ani_codes/AGENTICAI/full-stack-fastapi-template
+    commit: aabb901
+  httpx:
+    source: D:/ani_codes/AGENTICAI/httpx
+    commit: b5addb6
+  rich:
+    source: D:/ani_codes/AGENTICAI/rich
+    commit: 3a109ccd
+
+questions:
+
+  # ---------------------------------------------------------------- rich (~38k lines)
+  - id: rich-1
+    repo: rich
+    type: trace
+    question: >-
+      Trace what happens inside rich when I call console.print("Hello [bold]world[/bold]")
+      until text is written to the terminal.
+    facts:
+      - id: collect
+        critical: true
+        must: >-
+          print() collects the arguments into renderables (_collect_renderables); a
+          string becomes a Text via render_str, which parses console markup (and
+          applies emoji/highlighting).
+        text: >-
+          Console.print -> _collect_renderables -> render_str -> render_markup / Text,
+          optional highlighter; adjacent strings are joined with sep/end.
+        where: rich/console.py:1646-1707,1494-1560,1403-1462
+      - id: render
+        critical: true
+        must: >-
+          Each renderable is rendered by Console.render, which calls its
+          __rich_console__ (recursively) until everything is Segments.
+        text: Console.render uses __rich_console__(console, options) and recurses into non-Segment results.
+        where: rich/console.py:1288-1337,1710-1725
+      - id: buffer
+        critical: true
+        must: >-
+          The segments are added to the console's (thread-local) buffer, and only
+          when the outermost buffer context exits (_exit_buffer -> _check_buffer ->
+          _write_buffer, buffer index back to 0) is the buffer written out.
+        text: print runs inside `with self:` (Console.__enter__/_enter_buffer); lines are cropped to the width with split_and_crop_lines before buffering.
+        where: rich/console.py:1698,1743-1750,807-814,851-858,2038-2061
+      - id: write
+        critical: true
+        must: >-
+          _render_buffer turns each Segment into text plus ANSI escape codes via
+          Style.render for the detected color system, then it is written to the
+          file and flushed.
+        text: no_color strips colors; control segments are dropped when not writing to a terminal.
+        where: rich/console.py:2116-2124,2126-2148
+      - id: special
+        critical: false
+        text: >-
+          quiet discards the buffer; record=True copies it for export; Jupyter uses
+          display(); legacy Windows consoles use the win32 API; large writes are
+          batched on Windows.
+        where: rich/console.py:2044-2047,2057-2059,2062-2114
+
+  - id: rich-2
+    repo: rich
+    type: behavior
+    question: >-
+      How does rich decide whether to output colour, and which colour system to use?
+      Include the environment variables that affect it.
+    facts:
+      - id: auto
+        critical: true
+        must: >-
+          With color_system="auto" (the default) the Console detects the colour system
+          once at construction (_detect_color_system); an explicit value is used as
+          given and None disables colour.
+        text: Console.__init__ color_system handling.
+        where: rich/console.py:701-706
+      - id: is-terminal
+        critical: true
+        must: >-
+          Colour needs is_terminal: force_terminal wins, then TTY_COMPATIBLE=0/1, then
+          FORCE_COLOR (set and non-empty means terminal), otherwise file.isatty();
+          a dumb terminal (TERM=dumb/unknown) or non-terminal gets no colour.
+        text: Idle and Jupyter return False from is_terminal; isatty ValueError -> False.
+        where: rich/console.py:925-970,972-982,787-788
+      - id: which-system
+        critical: true
+        must: >-
+          On a terminal: Jupyter -> truecolor; Windows -> windows (legacy) or
+          truecolor/256 depending on console features; otherwise COLORTERM=truecolor
+          or 24bit -> truecolor, else the TERM suffix (-256color / kitty -> 256,
+          -16color -> standard), default standard.
+        text: _detect_color_system order and _TERM_COLORS.
+        where: rich/console.py:783-805,90-94
+      - id: no-color
+        critical: true
+        must: >-
+          NO_COLOR (non-empty) sets no_color, which strips colours from the output
+          while keeping other styles (Segment.remove_color in _render_buffer).
+        text: Console(no_color=...) overrides the env var.
+        where: rich/console.py:719-723,2133-2134
+
+  - id: rich-3
+    repo: rich
+    type: trace
+    question: >-
+      Inside `with Progress() as progress:` I call progress.advance(task) in a loop.
+      How does the progress bar on screen actually get redrawn?
+    facts:
+      - id: advance-no-draw
+        critical: true
+        must: >-
+          advance() only updates the task's state (completed, speed samples,
+          finished time) under a lock; it does not draw anything.
+        text: speed samples older than speed_estimate_period (30 s) are dropped.
+        where: rich/progress.py:1510-1538
+      - id: live
+        critical: true
+        must: >-
+          Progress owns a Live display created with get_renderable=self.get_renderable;
+          starting it starts a background _RefreshThread that calls live.refresh()
+          every 1/refresh_per_second seconds (Progress default 10 per second).
+        text: Live.start creates the thread when auto_refresh is on.
+        where: rich/progress.py:1075,1093-1101,1161-1164; rich/live.py:22-38,111-143
+      - id: refresh
+        critical: true
+        must: >-
+          Live.refresh re-reads the renderable, which Progress builds as a Table grid
+          with one row per visible task (make_tasks_table, columns render each task),
+          and prints it through the console.
+        text: refresh prints a Control() inside `with self.console` when on a terminal.
+        where: rich/live.py:244-271; rich/progress.py:1545-1586
+      - id: in-place
+        critical: true
+        must: >-
+          Live is a render hook on the console: process_renderables moves the cursor
+          back over the previous display and appends the live renderable, so the bar
+          is redrawn in place and other output appears above it.
+        text: Live.start pushes the render hook; LiveRender.position_cursor.
+        where: rich/live.py:130,278-297
+      - id: redirect
+        critical: false
+        text: >-
+          While live, sys.stdout/stderr are redirected through FileProxy so plain
+          print() output goes above the bar; on a non-terminal only the final state
+          is printed when it stops.
+        where: rich/live.py:195-205,272-276,292-295
+
+  - id: rich-4
+    repo: rich
+    type: impact
+    question: >-
+      If I change the signature or behaviour of Console.render_lines, which parts of
+      rich (not tests) are affected?
+    facts:
+      - id: what
+        critical: false
+        text: >-
+          render_lines renders a renderable (Console.render), optionally applies a
+          style, and splits/crops the segments into lines of max_width with
+          Segment.split_and_crop_lines, limited/padded to options.height.
+        where: rich/console.py:1339-1400
+      - id: containers
+        critical: true
+        must: >-
+          Container renderables that call it in their rendering: Panel, Padding, Table
+          (_render), Tree, Syntax (_get_syntax) and Markdown (BlockQuote, ListItem).
+        text: An answer must name most of these (at least 5 of the 6).
+        where: rich/panel.py:229; rich/padding.py:97; rich/table.py:828; rich/tree.py:138; rich/syntax.py:683,735; rich/markdown.py:208,386,402
+      - id: screen-live
+        critical: true
+        must: >-
+          It is also used for full-screen and live output: LiveRender (Live/Progress),
+          Screen, Layout.refresh_screen, Console.update_screen, and VerticalCenter in
+          align.py.
+        text: An answer must name most of these (at least 3 of the 5).
+        where: rich/live_render.py:91; rich/screen.py:39; rich/layout.py:329; rich/console.py:1844; rich/align.py:269
+      - id: print-not
+        critical: false
+        text: >-
+          Console.print itself does not call render_lines; it uses render() and
+          Segment.split_and_crop_lines directly.
+        where: rich/console.py:1720-1750
+
+  # ---------------------------------------------------------------- existing repos, new questions
+  - id: kna-h1
+    repo: knowledge-news-app
+    type: explain
+    question: >-
+      What exactly does the debate endpoint send to the LLM, and how much of the
+      article does it include?
+    facts:
+      - id: route
+        critical: true
+        must: >-
+          POST /api/debate/message loads the article (404 if missing) and calls
+          groq_client.debate_reply with the article title, its raw content, the
+          request's history and the user's message.
+        where: app/api/debate.py:12-23
+      - id: prompt
+        critical: true
+        must: >-
+          debate_reply builds a system prompt containing the title and only the first
+          3000 characters of the article content, then appends the history and the
+          new user message.
+        where: app/services/groq_client.py:121-137
+      - id: call
+        critical: true
+        must: >-
+          The messages go through _call_messages: at most 2 concurrent Groq calls and
+          retries with backoff on rate limits (429).
+        text: 8/16/32/64 s, then RuntimeError; model settings.groq_model, temperature 0.3.
+        where: app/services/groq_client.py:15-19,38-54
+      - id: stateless
+        critical: false
+        text: >-
+          The server stores no debate history; the client sends it each time and the
+          reply's turn number is len(history) + 1.
+        where: app/api/debate.py:17-23
+
+  - id: tpl-h1
+    repo: fastapi-template
+    type: behavior
+    question: How and when does the first superuser get created in the backend?
+    facts:
+      - id: prestart
+        critical: true
+        must: >-
+          Not at app startup: backend/scripts/prestart.sh runs `alembic upgrade head`
+          and then `python app/initial_data.py` (run before starting the app, e.g.
+          via docker compose / CI / deploy).
+        where: backend/scripts/prestart.sh:6-10; backend/app/main.py
+      - id: init-db
+        critical: true
+        must: >-
+          initial_data.main -> init -> init_db(session), which looks up a user with
+          email settings.FIRST_SUPERUSER and only if none exists creates one with
+          FIRST_SUPERUSER_PASSWORD and is_superuser=True via crud.create_user.
+        where: backend/app/initial_data.py:11-19; backend/app/core/db.py:15-33
+      - id: hash
+        critical: false
+        text: crud.create_user hashes the password with get_password_hash before saving.
+        where: backend/app/crud.py:10-17
+      - id: secrets
+        critical: false
+        text: >-
+          FIRST_SUPERUSER and FIRST_SUPERUSER_PASSWORD are required settings, and a
+          "changethis" password fails validation outside development.
+        where: backend/app/core/config.py:65-66,84-86
+
+  - id: tpl-h2
+    repo: fastapi-template
+    type: trace
+    question: >-
+      Trace how an admin adds a new user from the frontend Admin page through to the
+      database.
+    facts:
+      - id: component
+        critical: true
+        must: >-
+          The Admin page renders AddUser, a form (email, full name, password +
+          confirmation that must match, is_superuser, is_active) whose react-query
+          mutation calls UsersService.createUser.
+        where: frontend/src/routes/_layout/admin.tsx:69; frontend/src/components/Admin/AddUser.tsx:34-89
+      - id: http
+        critical: true
+        must: >-
+          That sends POST /api/v1/users/ with the bearer token, handled by the backend
+          create_user route in users.py.
+        where: frontend/src/client/sdk.gen.ts:120-125; backend/app/api/routes/users.py:54-57
+      - id: superuser-only
+        critical: true
+        must: >-
+          The route is restricted to superusers (dependency
+          get_current_active_superuser, 403 otherwise) and rejects an email that
+          already exists with 400.
+        where: backend/app/api/routes/users.py:54-66; backend/app/api/deps.py:52-57
+      - id: create
+        critical: true
+        must: >-
+          crud.create_user hashes the password and saves the user; if emails are
+          enabled a new-account email is sent.
+        where: backend/app/crud.py:10-17; backend/app/api/routes/users.py:68-78
+      - id: after
+        critical: false
+        text: >-
+          On success the frontend shows a toast, resets and closes the form, and
+          invalidates the ["users"] query so the list refetches. The form defaults
+          is_active to false, so a user is created inactive unless the box is ticked.
+        where: frontend/src/components/Admin/AddUser.tsx:64-85
+
+  - id: httpx-h1
+    repo: httpx
+    type: explain
+    question: How does an httpx Client keep and send cookies across requests, including redirects?
+    facts:
+      - id: store
+        critical: true
+        must: >-
+          The Client holds a Cookies jar (http.cookiejar based), and after every
+          response _send_single_request calls self.cookies.extract_cookies(response)
+          to store Set-Cookie values.
+        where: httpx/_client.py:211,1022; httpx/_models.py:1084-1108
+      - id: send
+        critical: true
+        must: >-
+          When a request is built, client cookies are merged with any per-request
+          cookies (_merge_cookies) and the Request sets the Cookie header from them
+          (Cookies.set_cookie_header, which only adds cookies matching the URL).
+        where: httpx/_client.py:368,413-422; httpx/_models.py:403-404,1110-1115
+      - id: redirect
+        critical: true
+        must: >-
+          On a redirect the old Cookie header is dropped and the new request's
+          cookies come from the client's jar again, so cookies set by the redirect
+          response are included and ones not matching the new URL are not.
+        where: httpx/_client.py:484,567-569
+      - id: deprecated
+        critical: false
+        text: Passing cookies= per request to Client.request is deprecated (DeprecationWarning).
+        where: httpx/_client.py:804-810

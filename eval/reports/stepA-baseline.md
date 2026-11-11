@@ -203,6 +203,34 @@ changing. That is why grading was fixed before any RudhMap run.
   cut tokens. With cost ≈ turns × 6k, a tool only saves tokens if it **removes turns**. Smaller reads
   hardly matter.
 
+## 5.4 Held-out set (added after the review of this baseline)
+
+**Gap found:** step C tunes against the same 15 questions for up to 3 rounds, so its result could
+be overfit. And every repo was small or medium, the largest ~9k lines.
+
+**Fix:** `eval/bench/questions_heldout.yaml`, 8 questions written and keyed before any RudhMap
+run on them:
+- 4 on `Textualize/rich` @ `3a109ccd` (~38k lines);
+- 4 new questions on the tuning repos.
+
+They were baselined with the same harness, which now also records model calls. The rule in
+`eval/THRESHOLDS.md`: the set is never used for tuning, only these totals are looked at until
+step C's final run, and step C passes only if the held-out set passes too.
+
+| Held-out, 3 runs each | Correct (of 8) | Median tokens / question | Median model calls | Median Claude Code turns | Cost |
+|---|---|---|---|---|---|
+| none / Haiku | 6 | 59,442 | 5 | 8 | $0.08 |
+| none / Sonnet | 6 | 24,759 | 3 | 6 | $0.86 |
+
+**Held-out targets for step C:** Haiku + RudhMap ≥ 6/8 correct and median ≤ 41,609 tokens.
+
+On the larger repo, plain Haiku costs 2.4× Sonnet (vs 1.5× on the tuning set): it makes more
+calls and takes in more new content (median 9.1k vs 4.6k). Per-question results were
+deliberately not inspected.
+
+**Harness bug fixed during this run:** the grader crashed on facts that had a `must` but no
+`text`; 24 answers were graded after the fix.
+
 ## 6. Limits of this evaluation
 
 - 15 questions across 3 repos. Mostly Python backends, with 2 frontend questions. Small samples:

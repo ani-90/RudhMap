@@ -1,0 +1,145 @@
+{
+  "answer": "A `Client` stores cookies in a `http.cookiejar.CookieJar` wrapped by httpx's `Cookies` class. It stores `Set-Cookie` responses and attaches matching `Cookie` headers to outgoing requests. Redirects are handled by the same loop.\n\n**Storage**\n- `Client.__init__` wraps the constructor argument in `self._cookies = Cookies(cookies)` (`httpx/_client.py:211`). The `cookies` property exposes it (`_client.py:319-327`).\n- `Cookies.__init__` accepts a dict, a list of pairs, another `Cookies`, or a raw jar (`httpx/_models.py:1084-1099`).\n\n**Receiving**\n- After each transport call, `_send_single_request` runs `self.cookies.extract_cookies(response)` (`httpx/_client.py:1022`). The sync path is at line 1022 and the async path at line 1737.\n- `Cookies.extract_cookies` adapts the response and request to urllib shapes and calls the jar's `extract_cookies` (`httpx/_models.py:1101-1108`).\n\n**Sending**\n- `Request.__init__` calls `Cookies(cookies).set_cookie_header(self)` when cookies are passed (`httpx/_models.py:403-404`).\n- `set_cookie_header` calls `jar.add_cookie_header`, which applies the jar's domain, path, and secure rules (`httpx/_models.py:1110-1115`).\n- `Client._merge_cookies` combines client cookies with per-request cookies, with per-request values winning (`httpx/_client.py:413-422`). Per-request cookies are deprecated and emit a warning (`_client.py:804-808`).\n\n**Redirects**\n- `_send_handling_redirects` loops: it sends a request, then calls `_build_redirect_request` if the response has a `Location` header (`httpx/_client.py:970-995`).\n- The sequence matters. The response's `Set-Cookie` headers are stored in the client jar inside `_send_single_request` before the redirect is built.\n- `_build_redirect_request` creates the new `Request` with `cookies=Cookies(self.cookies)` (`httpx/_client.py:484-489`). The `Cookie` header is therefore built from the jar, so the cookies from the redirect response are included, and the jar's domain and path rules filter them for the new URL.\n- Redirects are only followed when `follow_redirects` is true. Otherwise the next request is stored on `response.next_request` (`_client.py:991-995`).\n\nI did not check whether `_redirect_headers` drops any `Cookie` header copied from the previous request. The rebuilt request sets its own `Cookie` header from the jar, so I did not trace that further.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 6,
+  "cost_usd": 0.005070589999999999,
+  "duration_ms": 17980,
+  "tokens": {
+    "input": 12,
+    "cache_write": 14621,
+    "cache_read": 67469,
+    "output": 2941,
+    "context": 14633,
+    "total": 85043
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "cookies|extract_cookies|_merge_cookies|set_cookie|_cookies",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 8381,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "httpx/_*.py",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6"
+      },
+      "result_chars": 300,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 470,
+        "limit": 30
+      },
+      "result_chars": 1220,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 1010,
+        "limit": 150
+      },
+      "result_chars": 5312,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 1084,
+        "limit": 60
+      },
+      "result_chars": 2477,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def _send_handling_redirects|_build_redirect_request\\(|_send_single_request\\(request|def _send_single_request|self._transport_for_url|hook",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2066,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 964,
+        "limit": 40
+      },
+      "result_chars": 1473,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 386,
+        "limit": 22
+      },
+      "result_chars": 959,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "Cookie",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "output_mode": "content",
+        "-n": true,
+        "-C": 2,
+        "glob": "*_client.py",
+        "head_limit": 30
+      },
+      "result_chars": 983,
+      "model_call": 5,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 19.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": true,
+      "redirect": false,
+      "deprecated": true
+    },
+    "fact_score": 0.75,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

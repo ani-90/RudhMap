@@ -1,0 +1,139 @@
+{
+  "answer": "Rich decides in two steps: whether the output is a terminal at all, then which colour system that terminal supports. Both are read from the `Console` object, which takes an `_environ` mapping (defaulting to `os.environ`).\n\n**1. Is it a terminal? (`is_terminal`, `rich/console.py:925-970`)**\nChecks run in this order, and the first match wins:\n- An explicit `force_terminal` argument (line 933).\n- Jupyter always returns False (line 943).\n- `TTY_COMPATIBLE`: `\"0\"` forces False, `\"1\"` forces True (lines 949-955).\n- `FORCE_COLOR`: any non-empty value forces True (lines 958-960). See [force-color.org](https://force-color.org/).\n- Otherwise, `file.isatty()`, with a `ValueError` treated as False (lines 963-970).\n\n**2. Which colour system? (`_detect_color_system`, `rich/console.py:783-805`)**\n- The `color_system` argument defaults to `\"auto\"` (line 618). `None` disables colour entirely (line 702).\n- Jupyter gets `TRUECOLOR` (line 786).\n- Non-terminals and `TERM=dumb`/`unknown` get no colour (lines 787-788, `is_dumb_terminal` at 973-982).\n- On Windows, the answer comes from console features, not env vars: `legacy_windows` gives `WINDOWS`, otherwise truecolor or 8-bit depending on `get_windows_console_features()` (lines 789-797).\n- Elsewhere, `COLORTERM` of `truecolor` or `24bit` gives `TRUECOLOR` (lines 799-801).\n- Otherwise the suffix of `TERM` is looked up in `_TERM_COLORS` (lines 90-94): `kitty` and `256color` give `EIGHT_BIT`, `16color` gives `STANDARD`. Any other suffix falls back to `STANDARD` (line 804).\n\n**Stripping colour when colour is on**\n- `NO_COLOR` set to a non-empty value sets `self.no_color` (lines 719-723). An explicit `no_color` argument overrides it.\n- At render time, if `no_color` is set and a colour system is active, colour codes are removed from the buffer (lines 2133-2134).\n\n**Other variables**\n- `TTY_INTERACTIVE` (`\"0\"`/`\"1\"`) overrides `is_interactive` (lines 724-730). The `is_interactive` expression is at lines 732-734.\n\n**Environment variables that matter:** `FORCE_COLOR`, `NO_COLOR`, `COLORTERM`, `TERM`, `TTY_COMPATIBLE`, `TTY_INTERACTIVE`.\n\nTests covering this behaviour are in `tests/test_console.py`, for example lines 40-78 (TERM mapping), 953-986 (FORCE_COLOR), and 1047-1134 (TTY_* variables).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 5,
+  "cost_usd": 0.0037510300000000002,
+  "duration_ms": 14931,
+  "tokens": {
+    "input": 10,
+    "cache_write": 9536,
+    "cache_read": 51883,
+    "output": 2648,
+    "context": 9546,
+    "total": 64077
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "NO_COLOR|FORCE_COLOR|TTY_COMPATIBLE|TTY_INTERACTIVE|COLORTERM|TERM|color_system|is_terminal|isatty",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "**/*.py",
+        "head_limit": 150
+      },
+      "result_chars": 11798,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "NO_COLOR|FORCE_COLOR|TTY_COMPATIBLE|TTY_INTERACTIVE|COLORTERM|\"TERM\"|def _detect_color_system|def is_terminal|def _is_jupyter|color_system = |_color_system = |no_color|def _environ|def _windows_console_features|_TERM_COLORS",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1366,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 695,
+        "limit": 40
+      },
+      "result_chars": 1589,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 783,
+        "limit": 30
+      },
+      "result_chars": 1420,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 925,
+        "limit": 70
+      },
+      "result_chars": 2682,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 90,
+        "limit": 8
+      },
+      "result_chars": 193,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 2128,
+        "limit": 8
+      },
+      "result_chars": 369,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "color_system: \\(|Literal\\[\"auto\"|\"auto\", None",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "output_mode": "content",
+        "-n": true,
+        "-A": 4
+      },
+      "result_chars": 279,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 16.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "The answer says 'Jupyter always returns False' under is_terminal, which matches the key (Idle and Jupyter return False).",
+      "Says Jupyter returns False in is_terminal and lists it after force_terminal in order; key says Idle and Jupyter return False, consistent, not false. No clear false claims.",
+      "Claims Jupyter check in is_terminal comes after force_terminal and 'Jupyter always returns False' - consistent with key; no clear false claims."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "answer": "`advance()` doesn't redraw anything. It only updates the task's state. A background thread does the redrawing.\n\n**1. `advance()` only changes data.**\n- `Progress.advance` (`rich/progress.py:1510-1538`) takes the lock and increments `task.completed`. It also records a speed sample and sets the finished time if the task is done.\n- It never calls `refresh()`. By contrast, `update()` ends with `self.refresh()` at line 1508.\n\n**2. A refresh thread does the drawing.**\n- `Progress.__enter__` calls `start()` (`progress.py:1173`, `1161`), which starts the underlying `Live`.\n- If `auto_refresh` is true (the default, `progress.py:1074`), `Live.start` creates and starts a `_RefreshThread` (`live.py:141`).\n- That daemon thread loops on `self.done.wait(1 / refresh_per_second)` (`live.py:35`). On each tick it takes `live._lock` and calls `live.refresh()` (`live.py:36-38`).\n- So the bar redraws about `refresh_per_second` times a second (10 by default, as far as I recall; I didn't open the constructor). The redraw rate doesn't depend on how often you call `advance`.\n\n**3. `Live.refresh` renders the current state.**\n- `Live.refresh` (`live.py:244-247`) calls `self._live_render.set_renderable(self.renderable)`.\n- `self.renderable` resolves to `Progress.get_renderable()` (`progress.py:1545`). That builds a fresh table from the current task values through `get_renderables` and `make_tasks_table`.\n- In a real terminal (`live.py:269-271`), it runs `console.print(Control())`. `Control()` is the cursor-reposition code that moves back over the previous render, and the new frame is then written over it.\n- In Jupyter (`live.py:253-268`), it clears and reprints into an `Output` widget.\n- For a file or dumb terminal, it prints only the final result (`live.py:272-275`).\n\n**If `auto_refresh=False`:** no thread runs, so you have to call `progress.refresh()` (`progress.py:1540`) or `update(..., refresh=True)` yourself.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0295962,
+  "duration_ms": 14485,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3143,
+    "cache_read": 18122,
+    "output": 1520,
+    "context": 3149,
+    "total": 22791
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def advance|def refresh|def update\\(|def start|class _RefreshThread|def run\\(self|def __enter__|auto_refresh|def process_renderables|def get_renderable",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "output_mode": "content"
+      },
+      "result_chars": 1475,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def refresh|def start|def _enter|auto_refresh|class _RefreshThread|def run\\(|def process_renderables|def position_cursor",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "output_mode": "content"
+      },
+      "result_chars": 541,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "offset": 1508,
+        "limit": 45
+      },
+      "result_chars": 1952,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 20,
+        "limit": 20
+      },
+      "result_chars": 633,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 240,
+        "limit": 36
+      },
+      "result_chars": 1619,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 15.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": true,
+      "in-place": false,
+      "redirect": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "answer": "`advance()` doesn't redraw anything. The redraw comes from a background refresh thread that `Progress` starts when you enter the `with` block.\n\n**What `advance()` does**\n- `advance()` only updates the task's state. It increments `task.completed` under a lock (`rich/progress.py:1518-1521`).\n- It also records a speed sample (`progress.py:1531`) and sets the finished time if the task is done (`progress.py:1532-1538`).\n- It never calls `refresh()` or touches the console.\n\n**What triggers the redraw**\n1. Entering the `with` block calls `Progress.start()` (`progress.py:1161`, `1173`). That starts the underlying `Live` object.\n2. `Live.start()` hooks into the console with `push_render_hook` (`live.py:130`). If `auto_refresh` is true, which is the default, it starts a `_RefreshThread` (`live.py:141-143`).\n3. `_RefreshThread.run()` is a daemon thread (`live.py:29`). It loops on `done.wait(1 / refresh_per_second)`. On each tick it takes `live._lock` and calls `live.refresh()` (`live.py:35-38`).\n4. `Live.refresh()` sets the live renderable (`live.py:247`). On a real terminal it then runs `console.print(Control())` (`live.py:269-271`).\n5. The render hook then draws the current renderable in place of the old one. The renderable is the progress table, rebuilt from the tasks' current `completed` values. So the bar reflects whatever `advance()` last stored.\n\n**Consequences**\n- Calling `advance()` many times between ticks produces one redraw. The rate is set by `refresh_per_second`.\n- With `auto_refresh=False`, no thread starts. You then have to call `Progress.refresh()` (`progress.py:1540-1543`), which calls `live.refresh()`. You can also pass `refresh=True` to `update()`.\n- In Jupyter, the same `refresh()` path redraws through an `Output` widget (`live.py:253-268`).\n- On non-terminals, the final result is printed once, after the live display has stopped (`live.py:272-276`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.0361719,
+  "duration_ms": 24573,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4514,
+    "cache_read": 17439,
+    "output": 1636,
+    "context": 4520,
+    "total": 23595
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def advance|def refresh|def update\\(|def start|class _RefreshThread|def run\\(self|def __enter__|auto_refresh|def process_renderables|def get_renderable",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "output_mode": "content"
+      },
+      "result_chars": 1475,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def refresh|def start|def _enter|def __enter__|class _RefreshThread|def run\\(|def process_renderables|auto_refresh|def position_cursor",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "output_mode": "content"
+      },
+      "result_chars": 578,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "offset": 1510,
+        "limit": 36
+      },
+      "result_chars": 1570,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 20,
+        "limit": 28
+      },
+      "result_chars": 1094,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 111,
+        "limit": 36
+      },
+      "result_chars": 1535,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 244,
+        "limit": 34
+      },
+      "result_chars": 1564,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 25.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": true,
+      "in-place": true,
+      "redirect": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

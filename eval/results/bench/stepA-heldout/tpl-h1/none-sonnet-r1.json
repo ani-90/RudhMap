@@ -1,0 +1,71 @@
+{
+  "answer": "The first superuser is created by a setup step that runs before the app starts. The FastAPI app itself never creates it.\n\n**When it runs**\n- `backend/scripts/prestart.sh:7` runs `alembic upgrade head` to apply migrations.\n- `backend/scripts/prestart.sh:10` then runs `python app/initial_data.py`.\n- `backend/app/initial_data.py:13` opens a session and calls `init_db(session)`, which is imported from `app.core.db` at line 5.\n- You run `prestart.sh` yourself or through CI/deploy:\n  - `backend/README.md:22` and `backend/README.md:45` show the local and Docker commands.\n  - `deployment.md:74` says the deploy step runs it.\n  - `.github/workflows/deploy.yml:42` and `.github/workflows/deploy-docker-compose.yml:39` call it.\n  - `scripts/test.sh:9` and `scripts/test-local.sh:14` call it before the tests.\n\n**What it does**\n- `init_db` is in `backend/app/core/db.py:15`.\n- It looks up a `User` whose email equals `settings.FIRST_SUPERUSER` (`db.py:24-26`).\n- If none exists (`db.py:27`), it builds a `UserCreate` with `is_superuser=True` and the password from `settings.FIRST_SUPERUSER_PASSWORD` (`db.py:28-32`).\n- It saves that user with `crud.create_user` (`db.py:33`).\n- Because of the existence check, running it again does nothing.\n\n**Configuration**\n- `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` are required settings (`backend/app/core/config.py:65-66`).\n- They come from `.env:7-8`, where the defaults are `admin@example.com` and `changethis`. `compose.yml:58-59` passes them into the container.\n- Line 85 of `config.py` also checks `FIRST_SUPERUSER_PASSWORD`, apparently to warn about an insecure default. I didn't read that code.\n\n**Tests**\n- `backend/tests/conftest.py:18` calls `init_db` directly to seed the same user.\n\n**Skipping migrations**\n- `init_db` can create tables with `SQLModel.metadata.create_all` instead of Alembic, but that line is commented out (`db.py:16-22`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0374359,
+  "duration_ms": 16763,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6069,
+    "cache_read": 17279,
+    "output": 1142,
+    "context": 6075,
+    "total": 24496
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "FIRST_SUPERUSER|init_db|prestart",
+        "output_mode": "content",
+        "glob": "!**/node_modules/**",
+        "head_limit": 60
+      },
+      "result_chars": 5617,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 18.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

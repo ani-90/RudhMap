@@ -1,0 +1,94 @@
+{
+  "answer": "**What gets sent:** `POST /api/debate/message` is handled in `app/api/debate.py:12-23`. It looks up the article by `article_id` (404 if missing, `debate.py:14-16`). Then it calls `debate_reply` with the article's title, `article.raw_content or \"\"`, the client-supplied `history`, and the user's `message` (`debate.py:17-22`).\n\n`debate_reply` (`app/services/groq_client.py:131-137`) builds the message list in this order:\n\n1. **System message.** It is the `_DEBATE_SYSTEM` template (`groq_client.py:121-128`) filled with the title and content. The template tells the model to act as a \"sharp, intellectually honest debate partner\". It also tells the model to cite passages, concede valid points, push back, keep replies to 2-3 paragraphs, and not be sycophantic. It ends with `ARTICLE TITLE: \u2026` and `ARTICLE CONTENT: \u2026`.\n2. **History.** The `history` list is appended unchanged (`groq_client.py:135`). It comes from the client as `List[Dict[str,str]]` (`app/schemas/debate.py:9`). The server doesn't validate roles or limit its length, and it doesn't store history.\n3. **The new user message** (`groq_client.py:136`).\n\nThe list then goes to `_call_messages` (`groq_client.py:137`).\n\n**How much of the article:** only the first 3,000 characters of `raw_content`. The cut is `article_content[:3000]` at `groq_client.py:133`. It is a hard character slice, so it can end mid-word or mid-sentence. The title is included in full. Anything after character 3000 is never seen by the model, even though the prompt asks it to cite specific passages. The article content is also not summarized or chunked.\n\n**Side effects:**\n- If `raw_content` is empty, the model gets only the title.\n- The article text is re-sent in the system prompt on every turn, because the endpoint is stateless.\n- Unbounded history plus 3,000 characters of article could eventually grow the prompt, but I didn't check whether `_call_messages` caps it.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.0318773,
+  "duration_ms": 18757,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4096,
+    "cache_read": 21773,
+    "output": 1330,
+    "context": 4104,
+    "total": 27207
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "debate",
+        "-i": true,
+        "output_mode": "files_with_matches",
+        "glob": "!node_modules"
+      },
+      "result_chars": 365,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\debate.py"
+      },
+      "result_chars": 922,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "debate",
+        "-i": true,
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\groq_client.py"
+      },
+      "result_chars": 406,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\groq_client.py",
+        "offset": 115,
+        "limit": 50
+      },
+      "result_chars": 1142,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\schemas\\debate.py"
+      },
+      "result_chars": 292,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-h1",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 20.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "prompt": true,
+      "call": false,
+      "stateless": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

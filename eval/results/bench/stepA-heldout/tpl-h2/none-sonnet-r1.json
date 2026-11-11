@@ -1,0 +1,97 @@
+{
+  "answer": "**Frontend**\n1. The Admin route renders `<AddUser />` (`frontend/src/routes/_layout/admin.tsx:69`).\n2. `AddUser.tsx` is a dialog form. It uses react-hook-form with a zod resolver (`frontend/src/components/Admin/AddUser.tsx:60-72`). The fields are email, full_name, password, confirm_password, is_superuser and is_active.\n3. On submit, `onSubmit` calls `mutation.mutate(data)` (`AddUser.tsx:87-89`).\n4. The mutation calls `UsersService.createUser({ body: data })` (`AddUser.tsx:75`).\n5. On success it shows a toast, resets the form and closes the dialog (`AddUser.tsx:76-80`). It then invalidates the `[\"users\"]` query so the user list refetches (`AddUser.tsx:82-84`).\n\n**HTTP client**\n- `UsersService.createUser` in the generated SDK sends `POST /api/v1/users/` as JSON with a bearer token (`frontend/src/client/sdk.gen.ts:119-128`).\n\n**Backend route**\n- The handler is `create_user` in `backend/app/api/routes/users.py:54-78`.\n- The `get_current_active_superuser` dependency restricts it to superusers (`users.py:55`).\n- It looks the email up with `crud.get_user_by_email`. If a user already has that email, it returns a 400 (`users.py:61-66`).\n- It then calls `crud.create_user` (`users.py:68`).\n- If emails are enabled, it sends a \"new account\" email that includes the username and password (`users.py:69-77`).\n- It returns the new user as `UserPublic` (`users.py:78`).\n\n**CRUD and database**\n- `crud.create_user` is at `backend/app/crud.py:10-17`.\n  - It builds a `User` model from the `UserCreate` input, with `hashed_password` set by `get_password_hash(...)` (`crud.py:11-13`).\n  - It then runs `session.add`, `session.commit` and `session.refresh` (`crud.py:14-16`). That is the database INSERT.\n  - The plaintext password is hashed and never stored.\n\nI didn't open `SessionDep`, `get_current_active_superuser` or the `User` model, so I haven't traced how the session is created or how the table is defined.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0375632,
+  "duration_ms": 14858,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5219,
+    "cache_read": 18452,
+    "output": 1483,
+    "context": 5225,
+    "total": 25160
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "AddUser|create_user|createUser",
+        "output_mode": "content",
+        "glob": "!**/openapi.json",
+        "head_limit": 60
+      },
+      "result_chars": 5268,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\users.py",
+        "offset": 48,
+        "limit": 35
+      },
+      "result_chars": 1220,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "limit": 25
+      },
+      "result_chars": 852,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\components\\Admin\\AddUser.tsx",
+        "offset": 55,
+        "limit": 40
+      },
+      "result_chars": 1162,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\client\\sdk.gen.ts",
+        "offset": 115,
+        "limit": 15
+      },
+      "result_chars": 639,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h2",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 15.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "component": true,
+      "http": true,
+      "superuser-only": true,
+      "create": true,
+      "after": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}
