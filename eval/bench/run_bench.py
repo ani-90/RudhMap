@@ -100,33 +100,44 @@ def export_repo(name: str, spec: dict) -> Path:
 
 
 def mcp_config_path() -> Path:
+    """Written once (atomically) and reused: parallel workers must never read
+    a half-written config."""
     path = EXPORTS / "rudhmap_mcp.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"mcpServers": {"rudhmap": {
+    content = json.dumps({"mcpServers": {"rudhmap": {
         "command": str(ROOT / ".venv" / "Scripts" / "python.exe") if os.name == "nt" else sys.executable,
         "args": ["-m", "rudhmap.server"],
         "env": {"PYTHONPATH": str(ROOT / "src")},
-    }}}), encoding="utf-8")
+    }}})
+    if not path.exists() or path.read_text(encoding="utf-8") != content:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(content, encoding="utf-8")
+        os.replace(tmp, path)
     return path
 
 
 # ------------------------------------------------------------------ one run
 
 def claude_cmd(prompt: str, model: str, arm: str) -> list[str]:
+    """Arms: none = Read/Grep/Glob; rudhmap = those + RudhMap's MCP tools, the
+    model chooses; rudhmap-only = RudhMap's tools and nothing else."""
+    builtin = "" if arm == "rudhmap-only" else BASE_TOOLS
     cmd = [
         "claude", "-p", prompt,
         "--output-format", "stream-json", "--verbose",
         "--model", model,
-        "--tools", BASE_TOOLS,
+        "--tools", builtin,
         "--strict-mcp-config",
         "--no-session-persistence",
         "--setting-sources", "",
     ]
-    if arm == "rudhmap":
-        cmd += ["--mcp-config", str(mcp_config_path()),
-                "--allowedTools", BASE_TOOLS + ",mcp__rudhmap"]
-    else:
+    if arm in ("rudhmap", "rudhmap-only"):
+        allowed = ",".join(x for x in (builtin, "mcp__rudhmap") if x)
+        cmd += ["--mcp-config", str(mcp_config_path()), "--allowedTools", allowed]
+    elif arm == "none":
         cmd += ["--allowedTools", BASE_TOOLS]
+    else:
+        raise ValueError(f"unknown arm {arm}")
     return cmd
 
 
@@ -195,7 +206,8 @@ def parse_stream(lines: list[str]) -> dict:
 def run_one(q: dict, repo_dir: Path, arm: str, model: str, rep: int, out: Path) -> dict:
     cmd = claude_cmd(PROMPT.format(question=q["question"]), model, arm)
     started = time.time()
-    proc = subprocess.run(cmd, cwd=repo_dir, capture_output=True, text=True, encoding="utf-8", timeout=1200)
+    proc = subprocess.run(cmd, cwd=repo_dir, capture_output=True, text=True, encoding="utf-8", timeout=1200,
+                          stdin=subprocess.DEVNULL)
     record = parse_stream(proc.stdout.splitlines())
     record.update({
         "question_id": q["id"], "repo": q["repo"], "arm": arm, "model": model, "rep": rep,
@@ -375,6 +387,124 @@ def cmd_report(args) -> int:
     return 0
 
 
+SETUP_NAMES = {"none": "Plain", "rudhmap": "RudhMap (natural)", "rudhmap-only": "RudhMap-only"}
+
+
+def _tool_counts(record: dict) -> dict:
+    counts = {"rudhmap": 0, "Read": 0, "Grep": 0, "Glob": 0, "other": 0}
+    for call in record["tool_calls"]:
+        name = call["tool"]
+        if name.startswith("mcp__rudhmap__"):
+            counts["rudhmap"] += 1
+        elif name in counts:
+            counts[name] += 1
+        else:
+            counts["other"] += 1
+    return counts
+
+
+def _first_tool(record: dict) -> str:
+    calls = record["tool_calls"]
+    if not calls:
+        return "-"
+    first_call = [c["tool"].replace("mcp__rudhmap__", "rm:") for c in calls if c.get("model_call") == calls[0].get("model_call")]
+    return "+".join(first_call)
+
+
+def _builtin_after_rudhmap(record: dict) -> int:
+    """Read/Grep/Glob calls made in a later model call than the first RudhMap call."""
+    first = next((c.get("model_call") for c in record["tool_calls"] if c["tool"].startswith("mcp__rudhmap__")), None)
+    if first is None:
+        return 0
+    return sum(1 for c in record["tool_calls"]
+               if not c["tool"].startswith("mcp__rudhmap__") and (c.get("model_call") or 0) > first)
+
+
+def cmd_runs(args) -> int:
+    records = load_records(args.label)
+    questions = {q["id"]: q for q in load_questions(args.questions)["questions"]}
+    order = {qid: i for i, qid in enumerate(questions)}
+    records.sort(key=lambda r: (order.get(r["question_id"], 99), r["model"] != "haiku", r["arm"], r["rep"]))
+    lines = [f"# Benchmark runs: {args.label}", "",
+             "One row per run. **Correct** = every required fact stated and no major false claim "
+             "(Sonnet grader, majority of 3). **Tokens** = everything Claude Code counted for the run "
+             "(new input + cache writes + cache reads + output). **New** = new content the model took in "
+             "(input + cache writes). **Calls** = model calls (each re-sends the system prompt and conversation). "
+             "**RM / Read / Grep / Glob** = tool calls by type (RM = RudhMap). **First** = tools used in the "
+             "first model call. **After RM** = Read/Grep/Glob calls made after the first RudhMap answer. "
+             "**$** = Claude Code's reported cost (cache reads billed at ~10%).", ""]
+    header = "| Q | Setup | Model | Run | Correct | Facts | Tokens | New | Calls | RM | Read | Grep | Glob | First | After RM | $ | Time |"
+    lines += [header, "|" + "---|" * 17]
+    for r in records:
+        g = r.get("grade", {})
+        facts = g.get("facts", {})
+        c = _tool_counts(r)
+        lines.append(
+            f"| {r['question_id']} | {SETUP_NAMES.get(r['arm'], r['arm'])} | {r['model']} | {r['rep']} | "
+            f"{'yes' if g.get('correct') else 'no' if g else '?'} | {sum(facts.values())}/{len(facts) if facts else '?'} | "
+            f"{r['tokens']['total']:,} | {r['tokens']['context']:,} | {r.get('model_calls', '?')} | "
+            f"{c['rudhmap']} | {c['Read']} | {c['Grep']} | {c['Glob']} | {_first_tool(r)} | "
+            f"{_builtin_after_rudhmap(r) if c['rudhmap'] else '-'} | {r['cost_usd']:.4f} | {r['wall_s']:.0f}s |")
+
+    groups: dict[tuple, list[dict]] = {}
+    for r in records:
+        groups.setdefault((r["arm"], r["model"]), []).append(r)
+    lines += ["", "## Summary per setup", "",
+              "Per question the median of its 3 runs is taken, then the median across questions. "
+              "A question counts as correct when at least 2 of its 3 runs are correct.", "",
+              "| Setup | Model | Correct questions | Correct runs | Median tokens / question | Median model calls | "
+              "Median new content | Runs using RudhMap | RudhMap first | Built-in calls after RudhMap (mean) | Total $ |",
+              "|" + "---|" * 11]
+    summary = {}
+    for (arm, model), runs in sorted(groups.items(), key=lambda kv: (kv[0][1] != "haiku", list(SETUP_NAMES).index(kv[0][0]) if kv[0][0] in SETUP_NAMES else 9)):
+        per_q: dict[str, list[dict]] = {}
+        for r in runs:
+            per_q.setdefault(r["question_id"], []).append(r)
+        correct_q = sum(1 for rs in per_q.values() if sum(x.get("grade", {}).get("correct", False) for x in rs) * 2 > len(rs))
+        correct_runs = sum(x.get("grade", {}).get("correct", False) for x in runs)
+        med_tokens = statistics.median(statistics.median(x["tokens"]["total"] for x in rs) for rs in per_q.values())
+        med_calls = statistics.median(statistics.median(x.get("model_calls", 0) for x in rs) for rs in per_q.values())
+        med_new = statistics.median(statistics.median(x["tokens"]["context"] for x in rs) for rs in per_q.values())
+        using = [x for x in runs if _tool_counts(x)["rudhmap"]]
+        first = [x for x in runs if _first_tool(x).startswith("rm:") or "+rm:" in _first_tool(x)]
+        after = statistics.mean(_builtin_after_rudhmap(x) for x in using) if using else 0
+        cost = sum(x["cost_usd"] for x in runs)
+        summary[(arm, model)] = {"correct_q": correct_q, "n_q": len(per_q), "med_tokens": med_tokens, "med_calls": med_calls,
+                                 "per_q": {q: statistics.median(x["tokens"]["total"] for x in rs) for q, rs in per_q.items()},
+                                 "correct_by_q": {q: sum(x.get("grade", {}).get("correct", False) for x in rs) for q, rs in per_q.items()}}
+        rm = arm != "none"
+        lines.append(
+            f"| {SETUP_NAMES.get(arm, arm)} | {model} | {correct_q}/{len(per_q)} | {correct_runs}/{len(runs)} | "
+            f"{med_tokens:,.0f} | {med_calls:g} | {med_new:,.0f} | "
+            f"{f'{len(using)}/{len(runs)}' if rm else '-'} | {f'{len(first)}/{len(runs)}' if rm else '-'} | "
+            f"{f'{after:.1f}' if rm else '-'} | {cost:.2f} |")
+
+    base = summary.get((args.baseline_arm, "haiku"))
+    nat = summary.get(("rudhmap", "haiku"))
+    if base and nat:
+        limit = 0.7 * base["med_tokens"]
+        regress = [q for q, n in base["correct_by_q"].items() if n >= 2 and nat["correct_by_q"].get(q, 0) == 0]
+        lines += ["", "## Step C pass criteria (eval/THRESHOLDS.md), Haiku", "",
+                  "| Criterion | Target | Result | Pass |", "|---|---|---|---|",
+                  f"| 1. Quality: correct questions >= plain Haiku | >= {base['correct_q']} | {nat['correct_q']} | "
+                  f"{'yes' if nat['correct_q'] >= base['correct_q'] else 'no'} |",
+                  f"| 2. Cost: median tokens <= 0.7 x plain Haiku | <= {limit:,.0f} | {nat['med_tokens']:,.0f} "
+                  f"({nat['med_tokens'] / base['med_tokens']:.0%} of plain) | {'yes' if nat['med_tokens'] <= limit else 'no'} |",
+                  f"| 3. No question plain gets right and RudhMap gets wrong in all 3 runs | none | "
+                  f"{', '.join(regress) or 'none'} | {'yes' if not regress else 'no (RCA needed)'} |"]
+        lines += ["", "## Tokens per question (median of 3 runs)", "",
+                  "| Q | " + " | ".join(f"{SETUP_NAMES.get(a, a)} {m}" for (a, m) in summary) + " |",
+                  "|---|" + "---|" * len(summary)]
+        for q in questions:
+            if any(q in s["per_q"] for s in summary.values()):
+                lines.append(f"| {q} | " + " | ".join(
+                    f"{s['per_q'][q]:,.0f} ({s['correct_by_q'][q]}/3)" if q in s["per_q"] else "-" for s in summary.values()) + " |")
+    out = Path(args.out) if args.out else RESULTS / args.label / "runs.md"
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"wrote {out}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -394,8 +524,13 @@ def main() -> int:
     grade.add_argument("--questions", default=None, help="question file (default: questions.yaml)")
     report = sub.add_parser("report")
     report.add_argument("--label", required=True)
+    runs = sub.add_parser("runs", help="markdown report: one row per run, plus per-setup summary")
+    runs.add_argument("--label", required=True)
+    runs.add_argument("--baseline-arm", default="none")
+    runs.add_argument("--questions", default=None)
+    runs.add_argument("--out", default=None)
     args = parser.parse_args()
-    return {"run": cmd_run, "grade": cmd_grade, "report": cmd_report}[args.cmd](args)
+    return {"run": cmd_run, "grade": cmd_grade, "report": cmd_report, "runs": cmd_runs}[args.cmd](args)
 
 
 if __name__ == "__main__":
