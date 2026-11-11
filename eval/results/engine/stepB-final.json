@@ -1,0 +1,130 @@
+{
+  "label": "stepB-final",
+  "git_head": "1a0d5e2",
+  "ground_truth": {
+    "commit": "20d352e",
+    "sites_expected": 145,
+    "sites_found": 144,
+    "recall": 0.993,
+    "precision": 1.0,
+    "per_kind": {
+      "call": {
+        "expected": 93,
+        "found": 92,
+        "recall": 0.989,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      },
+      "reference": {
+        "expected": 28,
+        "found": 28,
+        "recall": 1.0,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      },
+      "param_reference": {
+        "expected": 11,
+        "found": 11,
+        "recall": 1.0,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      },
+      "inherits": {
+        "expected": 13,
+        "found": 13,
+        "recall": 1.0,
+        "recall_excl_hard": 1.0,
+        "extra": 0
+      }
+    },
+    "misses": [
+      {
+        "src": "app/pipeline/graph.py:run_all_agents_node.run_single",
+        "dst": "app/pipeline/agents/base_agent.py:BaseAgent.run",
+        "kind": "call",
+        "line": 38,
+        "hard": true,
+        "code": "result = agent.run(state)"
+      }
+    ],
+    "extra": []
+  },
+  "unresolved_test_repo": {
+    "total": 5,
+    "by_cause": {
+      "method_on_variable": 3,
+      "through_import_unresolved (often an external library)": 2
+    },
+    "examples": {
+      "through_import_unresolved (often an external library)": [
+        "run.py:6  uvicorn.run",
+        "app/scheduler.py:32  asyncio.run"
+      ],
+      "method_on_variable": [
+        "app/db/qdrant.py:43  client.search",
+        "app/pipeline/graph.py:38  agent.run",
+        "app/services/tavily_client.py:15  _client.search"
+      ]
+    }
+  },
+  "determinism": {
+    "identical": true
+  },
+  "speed_s": {
+    "test_repo_cold": 0.19,
+    "test_repo_warm": 0.09
+  },
+  "graph_test_repo": {
+    "nodes": 134,
+    "edges": 145
+  },
+  "unresolved_rudhmap_src": {
+    "total": 172,
+    "by_cause": {
+      "method_on_variable": 157,
+      "self_attribute_or_inherited": 8,
+      "through_import_unresolved (often an external library)": 5,
+      "bare_name_other": 2
+    },
+    "examples": {
+      "through_import_unresolved (often an external library)": [
+        "rudhmap/cache.py:45  os.environ.get",
+        "rudhmap/cache.py:48  os.environ.get",
+        "rudhmap/cache.py:50  os.environ.get",
+        "rudhmap/extract/__init__.py:136  os.walk",
+        "rudhmap/server.py:300  _os.environ.get"
+      ],
+      "method_on_variable": [
+        "rudhmap/cache.py:55  Path(repo_path).resolve",
+        "rudhmap/cli.py:48  Path(repo_path).resolve",
+        "rudhmap/cli.py:76  Path(repo_path).resolve",
+        "rudhmap/cli.py:80  Path(output).resolve",
+        "rudhmap/cli.py:107  Path(repo_path).resolve",
+        "rudhmap/context.py:109  ev.attrs.get"
+      ],
+      "bare_name_other": [
+        "rudhmap/cache.py:90  compute",
+        "rudhmap/cache.py:100  compute"
+      ],
+      "self_attribute_or_inherited": [
+        "rudhmap/cache.py:94  self._entries.get",
+        "rudhmap/tools/index.py:63  self.route_prefixes.get",
+        "rudhmap/tools/index.py:236  self._lines_cache.get",
+        "rudhmap/tools/index.py:246  self.out.get",
+        "rudhmap/tools/index.py:246  self.into.get",
+        "rudhmap/tools/index.py:249  self.by_id.get"
+      ]
+    }
+  },
+  "graph_rudhmap_src": {
+    "nodes": 306,
+    "edges": 546
+  },
+  "discovery": {
+    "repo_root_nodes": 351,
+    "src_only_nodes": 306,
+    "nodes_from_tool_folders": 0,
+    "repo_root_edges": 622,
+    "src_only_edges": 546
+  }
+}

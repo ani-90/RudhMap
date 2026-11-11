@@ -1,6 +1,6 @@
 {
   "label": "stepB-engine",
-  "git_head": "ef45cb4",
+  "git_head": "75777ad",
   "ground_truth": {
     "commit": "20d352e",
     "sites_expected": 145,
@@ -71,42 +71,57 @@
     "identical": true
   },
   "speed_s": {
-    "test_repo_cold": 0.55,
-    "test_repo_warm": 0.12
+    "test_repo_cold": 0.17,
+    "test_repo_warm": 0.09
   },
   "graph_test_repo": {
     "nodes": 134,
-    "edges": 144
+    "edges": 145
   },
   "unresolved_rudhmap_src": {
-    "total": 4,
+    "total": 162,
     "by_cause": {
+      "method_on_variable": 150,
+      "self_attribute_or_inherited": 8,
       "bare_name_other": 2,
-      "through_import_unresolved (often an external library)": 1,
-      "method_on_variable": 1
+      "through_import_unresolved (often an external library)": 2
     },
     "examples": {
       "bare_name_other": [
         "rudhmap/cache.py:64  compute",
         "rudhmap/cache.py:73  compute"
       ],
-      "through_import_unresolved (often an external library)": [
-        "rudhmap/extract/__init__.py:136  os.walk"
+      "self_attribute_or_inherited": [
+        "rudhmap/cache.py:67  self._entries.get",
+        "rudhmap/tools/index.py:63  self.route_prefixes.get",
+        "rudhmap/tools/index.py:236  self._lines_cache.get",
+        "rudhmap/tools/index.py:246  self.out.get",
+        "rudhmap/tools/index.py:246  self.into.get",
+        "rudhmap/tools/index.py:249  self.by_id.get"
       ],
       "method_on_variable": [
-        "rudhmap/graph/resolve.py:173  super().__new__"
+        "rudhmap/cli.py:48  Path(repo_path).resolve",
+        "rudhmap/cli.py:76  Path(repo_path).resolve",
+        "rudhmap/cli.py:80  Path(output).resolve",
+        "rudhmap/cli.py:107  Path(repo_path).resolve",
+        "rudhmap/context.py:109  ev.attrs.get",
+        "rudhmap/context.py:154  _FENCE_LANG.get"
+      ],
+      "through_import_unresolved (often an external library)": [
+        "rudhmap/extract/__init__.py:136  os.walk",
+        "rudhmap/server.py:300  _os.environ.get"
       ]
     }
   },
   "graph_rudhmap_src": {
-    "nodes": 238,
-    "edges": 415
+    "nodes": 298,
+    "edges": 531
   },
   "discovery": {
-    "repo_root_nodes": 274,
-    "src_only_nodes": 238,
+    "repo_root_nodes": 334,
+    "src_only_nodes": 298,
     "nodes_from_tool_folders": 0,
-    "repo_root_edges": 459,
-    "src_only_edges": 415
+    "repo_root_edges": 575,
+    "src_only_edges": 531
   }
 }

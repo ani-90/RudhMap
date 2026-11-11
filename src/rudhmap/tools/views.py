@@ -104,6 +104,8 @@ def _score(symbol: Symbol, query_words: list[str], query_compact: str) -> float:
         score += 6
     elif query_compact and name_compact.startswith(query_compact):
         score += 2
+    elif len(name_words) == 1 and name_words[0] in query_words and len(name_words[0]) >= 5:
+        score += 3  # `authenticate` for "authenticate user password"
     score *= matched / len(query_words)
     if symbol.kind == "module":
         score *= 0.8
@@ -126,8 +128,57 @@ def search(index: RepoIndex, query: str, kind: str | None = None, limit: int = 1
     return scored[:limit]
 
 
+_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+MAX_USAGES = 15
+
+
+def enclosing(index: RepoIndex, file: str, line: int) -> Symbol | None:
+    """Innermost function/class containing a line."""
+    best = None
+    for symbol in index.by_file.get(file, []):
+        if symbol.line <= line <= symbol.end_line and (best is None or symbol.line >= best.line):
+            best = symbol
+    return best
+
+
+def usages(index: RepoIndex, name: str, limit: int = MAX_USAGES) -> tuple[list[str], int]:
+    """Lines where an identifier (e.g. a config field like SECRET_KEY, which is
+    no function or class) appears, each with its enclosing definition."""
+    pattern = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(name) + r"(?![A-Za-z0-9_])")
+    hits, total = [], 0
+    for file in index.files:
+        for n, text in enumerate(index.lines(file), 1):
+            if pattern.search(text):
+                total += 1
+                if len(hits) < limit:
+                    owner = enclosing(index, file, n)
+                    where = owner.label if owner is not None else "module level"
+                    snippet = " ".join(text.split())
+                    snippet = snippet if len(snippet) <= 70 else snippet[:67] + "..."
+                    hits.append(f"  {file}:{n}  [{where}]  {snippet}")
+    return hits, total
+
+
 def find_symbol(index: RepoIndex, query: str, kind: str | None = None, limit: int = 10) -> str:
     results = search(index, query, kind, limit)
+    word = query.strip()
+    exact = any(s.name == word or s.qualname == word for _, s in results)
+    if _IDENTIFIER.match(word) and not exact:
+        hits, total = usages(index, word.rsplit(".", 1)[-1])
+        if hits:
+            head = [f'"{word}" is not a function/class name; it appears on {total} lines:']
+            similar = ("symbols with similar names: " + ", ".join(f"{s.label} ({_loc(s)})" for _, s in results[:3])
+                       if results else "")
+            while True:
+                shown = len(hits)
+                note = [f"  (+{total - shown} more lines; Grep for the rest)"] if total > shown else []
+                text = "\n".join(head + hits + note + ([similar] if similar else []))
+                if tokens(text) <= FIND_BUDGET or len(hits) <= 3:
+                    break
+                hits.pop()
+            if tokens(text) > FIND_BUDGET and similar:
+                text = "\n".join(head + hits + note)
+            return text
     if not results:
         return f'No symbols match "{query}". Try fewer or different words, or repo_map to browse.'
     lines = [f'{len(results)} matches for "{query}" (best first):']
@@ -260,7 +311,10 @@ def _callee_lines(index: RepoIndex, symbol: Symbol, budget_chars: int) -> list[s
         body_len = target.end_line - target.line
         if target.kind == "function" and 0 < body_len <= TINY_BODY_LINES:
             entry += _body(index, target, target.line + 1, target.end_line, indent="           ")
-        elif target.kind == "function" and (link.relation in ("reference", "built_by") or (body_len <= 12 and link.relation == "call")):
+        elif target.kind == "function" and (
+                link.relation in ("reference", "built_by")
+                or (link.relation == "call" and (body_len <= 12
+                                                 or (target.file == symbol.file and target.name.startswith("_"))))):
             # One hop further through callbacks / thin wrappers: name what they call.
             nested = [index.symbols[l.other] for l in index.out.get(target.node, []) if l.relation != "inherits"]
             if nested:
@@ -545,22 +599,28 @@ def trace(index: RepoIndex, start: str, end: str | None = None, direction: str =
     budget_chars = TRACE_BUDGET * 4
     truncated = 0
 
-    def walk(node: str, level: int) -> None:
+    footer_room = 120  # the "+N more branches cut" line must fit too
+
+    def walk(node: str, level: int, used_depth: int) -> None:
         nonlocal truncated
         for link in neighbours(index, node):
             text = f"{'  ' * level}- {_hop_label(index, link)}"
             if link.other in seen:
                 text += "  (see above)"
-            if sum(len(l) + 1 for l in lines) + len(text) > budget_chars:
+            if sum(len(l) + 1 for l in lines) + len(text) > budget_chars - footer_room:
                 truncated += 1
                 continue
             lines.append(text)
             if link.other not in seen:
                 seen.add(link.other)
-                if level < depth:
-                    walk(link.other, level + 1)
+                # Handing a function over as a value / using the value it builds
+                # is an indirection, not a level of the call tree: it doesn't
+                # use up depth (the budget still bounds the output).
+                cost = 0 if link.relation in ("reference", "built_by") else 1
+                if used_depth + cost <= depth and level < depth + 4:
+                    walk(link.other, level + 1, used_depth + cost)
 
-    walk(source.node, 1)
+    walk(source.node, 1, 1)
     if len(lines) == 1:
         lines.append("  (nothing in this repo)" if direction == "down" else "  (no callers in this repo)")
     if truncated:

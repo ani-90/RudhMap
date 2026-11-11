@@ -6,7 +6,18 @@ Every step ends with a report in `eval/reports/` (goal + pass criteria written f
 
 ## Current status (update this section whenever a phase completes or work resumes)
 
-**Last updated:** 2026-11-11
+**Last updated:** 2026-11-12
+
+**Step B (the tools) PASSED (2026-11-12)**, branch `stepB-tools` (278 tests). Report: `eval/reports/stepB-tools.md`; suite: `python eval/tools_eval.py --label <name>` (data: `eval/ground_truth/step_b_tools.yaml`).
+- Narrowed target: RudhMap controls only **its tool results** and **its tool definitions** in the model's context; optimize those, nothing else.
+- Tools in `src/rudhmap/tools/` (`index.py` = in-memory `RepoIndex`, rebuild on changed files; `views.py` = outputs): `find_symbol` (also identifier usages, e.g. `SECRET_KEY`), `show` (body + callees with signature/doc, tiny bodies inline, one hop through callbacks/module values/thin wrappers/private helpers, callers, overrides, unresolved), `trace` (paths, call/caller trees; indirection hops don't use depth), `repo_map`. Budgets: find 400, show 2000, trace 800, map 1500 tokens (chars/4).
+- MCP default surface = these 4 tools only (+649 tokens per model call, measured in Claude Code; 6,431 → 7,080). Old tools: `rudhmap-mcp --legacy`. CLI: `rudhmap find|show|trace|map [--repo]`.
+- Results: 0/1,161 calls over budget, find top-3 29/30, coverage 12/15 (misses: tpl-4 cross-layer, tpl-5 attribute usage under the planned calls, httpx-5 property access), deterministic, rich cold 2.1 s / warm 42 ms / after edit 1.16 s. Step 1 eval unchanged.
+- Engine: `python@8` (signatures/docs/decorators, `built_by` links for module values, relative imports, return-annotation typing), `typescript@5` (arrow-function components, JSX edges, tsconfig `@/` aliases, default exports, barrel re-exports). Extraction cache now outside the repo (`%LOCALAPPDATA%\rudhmap\cache`, `~/.cache/rudhmap`, `RUDHMAP_CACHE_DIR`).
+- Smoke run (not counted): Haiku called `show` first but also grepped/read in parallel (3 calls, 26.5k vs ~17.7k baseline). Step C must check whether models trust the tools.
+- Heredoc gotcha in this environment: the Bash tool turns `\\n` inside heredocs into real newlines — write edit scripts with the Write tool.
+
+**Next up: Step C (benchmark + iterate)** — re-run plain Haiku/Sonnet baseline alongside Haiku+RudhMap on the 15 tuning questions (3 reps), RCA, max 3 rounds; held-out set only in the final run. Thresholds: `eval/THRESHOLDS.md`.
 
 **Plan re-ordered 2026-11-11** (`docs/plan.md`): A baseline → B tools → C benchmark + iterate (max 3 rounds, stop rule) → D release. Cut from v1: diagrams, `get_context`, step 1b, local model, cross-layer links.
 
@@ -19,7 +30,7 @@ Every step ends with a report in `eval/reports/` (goal + pass criteria written f
 - Grading: Sonnet grader, 3-vote majority, critical facts judged on one-line `must`; 17/18 agreement with hand check (`eval/results/bench/stepA-handcheck.json`). Never accept a "major false claim" without reading the source (the key itself was wrong once: `embedder.embed()` is a stub returning `[]`).
 - Bench runs use `claude -p` on the user's subscription login; repos exported to `%LOCALAPPDATA%\Temp\rudhmap_bench\`.
 
-**Next up: Step B (the tools)** — `repo_map`, `find_symbol`, `show`, `trace`; graph in memory in the MCP server; TS JSX component edges. See `docs/plan.md` and the step B constraints at the end of the step A report.
+~~Next up: Step B (the tools)~~ (done 2026-11-12) — `repo_map`, `find_symbol`, `show`, `trace`; graph in memory in the MCP server; TS JSX component edges. See `docs/plan.md` and the step B constraints at the end of the step A report.
 
 **Step 1 (engine correctness) PASSED (2026-11-10)**, branch `step1-engine-fixes` (259 tests). Report: `eval/reports/step1-engine.md`; suite: `python eval/engine_eval.py --label <name>`; ground truth: `eval/ground_truth/knowledge_news_app_calls.yaml` (145 hand-labelled sites, Knowledge-News-App @ `20d352e`).
 - Recall 55.9% → 99.3% (100% excl. the one `hard` dict-dispatch site), precision 100%. New edge kinds: `references` (callbacks, `Depends(get_db)`, `db.query(Model)`, decorator args, attributed to the decorated def) and `inherits`. Python type tracking from stated types (`x = Foo()`, `x: Foo`, `self.x = Foo()`) + inherited-method lookup (`resolve.resolve_typed_calls`). Scope-chain lookup for nested functions; `module` node per non-empty file for top-level code.
