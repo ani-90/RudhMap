@@ -104,3 +104,15 @@ Clean-machine install tested against a repo not used in tuning.
 ### Cut from v1
 Diagrams, `get_context`, step 1b ground truth on more repos, local small model,
 cross-layer links (API routes <-> frontend calls, env vars <-> compose).
+
+### Enhancements backlog (revisit after v1)
+- **Persist the resolved graph, not just per-file parse results.** Today a server
+  restart re-runs resolution over cached parse results (~0.5 s on rich, ~2.1 s with
+  an empty cache). Saving the connected graph keyed by the file snapshot would make
+  restart near-instant; only worth it if larger repos make the rebuild noticeable.
+- **Incremental rebuild after an edit.** Re-parse and re-resolve only the changed
+  files and their dependents instead of the whole graph (~1 s on rich today).
+- **Property access as a connection** (`self.content` where `content` is a
+  `@property`), which would close the httpx-5 coverage miss.
+- **Cross-layer links** (frontend API call -> backend route), already cut from v1;
+  closes tpl-4.
