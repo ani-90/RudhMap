@@ -1,0 +1,111 @@
+{
+  "answer": "**No. The daily refresh is defined but never started when the API server boots.**\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:15-40` defines `_daily_refresh()`, which creates a pipeline run and calls `run_pipeline` for `DOMAINS` as `user_id=1`.\n- `app/scheduler.py:43-53` defines `start_scheduler(hour=7, minute=0)`. It adds a `CronTrigger` job with id `daily_refresh` and calls `scheduler.start()`.\n- `app/scheduler.py:56-58` defines `stop_scheduler()`.\n\n**What's missing:**\n- `app/main.py:17-20`: the `lifespan` hook only calls `init_db()` and then yields. It never calls `start_scheduler` or `stop_scheduler`. The shutdown side is also absent.\n- `app/main.py:23-28`: the FastAPI app uses that lifespan, and the routers are included at lines 41-44. Nothing else is registered.\n- `run.py:4-6`: the entry point only runs `uvicorn.run(\"app.main:app\", ...)`. It does not start the scheduler.\n- The call graph reports no callers for `start_scheduler` in the repo. I also checked the two entry points (`app/main.py` and `run.py`) directly, and neither references it.\n\n**Result:** when the server starts, the scheduler is never started and the 07:00 job is never registered. The only way the daily refresh runs is if something outside this repo calls `start_scheduler()`, or if someone adds that call to `lifespan`. The routes in `app/api/feed.py` (for example `POST /api/feed/refresh`) can still trigger a manual refresh.\n\n**Fix:** call `start_scheduler()` after `init_db()` in `lifespan` (`app/main.py:19`), and call `stop_scheduler()` after the `yield`. Be aware that with multiple Uvicorn workers, each worker would start its own scheduler and the job would run once per worker. This setup uses `reload=False` and a single process, so that's not an issue today.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 4,
+  "cost_usd": 0.0019701099999999997,
+  "duration_ms": 10919,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5116,
+    "cache_read": 23561,
+    "output": 1421,
+    "context": 5124,
+    "total": 30106
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule"
+      },
+      "result_chars": 300,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "cron"
+      },
+      "result_chars": 163,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/scheduler.py"
+      },
+      "result_chars": 2054,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "lifespan"
+      },
+      "result_chars": 759,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "start_scheduler",
+        "direction": "up"
+      },
+      "result_chars": 95,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "run.py"
+      },
+      "result_chars": 231,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/main.py"
+      },
+      "result_chars": 1386,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 18.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

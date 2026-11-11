@@ -1,0 +1,61 @@
+{
+  "answer": "`refresh_feed()` is the `POST /api/feed/refresh` handler (`app/api/feed.py:20-21`). It starts a background content pipeline, and a 2-hour cooldown can skip the run.\n\n**What it does**\n1. **Cooldown check (27-42).** It loads the last successful run with `crud.get_last_successful_run`. If that run finished less than 2 hours ago (`_REFRESH_COOLDOWN_SECONDS`, line 17), it returns early. The early response has `status=\"skipped\"`, the remaining seconds, and minutes since the last refresh. No new run is created. The comment at line 26 says this guards against hammering Tavily.\n2. **Run setup (44-48).** It resolves the domains with `request.resolved_domains()` and generates a UUID `run_id`. It then calls `crud.create_pipeline_run` and `crud.update_pipeline_run(..., status=\"running\")`.\n3. **Scheduling (50).** It queues `_run_pipeline_bg` through FastAPI `BackgroundTasks`.\n4. **Response (52).** It returns `FeedRefreshResponse(status=\"running\")` with the `run_id` and domains, without waiting for the pipeline.\n\n**What it calls**\n- `crud.get_last_successful_run`, `crud.create_pipeline_run` and `crud.update_pipeline_run` for the database work.\n- `request.resolved_domains()` from the request schema.\n- `background_tasks.add_task(_run_pipeline_bg, ...)`.\n\n**After it returns**\n- FastAPI runs `_run_pipeline_bg` (55-72). It lazily imports `run_pipeline` from `app.pipeline.graph` and awaits `run_pipeline(run_id, user_id, domains)` (58).\n- If the pipeline raises, the handler opens a fresh `SessionLocal` and marks the run `failed`. It stores the error in `error_log` and sets `finished_at` (64-70). It then closes the session.\n- A client can poll `GET /api/feed/status/{run_id}` (75-88). That returns the run's status, persisted and duplicate counts, timestamps and errors.\n- Once the run succeeds, `GET /api/feed` (91-120) returns the stored articles.\n- `run_pipeline` is in `app/pipeline/graph.py`, which I didn't open. I haven't checked what it does or how it marks a run successful.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 3,
+  "cost_usd": 0.033845,
+  "duration_ms": 8400,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5644,
+    "cache_read": 14570,
+    "output": 980,
+    "context": 5650,
+    "total": 21200
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "refresh_feed",
+        "output_mode": "content"
+      },
+      "result_chars": 42,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\feed.py"
+      },
+      "result_chars": 7516,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 9.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

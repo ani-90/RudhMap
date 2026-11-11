@@ -1,0 +1,96 @@
+{
+  "answer": "**Direct application callers of `crud.get_user_by_email`** (defined at `backend/app/crud.py:34`). Tests are excluded.\n\n**Existence checks (reject if the email is taken):**\n- `create_user`, `backend/app/api/routes/users.py:61`: returns 400 if the email exists, otherwise creates the user.\n- `register_user` (`/signup`), `backend/app/api/routes/users.py:151`: same 400 check.\n- `update_user_me`, `backend/app/api/routes/users.py:90`: returns 409 only if the match is a different user (`existing_user.id != current_user.id`).\n- `update_user`, `backend/app/api/routes/users.py:204`: returns 409 only if the match has a different id.\n\n**Password flows (`backend/app/api/routes/login.py`):**\n- `recover_password`, line 58: the result only gates whether an email is sent. The email goes to `user.email`, and the response is the same either way, to prevent enumeration.\n- `reset_password`, line 85: 400 if no user, 400 if `not user.is_active`, then the user is passed to `crud.update_user` (lines 92-96).\n- `recover_password_html_content`, line 109: 404 if no user, otherwise builds the email from `user.email`.\n\n**Indirect caller:** `crud.authenticate` (`backend/app/crud.py:46`) calls it and uses the user for password verification and returns it. `login_access_token` (`backend/app/api/routes/login.py:30`) calls `authenticate`, then checks `is_active` and issues a token.\n\n**Impact of changing the signature:**\n- All 8 app call sites use keyword arguments (`session=`, `email=`), so adding an optional parameter is safe.\n- Renaming `email` or `session`, or changing the return type, requires editing all of the above plus `crud.py:46`.\n- Test callers also exist: `backend/tests/utils/user.py:39` and `backend/tests/api/routes/test_users.py` at lines 55, 74, 112, and 496. They would break on a rename too.\n- Callers that depend on the returned object's attributes (`is_active`, `email`, `hashed_password`, `id`) would break if the return type changed. The existence-only callers would not.\n\nI didn't run the test suite; this is from reading the call sites.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00239937,
+  "duration_ms": 12703,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5742,
+    "cache_read": 22637,
+    "output": 2048,
+    "context": 5748,
+    "total": 30433
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\users.py",
+        "offset": 55,
+        "limit": 160
+      },
+      "result_chars": 5613,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "offset": 20,
+        "limit": 100
+      },
+      "result_chars": 3686,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 25
+      },
+      "result_chars": 1140,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 20.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

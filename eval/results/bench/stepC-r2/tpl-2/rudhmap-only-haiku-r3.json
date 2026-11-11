@@ -1,0 +1,165 @@
+{
+  "answer": "**Callers of `crud.get_user_by_email`** (`backend/app/crud.py:34`), excluding tests. Every call passes `session=` and `email=` as keywords.\n\n**Via `crud.authenticate`** (`backend/app/crud.py:46`, called from `login.py:30`)\n- `login_access_token` (`backend/app/api/routes/login.py:30`): `authenticate` uses the returned `User` to check `hashed_password` and rehash it if needed, then returns it. The route checks `is_active` and issues the token.\n\n**Direct callers**\n- `recover_password` (`backend/app/api/routes/login.py:58`): existence check. It sends a reset email only if the user exists, and returns the same message either way. It reads `user.email`.\n- `reset_password` (`backend/app/api/routes/login.py:85`): the email comes from the reset token. Returns 400 if the user is missing, and checks `user.is_active` before `crud.update_user`.\n- `recover_password_html_content` (`backend/app/api/routes/login.py:109`): superuser-only. Returns 404 if the user is missing, otherwise builds the email HTML from `user.email`.\n- `create_user` (`backend/app/api/routes/users.py:61`): returns 400 if the email is taken.\n- `register_user` (`backend/app/api/routes/users.py:151`): returns 400 if the email is taken.\n- `update_user_me` (`backend/app/api/routes/users.py:90`): returns 409 if a different user owns the email.\n- `update_user` (`backend/app/api/routes/users.py:204`): returns 409 if a different user owns the email.\n\nMost callers use the result only as an existence check. The ones that need more are `authenticate`, which reads `hashed_password` and `id`, and `reset_password` and `login_access_token`, which read `is_active`. The `recover_password` and `recover_password_html_content` routes read `email`.\n\n**Impact of a signature change**\n- Renaming `session` or `email` breaks all nine call sites, since they all use keywords.\n- Changing the return type breaks the callers that read attributes: `authenticate`, `reset_password`, `login_access_token`, and the two password-recovery routes.\n- Changing only the `email` argument's type or meaning affects every caller equally.\n\nThe call graph came from rudhmap. I read the call sites in the route functions but did not open the source files directly. I did not check test files.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 14,
+  "model_calls": 5,
+  "cost_usd": 0.00378085,
+  "duration_ms": 17465,
+  "tokens": {
+    "input": 10,
+    "cache_write": 10127,
+    "cache_read": 41245,
+    "output": 2684,
+    "context": 10137,
+    "total": 54066
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "get_user_by_email"
+      },
+      "result_chars": 1304,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password"
+      },
+      "result_chars": 2072,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "reset_password"
+      },
+      "result_chars": 2106,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password_html_content"
+      },
+      "result_chars": 2105,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_user"
+      },
+      "result_chars": 486,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user_me"
+      },
+      "result_chars": 1752,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "register_user"
+      },
+      "result_chars": 1676,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user"
+      },
+      "result_chars": 361,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "authenticate"
+      },
+      "result_chars": 1999,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:update_user"
+      },
+      "result_chars": 2290,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "login_access_token"
+      },
+      "result_chars": 1851,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:create_user"
+      },
+      "result_chars": 2462,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 23.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "The answer says there are nine call sites and counts login_access_token as a direct/indirect caller with line login.py:30; login_access_token does not call get_user_by_email itself (only via authenticate), so 'all nine call sites' using keywords is slightly inflated (actual direct call sites are eight).",
+      "Claims login_access_token calls get_user_by_email via authenticate and that login_access_token reads is_active as a separate caller; says nine call sites, though login_access_token is only an indirect caller (minor inaccuracy)",
+      "States all calls use keyword arguments, and that reset_password/recover_password read attributes, which are unverified since the answer admits it did not open the source files",
+      "Says nine call sites all use keywords and that there are nine callers, though the call to get_user_by_email via authenticate is one site and the listed direct callers are seven, so 'nine' is a miscount (8 total sites per the key)",
+      "Lists login_access_token as a caller via authenticate, which is indirect and counted as a call site breaking on renaming keywords; login_access_token does not call get_user_by_email directly"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

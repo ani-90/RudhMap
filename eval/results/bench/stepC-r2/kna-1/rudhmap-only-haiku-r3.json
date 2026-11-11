@@ -1,0 +1,76 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a background news-ingestion run, subject to a 2-hour cooldown. No other code in the repo calls it; it's only reached over HTTP.\n\n**What it does, in order:**\n\n1. **Cooldown check (L27-42).** It fetches the last successful run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns a `skipped` response with the remaining seconds, without starting anything.\n2. **Resolve domains (L44).** `request.resolved_domains()` (`app/schemas/feed.py:11`) returns the requested domains filtered to `DOMAINS` (`app/config.py:37`), or all of them if none were given.\n3. **Create the run (L45-48).** It generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`), which commits.\n4. **Schedule work (L50).** `background_tasks.add_task(_run_pipeline_bg, ...)` queues `_run_pipeline_bg` (`app/api/feed.py:55`).\n5. **Return (L52).** It responds immediately with `status=\"running\"` and the `run_id`.\n\n**What happens after it returns:**\n\nThe work continues after the response, through FastAPI's `BackgroundTasks`. `_run_pipeline_bg` calls `run_pipeline` (`app/pipeline/graph.py:69`), which builds a LangGraph-style graph (`_build_graph`, `app/pipeline/graph.py:56`). The graph runs:\n- `run_all_agents_node` (`app/pipeline/graph.py:28`), which runs each domain via `run_single` (`app/pipeline/graph.py:32`).\n- `aggregator_node` (`app/pipeline/aggregator.py:14`), which calls `search_similar` and `upsert_articles` on Qdrant (`app/db/qdrant.py:39`, `:51`), stores articles with `bulk_insert_articles` (`app/db/crud.py:40`), and updates the run status (`app/pipeline/aggregator.py:98`).\n\n`run_pipeline` also updates the run record at `app/pipeline/graph.py:64`. The status is set to `running` before the response, and the background task updates it as it progresses.\n\n**Caveats:**\n- The cooldown only looks at successful runs, so a run that is still `running` or has failed does not block a new refresh.\n- I didn't read `_run_pipeline_bg` or the final status-setting code, so the exact completion and failure states are taken from the trace, not from source.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 2,
+  "cost_usd": 0.00223546,
+  "duration_ms": 8426,
+  "tokens": {
+    "input": 4,
+    "cache_write": 7377,
+    "cache_read": 4866,
+    "output": 1422,
+    "context": 7381,
+    "total": 13669
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 1273,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "refresh_feed",
+        "direction": "up"
+      },
+      "result_chars": 91,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 15.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "The cooldown only looks at successful runs, so a run that is still running or has failed does not block a new refresh (partially true per key: success or partial; minor)",
+      "The cooldown only looks at successful runs, so a run that is still running ... does not block a new refresh (consistent with key, not false)",
+      "run_pipeline also updates the run record at graph.py:64 (unverified)",
+      "The cooldown only looks at successful runs, so a run that is still running or has failed does not block a new refresh (partially consistent with key, but key says success or partial; minor)"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

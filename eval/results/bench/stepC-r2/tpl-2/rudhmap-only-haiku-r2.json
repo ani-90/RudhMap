@@ -1,0 +1,164 @@
+{
+  "answer": "**Callers of `crud.get_user_by_email`** (defined at `backend/app/crud.py:34`, signature `(*, session, email) -> User | None`). There are 8 direct call sites in application code, and no test code was included.\n\nEvery caller uses the result the same way: as an existence check or as a source for the user's fields. None of them write back to the row returned by this function.\n\n**Existence checks (duplicate-email guards)**\n- `backend/app/api/routes/users.py:61`, `create_user` (POST `/users/`): raises 400 if the user exists.\n- `backend/app/api/routes/users.py:151`, `register_user` (POST `/users/signup`): raises 400 if the user exists.\n- `backend/app/api/routes/users.py:90`, `update_user_me` (PATCH `/users/me`): raises 409 only if the found user has a different `id` than the current user.\n- `backend/app/api/routes/users.py:204`, `update_user` (PATCH `/users/{user_id}`): raises 409 only if the found user has a different `id`.\n\n**Lookup for password recovery (email enumeration is avoided)**\n- `backend/app/api/routes/login.py:58`, `recover_password`: sends a reset email only if `user` is truthy. It uses `user.email`, and the response is the same either way.\n- `backend/app/api/routes/login.py:85`, `reset_password`: after the token is verified, it returns 400 if the user is missing or `is_active` is false. Otherwise it calls `crud.update_user` with the new password.\n- `backend/app/api/routes/login.py:109`, `recover_password_html_content`: superuser-only. It returns 404 if the user is missing, and otherwise builds the reset HTML from `user.email`.\n\n**Authentication**\n- `backend/app/crud.py:46`, inside `authenticate`: the result supplies `hashed_password` for verification. If the user is missing, a dummy hash is still verified to avoid timing leaks. `authenticate` is called from `login_access_token` (`login.py:30`, per the trace).\n\n**If you change the signature**\n- All 8 call sites pass `session=` and `email=` as keywords, so renaming `email` only requires updating those call sites. Keeping the keyword-only `*` also keeps positional calls out.\n- Every caller relies on the return being `User | None` and reads `.id`, `.email`, `.is_active`, or `.hashed_password`. Changing the return type, for example to a tuple or a raised exception, would affect all of them.\n- I did not open `login_access_token` directly. Its call to `authenticate` comes from the trace output.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 13,
+  "model_calls": 4,
+  "cost_usd": 0.00347807,
+  "duration_ms": 13988,
+  "tokens": {
+    "input": 8,
+    "cache_write": 10106,
+    "cache_read": 26757,
+    "output": 2377,
+    "context": 10114,
+    "total": 39248
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "crud.get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "get_user_by_email"
+      },
+      "result_chars": 1304,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password",
+        "detail": "full"
+      },
+      "result_chars": 2072,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "reset_password",
+        "detail": "full"
+      },
+      "result_chars": 2106,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password_html_content",
+        "detail": "full"
+      },
+      "result_chars": 2105,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_user",
+        "detail": "full"
+      },
+      "result_chars": 486,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user_me",
+        "detail": "full"
+      },
+      "result_chars": 1752,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "register_user",
+        "detail": "full"
+      },
+      "result_chars": 1676,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "update_user",
+        "detail": "full"
+      },
+      "result_chars": 361,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "authenticate",
+        "detail": "full"
+      },
+      "result_chars": 1999,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:create_user",
+        "detail": "full"
+      },
+      "result_chars": 2462,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:update_user",
+        "detail": "full"
+      },
+      "result_chars": 2290,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 23.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "Claims 'There are 8 direct call sites' while listing 8 (4 users + 3 login + 1 crud), which is consistent with the key; no contradiction. Claim that no test code was included is unverifiable but not contradicted.",
+      "Says there are 8 direct call sites; the key lists 8 (1 + 4 + 3), so this is consistent, no issue.",
+      "Claims none of the callers write back to the returned row; reset_password passes the user to crud.update_user, which modifies it, so this is slightly inaccurate."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "answer": "Changing `BaseTransport.handle_request` affects four implementations and one production call site. No other non-test code calls it.\n\n**Definition:** `httpx/_transports/base.py:26`, in `class BaseTransport` (`base.py:14`). Its docstring example at `base.py:48` calls `transport.handle_request(req)`, but that is documentation, not code that runs.\n\n**Overrides that must match the new signature:**\n- `HTTPTransport.handle_request`, `httpx/_transports/default.py:230`\n- `MockTransport.handle_request`, `httpx/_transports/mock.py:19`\n- `WSGITransport.handle_request`, `httpx/_transports/wsgi.py:91`\n\nEach currently takes `(request: Request) -> Response`. If the signature changes, all three need the same update or they will no longer satisfy the base contract.\n\n**Call site:**\n- `Client._send_single_request`, `httpx/_client.py:1014` (`response = transport.handle_request(request)`)\n\nThis is the only caller. Its upstream chain is `_send_handling_redirects` (`_client.py:964`) and then `_send_handling_auth` (`_client.py:930`). Those two functions only pass the request through, so they are affected only if the change alters what `_send_single_request` passes in.\n\n**Not affected:** The async path uses `AsyncBaseTransport.handle_async_request`, a separate method, so changing the sync signature does not touch it.\n\n**Caveat:** I found these through the rudhmap call graph and a name search for `handle_request`. I did not open every file to confirm that no code calls `transport.handle_request` through a variable or `getattr`. A text search on the method name would confirm that.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 2,
+  "cost_usd": 0.00082788,
+  "duration_ms": 7126,
+  "tokens": {
+    "input": 4,
+    "cache_write": 1179,
+    "cache_read": 9718,
+    "output": 989,
+    "context": 1183,
+    "total": 11890
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "handle_request"
+      },
+      "result_chars": 1143,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "detail": "outline"
+      },
+      "result_chars": 550,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 15.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": false,
+      "httpcore": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [
+      "States 'four implementations' but lists only three overrides (plus the base definition); minor miscount",
+      "States 'four implementations' but lists only three overrides plus the base definition (minor inconsistency)",
+      "States 'four implementations' while listing only three overrides plus the base definition (minor inconsistency)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "answer": "**Entry point.** `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` from the client default when not passed (904-908), sets the timeout and auth, then calls `_send_handling_auth` (914). That calls `_send_handling_redirects` (`_client.py:942`), which holds the redirect loop.\n\n**The loop** (`_client.py:964-999`):\n- Raises `TooManyRedirects` once `len(history) > self.max_redirects` (971-974).\n- Sends one hop via `_send_single_request` (979), with no redirect handling.\n- Returns the response if it has no redirect `Location` (985-986).\n- Otherwise builds the next request (988) and appends the response to `history` (989).\n- If `follow_redirects` is true, reads the response body to free the connection (992). If false, sets `response.next_request` and returns it (993-995).\n\n**How the next request is built.** `_build_redirect_request` (`_client.py:475-492`) assembles a new `Request` from four helpers, plus the client's cookie jar and the original `extensions`:\n\n- **Method** (`_redirect_method`, 494-515):\n  - 303 turns any method except HEAD into GET (502-503).\n  - 302 turns any method except HEAD into GET (507-508). This is the browser behaviour, not the RFC.\n  - 301 turns POST into GET (512-513).\n  - 307 and 308 keep the original method.\n\n- **URL** (`_redirect_url`, 517): resolves the `Location` header. I did not read the body, so I haven't verified its details.\n\n- **Headers** (`_redirect_headers`, 546-571):\n  - If the target is a different origin (`_same_origin`, line 83), `Authorization` is stripped unless the hop is an HTTP\u2192HTTPS upgrade (`_is_https_redirect`, line 62). `Host` is then set to the new host (552-559).\n  - If the method switched to GET, `Content-Length` and `Transfer-Encoding` are removed (561-565).\n  - `Cookie` is always removed (569). The new request's cookies come from the client jar instead (484, 489).\n\n- **Body** (`_redirect_stream`, 573-582): returns `None` when the method switched to GET. Otherwise it reuses `request.stream`, so the original body is sent again on 307/308.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 2,
+  "cost_usd": 0.00099539,
+  "duration_ms": 9477,
+  "tokens": {
+    "input": 4,
+    "cache_write": 0,
+    "cache_read": 19949,
+    "output": 1591,
+    "context": 4,
+    "total": 21544
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 3835,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3043,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._build_redirect_request"
+      },
+      "result_chars": 2366,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_method"
+      },
+      "result_chars": 1336,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_headers"
+      },
+      "result_chars": 2286,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_stream"
+      },
+      "result_chars": 728,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 16.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

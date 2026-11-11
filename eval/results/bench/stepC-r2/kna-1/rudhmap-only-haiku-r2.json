@@ -1,0 +1,71 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) is the handler for `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a news-ingestion pipeline run in the background and returns immediately.\n\n**What it does, in order:**\n\n1. **Cooldown check (L27-42).** It loads the last successful pipeline run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns early with `status=\"skipped\"` and the remaining cooldown. No new run is created.\n2. **Resolve domains (L44).** `request.resolved_domains()` (`app/schemas/feed.py:11`) returns all `DOMAINS` (`app/config.py:37`) if none were requested, otherwise the requested ones that are valid.\n3. **Create the run record (L45-48).** It generates a UUID and calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`).\n4. **Schedule the work (L50).** It queues `_run_pipeline_bg(run_id, user_id, domains)` (`app/api/feed.py:55`) with FastAPI's `BackgroundTasks`.\n5. **Respond (L52).** It returns `FeedRefreshResponse` with `status=\"running\"` and the `run_id`.\n\n**What happens after it returns:**\n\nFastAPI sends the response, then runs `_run_pipeline_bg`. Per the call trace, that calls `run_pipeline` (`app/pipeline/graph.py:69`), which builds a graph (`app/pipeline/graph.py:56`) of `run_all_agents_node` (`app/pipeline/graph.py:28`) followed by `aggregator_node` (`app/pipeline/aggregator.py:14`). The aggregator searches Qdrant for similar articles (`app/db/qdrant.py:39`), bulk-inserts articles (`app/db/crud.py:40`), upserts vectors (`app/db/qdrant.py:51`), and updates the run status. `run_pipeline` also updates the run status at `graph.py:64`. I did not read the bodies of these functions, so I can't confirm how they set the final `finished_at`/status values that the cooldown relies on.\n\n**Other notes:**\n\n- The cooldown only checks *successful* runs, so a failed run does not block a retry.\n- The cooldown is global, not per user. `request.user_id` is recorded on the run but not used in the cooldown check.\n- Nothing in this repo calls `refresh_feed` directly. It is reached only via HTTP.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 2,
+  "cost_usd": 0.00216896,
+  "duration_ms": 7834,
+  "tokens": {
+    "input": 4,
+    "cache_write": 7377,
+    "cache_read": 4866,
+    "output": 1289,
+    "context": 7381,
+    "total": 13536
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 1273,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "refresh_feed",
+        "direction": "up"
+      },
+      "result_chars": 91,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 15.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

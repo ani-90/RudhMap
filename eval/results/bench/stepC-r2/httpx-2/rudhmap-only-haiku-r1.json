@@ -1,0 +1,80 @@
+{
+  "answer": "**Direct subclasses that override it** (all must change in lockstep, or they'll drift from the base signature):\n- `HTTPTransport.handle_request` \u2014 `httpx/_transports/default.py:230`\n- `MockTransport.handle_request` \u2014 `httpx/_transports/mock.py:19`\n- `WSGITransport.handle_request` \u2014 `httpx/_transports/wsgi.py:91`\n\nThe rudhmap overrides list shows these three as the only overrides of `BaseTransport.handle_request` (`httpx/_transports/base.py:26`).\n\n**Call sites in library code:**\n- `Client._send_single_request` \u2014 `httpx/_client.py:1014` (`response = transport.handle_request(request)`). This is the only production caller found. It is reached through `_send_handling_redirects` (`_client.py:964`) and `_send_handling_auth` (`_client.py:930`).\n\n**Type-level references (affected if the type changes, not the call itself):**\n- `httpx/_client.py:31` imports `BaseTransport`.\n- `httpx/_client.py:652` (`mounts`) and `httpx/_client.py:659` (`transport`) accept `BaseTransport` instances, which are later invoked via `_send_single_request`.\n- `httpx/__init__.py:39` exports `BaseTransport` publicly, so user-written subclasses are also affected. Those are outside the repo and won't be caught by a search here.\n\n**Not affected:** `AsyncBaseTransport` (`httpx/_transports/base.py:65`) and the async path. The async client calls `handle_async_request`, a separate method, so changing the sync signature doesn't touch it.\n\n**Caveats:** The `BaseTransport.close()` (`base.py:61`) and `__exit__` (`base.py:18`) methods are not callers of `handle_request`. The docstring example at `base.py:48` is documentation only, but it would need updating to match.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0013341100000000001,
+  "duration_ms": 8621,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3117,
+    "cache_read": 15461,
+    "output": 1111,
+    "context": 3123,
+    "total": 19695
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "handle_request"
+      },
+      "result_chars": 1143,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "detail": "full"
+      },
+      "result_chars": 2039,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "BaseTransport"
+      },
+      "result_chars": 851,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 18.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": true,
+      "httpcore": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

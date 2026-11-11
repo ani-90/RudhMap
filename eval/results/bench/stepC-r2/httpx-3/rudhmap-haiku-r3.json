@@ -1,0 +1,112 @@
+{
+  "answer": "**Configuration.** The `Timeout` class is in `httpx/_config.py:72`, with `connect`, `read`, `write` and `pool` fields set in `__init__` (`_config.py:86`). The default is `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` (`_config.py:246`), so every phase is 5 seconds unless overridden.\n\n**Path to the network layer.**\n1. `Client.__init__` stores `self._timeout = Timeout(timeout)` (`httpx/_client.py:212`). `build_request` resolves a per-request timeout (`_client.py:375`).\n2. `Client.send` calls `BaseClient._set_timeout` (`_client.py:910`). If the request has no `timeout` extension, it is filled in from the client default. The result is stored as `request.extensions[\"timeout\"] = timeout.as_dict()` (`_client.py:584-591`).\n3. `Client.send` then hands the request to the transport. `HTTPTransport.handle_request` (`httpx/_transports/default.py:230-259`) rebuilds it as an `httpcore.Request` with the same extensions (`default.py:247`). `httpcore` reads the `timeout` dict and applies it to connect, read, write and pool operations.\n\n**Exceptions when a timeout fires.** `httpcore` raises its own timeout exceptions. `map_httpcore_exceptions` (`default.py:96-118`) converts them to httpx types using the table in `_load_httpcore_exceptions` (`default.py:74-92`):\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout` (`default.py:79`)\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout` (`default.py:80`)\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout` (`default.py:81`)\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout` (`default.py:82`)\n- the generic `httpcore.TimeoutException` \u2192 `httpx.TimeoutException` (`default.py:78`)\n\nThe most specific match wins (`default.py:108-112`). The original exception is kept as `__cause__` (`default.py:118`). All four httpx types subclass `TimeoutException`, which subclasses `TransportError` (`httpx/_exceptions.py:132-158`).\n\nRead timeouts can also fire while the body is being streamed. `ResponseStream.__iter__` is wrapped in the same mapping (`default.py:126`), so they surface from iteration, not from `send()`.\n\nI did not run the code. These are from reading the source.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.00255866,
+  "duration_ms": 12609,
+  "tokens": {
+    "input": 8,
+    "cache_write": 6204,
+    "cache_read": 33006,
+    "output": 1974,
+    "context": 6212,
+    "total": 41192
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout"
+      },
+      "result_chars": 696,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout",
+        "detail": "full"
+      },
+      "result_chars": 1090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "map_httpcore_exceptions",
+        "detail": "full"
+      },
+      "result_chars": 1927,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "HTTPTransport.handle_request",
+        "detail": "full"
+      },
+      "result_chars": 1899,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "DEFAULT_TIMEOUT_CONFIG|Timeout\\(|ReadTimeout|ConnectTimeout|WriteTimeout|PoolTimeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 3225,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions",
+        "detail": "full"
+      },
+      "result_chars": 1100,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 19.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": true,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

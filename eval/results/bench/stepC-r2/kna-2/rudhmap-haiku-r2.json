@@ -1,0 +1,169 @@
+{
+  "answer": "**Lifecycle of one article**\n\n1. **Query generation.** `BaseAgent._fetch_all` asks the LLM for search queries, falling back to hardcoded ones (`base_agent.py:90-95`).\n\n2. **Fetch and dedup, pass 0 (URL normalisation, within a run).** Each Tavily or NewsAPI hit goes through `_normalise_url`, which strips tracking params like `utm_*` and `fbclid` (`base_agent.py:19-25`, `:13`). A `seen_urls` set drops repeats across queries and keyword searches (`base_agent.py:97-117`).\n\n3. **Filtering in `BaseAgent.run`.** Items missing a URL or title are skipped (`base_agent.py:52`). Content is enriched by scraping if the snippet is short (`scraper.py:28`). `_is_quality` requires at least 40 words and an average of 5+ words per line (`base_agent.py:28-36`). The article is then embedded (`embedder.py:4`), and a `content_hash` (SHA-256 of the URL) is computed (`base_agent.py:61`).\n\n4. **Semantic dedup, pass 1 (Qdrant).** `aggregator_node` calls `search_similar` with threshold 0.85 for each article that has an embedding (`aggregator.py:29-35`, `qdrant.py:39-48`).\n\n5. **Exact dedup, pass 2 (SQLite).** `bulk_insert_articles` queries by URL and skips existing rows (`crud.py:43-45`). The `url` column is `unique=True` (`models.py:27`), and a commit-time failure from a parallel insert is rolled back and skipped (`crud.py:58-63`).\n\n6. **Vector upsert, pass 3.** Only rows actually inserted are upserted to Qdrant, keyed by the same UUID as `qdrant_id` (`aggregator.py:63-79`, `qdrant.py:51-63`). A failure here leaves the article in SQLite only (`aggregator.py:81-82`).\n\n7. **Run record.** Counts and status are written to `PipelineRun` (`aggregator.py:98-106`).\n\n**Caveats I found**\n\n- `embedder.embed` is a stub that always returns `[]` (`embedder.py:4-5`). Because of that, the semantic check at step 4 and the Qdrant upsert at step 6 never run. The only dedup that actually works is URL-based.\n- `content_hash` is computed (`base_agent.py:61`) but never read or persisted. `ArticleData` carries it (`state.py:19`), but `aggregator.py` and `crud.py` ignore it.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 14,
+  "model_calls": 5,
+  "cost_usd": 0.0038042400000000004,
+  "duration_ms": 14705,
+  "tokens": {
+    "input": 10,
+    "cache_write": 11050,
+    "cache_read": 54124,
+    "output": 2104,
+    "context": 11060,
+    "total": 67288
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "(?i)dedup|hash|fetch|insert|save|store",
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 670,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run"
+      },
+      "result_chars": 2975,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent._fetch_all"
+      },
+      "result_chars": 3044,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5991,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles"
+      },
+      "result_chars": 1358,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "upsert_articles"
+      },
+      "result_chars": 1086,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_normalise_url"
+      },
+      "result_chars": 795,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_is_quality"
+      },
+      "result_chars": 603,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar"
+      },
+      "result_chars": 825,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article"
+      },
+      "result_chars": 395,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\embedder.py"
+      },
+      "result_chars": 131,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "unique|content_hash",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 559,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 23.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [
+      "Step 1 says the LLM generates queries but does not mention Tavily/Groq specifically; not false.",
+      "Claims content_hash is a SHA-256 of the URL computed in BaseAgent.run; not covered by key, unverifiable.",
+      "Step 1 says the LLM generates queries but does not mention Groq explicitly; also omits that Tavily/NewsAPI fetch uses these queries (minor)",
+      "Presents semantic dedup (pass 1) and Qdrant upsert (pass 3) as steps in the lifecycle before caveat, though the caveat clarifies they never run",
+      "Step 1 says the LLM generates queries without naming Groq, which is only a minor omission, and the answer does not mention NewsAPI keyword queries in the fetch step beyond a passing reference.",
+      "Steps 4 and 6 are presented as active passes in the lifecycle, though the caveats later correct this."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

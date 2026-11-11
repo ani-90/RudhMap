@@ -1,0 +1,86 @@
+{
+  "answer": "**Flow**\n\n1. `POST /login/access-token` is handled by `login_access_token` (`backend/app/api/routes/login.py:23-26`). It takes the standard OAuth2 form (`OAuth2PasswordRequestForm`), where the `username` field carries the email.\n2. It calls `crud.authenticate(...)` with `form_data.username` and `form_data.password` (`login.py:30-32`).\n3. `authenticate` looks the user up with `get_user_by_email`, a `select(User).where(User.email == email)` query (`crud.py:34-37`, `crud.py:46`).\n4. If a user is found, `verify_password` checks the password against `db_user.hashed_password` (`crud.py:52`). It uses `password_hash.verify_and_update` (`core/security.py:29-32`). That call also returns a new hash if the stored one needs upgrading, and in that case `authenticate` saves it to the user row (`crud.py:55-59`). A wrong password returns `None` (`crud.py:53-54`).\n5. Back in the route, a `None` result raises `HTTPException(400, \"Incorrect email or password\")` (`login.py:33-34`). A user with `is_active` false raises `400 \"Inactive user\"` (`login.py:35-36`).\n6. On success, the route builds an expiry of `ACCESS_TOKEN_EXPIRE_MINUTES` (`login.py:37`) and returns `Token(access_token=...)` (`login.py:38-42`). The token comes from `create_access_token`, which creates a JWT containing `exp` and `sub` (the user id as a string). It is signed with `settings.SECRET_KEY` (`security.py:22-26`).\n\n**Email doesn't exist**\n\n- `get_user_by_email` returns `None`, so `authenticate` runs `verify_password(password, DUMMY_HASH)` and discards the result (`crud.py:47-50`). `DUMMY_HASH` is a fixed Argon2 hash (`crud.py:40-42`). This makes the response time similar whether or not the email exists, which prevents user enumeration by timing.\n- `authenticate` then returns `None` (`crud.py:51`), and the route responds with the same `400 \"Incorrect email or password\"` as for a wrong password (`login.py:33-34`). The response doesn't reveal that the email is unknown.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0346776,
+  "duration_ms": 10407,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4875,
+    "cache_read": 14756,
+    "output": 1369,
+    "context": 4881,
+    "total": 21006
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "access-token|def authenticate|def login_access_token",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app",
+        "output_mode": "content"
+      },
+      "result_chars": 317,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "limit": 50
+      },
+      "result_chars": 1743,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 25,
+        "limit": 40
+      },
+      "result_chars": 1755,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def create_access_token|def verify_password",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\security.py",
+        "output_mode": "content",
+        "-A": 12
+      },
+      "result_chars": 589,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 11.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "unknown-email": true,
+      "verify": true,
+      "inactive": true,
+      "token": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

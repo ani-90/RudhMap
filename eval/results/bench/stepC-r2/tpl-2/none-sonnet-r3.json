@@ -1,0 +1,88 @@
+{
+  "answer": "`crud.get_user_by_email(*, session, email) -> User | None` is defined at `backend/app/crud.py:34`. It's keyword-only and returns the first `User` whose email matches, or `None`. It has 8 non-test call sites.\n\n**Inside crud**\n- `crud.py:46`: `authenticate()` uses it to look up the user. If there's no match, it runs a dummy hash check to avoid a timing leak and returns `None`. Otherwise it verifies the password against `db_user.hashed_password` and may rehash it (`crud.py:52-59`).\n\n**`backend/app/api/routes/login.py`**\n- `:58`: the password-recovery endpoint. If the user exists, it sends a reset email using `user.email`. It's a silent no-op otherwise, to avoid email enumeration (`:60-66`).\n- `:85`: the reset-password endpoint. A missing user gives a 400 \"Invalid token\", and `user.is_active` is checked next. The user is then passed on to `crud.update_user` (`:86-92`).\n- `:109`: the HTML-content endpoint. A missing user gives a 404. The result is otherwise only used as an existence check (`:111-116`).\n\n**`backend/app/api/routes/users.py`**\n- `:61`: `create_user` rejects with a 400 if the email already exists (`:62-66`). Only truthiness is used.\n- `:90`: `update_user_me` rejects with a 409 if the found user's `id` differs from `current_user.id` (`:91-94`).\n- `:151`: `register_user` rejects with a 400 if the email exists (`:152-156`). Only truthiness is used.\n- `:204`: `update_user` (admin) rejects with a 409 if the found user's `id` differs from `user_id` (`:205-208`).\n\n**Which fields the callers read**\n- Most callers only check whether the result is `None`.\n- `users.py:90` and `users.py:204` read `.id`.\n- `login.py:58` and `login.py:85` read `.email` and `.is_active`.\n- `crud.py:46` reads `.hashed_password`.\n\nAll callers pass `session=` and `email=` by keyword, so renaming or reordering parameters is safe. Changing the return type, for example to raise instead of returning `None`, would affect every `if user` / `if not user` branch above.\n\nTests also call it, so they'd need updating too: `tests/utils/user.py:39` and `tests/api/routes/test_users.py:55,74,112,496`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.0323574,
+  "duration_ms": 12464,
+  "tokens": {
+    "input": 8,
+    "cache_write": 3825,
+    "cache_read": 24914,
+    "output": 1455,
+    "context": 3833,
+    "total": 30202
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 35
+      },
+      "result_chars": 1526,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app",
+        "output_mode": "content",
+        "-A": 8,
+        "glob": "api/routes/*.py"
+      },
+      "result_chars": 16,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes",
+        "output_mode": "content",
+        "-A": 8
+      },
+      "result_chars": 4957,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 13.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

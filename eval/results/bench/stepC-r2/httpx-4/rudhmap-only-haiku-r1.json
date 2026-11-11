@@ -1,0 +1,80 @@
+{
+  "answer": "**DigestAuth** (`httpx/_auth.py:175`) is a generator-based auth flow. It keeps the last server challenge and reuses it on later requests.\n\n**Auth flow** (`auth_flow`, `_auth.py:193-222`):\n1. If a previous challenge is cached in `_last_challenge`, it sets the `Authorization` header up front (`:194-197`). This is preemptive auth.\n2. It yields the request to the client and receives the response (`:199`).\n3. If the response is not a 401 with a `WWW-Authenticate: Digest` header, the flow ends (`:201-212`).\n4. Otherwise it parses the challenge (`_parse_challenge`, `:224-253`), resets `_nonce_count` to 1 (`:215`), builds the header (`:217-219`), copies any response cookies onto the request (`:220-221`), and yields the request again for the retry.\n\n**Header construction** (`_build_auth_header`, `_auth.py:255-301`):\n- The hash function comes from the algorithm table (`:176-185`, `:258`). `-SESS` variants fold the nonce and client nonce into HA1 (`:275-276`).\n- HA1 = hash(user:realm:password), HA2 = hash(method:path) (`:263-268`).\n- Without `qop` it follows RFC 2069; with `qop` it follows RFC 2617/7616 and includes nc and cnonce (`:278-284`). `_resolve_qop` picks `auth` and rejects `auth-int` (`:329-340`).\n- The cnonce is a SHA-1 of nonce count, nonce, time and `os.urandom(8)` (`:303-309`). The nonce count increments per request (`:270-272`).\n\n**Client driving** (`httpx/_client.py`):\n- `Client.send` calls `_send_handling_auth` (`:914`, `:930`).\n- That calls `Auth.sync_auth_flow` (`_client.py:937` \u2192 `_auth.py:62`), which reads the request body (`_auth.py:72`) and advances `auth_flow` (`_auth.py:74`).\n- Each yielded request goes through `_send_handling_redirects` (`_client.py:942`, `:964`) to `_send_single_request` and the transport (`:979-1014`).\n- The 401 response is read and closed before the retry is sent (`_client.py:954-959`), so its body does not leak.\n\n**Limits:**\n- `auth-int` is unimplemented (`_auth.py:267`, `:337`).\n- `auth_flow` only retries on a 401 with a Digest header. I did not see explicit handling for `stale=true`.\n\nThe async path mirrors this in `AsyncClient._send_handling_auth` (`_client.py:1645`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.00243405,
+  "duration_ms": 12066,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6207,
+    "cache_read": 17805,
+    "output": 2028,
+    "context": 6213,
+    "total": 26046
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 860,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth",
+        "detail": "full"
+      },
+      "result_chars": 8269,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "Client._send_handling_auth",
+        "direction": "down"
+      },
+      "result_chars": 1413,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_send_handling_auth"
+      },
+      "result_chars": 941,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 21.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

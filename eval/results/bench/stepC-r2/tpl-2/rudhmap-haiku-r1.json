@@ -1,0 +1,100 @@
+{
+  "answer": "**Application callers of `crud.get_user_by_email`** (defined at `backend/app/crud.py:34`). Test callers are excluded. Every caller passes keyword arguments, and the function's `*` makes them keyword-only.\n\n**Direct callers**\n\n1. **`recover_password`**, `backend/app/api/routes/login.py:58`: checks truthiness to decide whether to send a reset email. It uses `user.email` as the recipient (`:65`, `:68`). The response is the same whether or not the user exists, to prevent enumeration.\n2. **`reset_password`**, `login.py:85`: rejects the request if the user is missing (`:86-88`) or inactive (`:89-90`). Otherwise it passes the user to `crud.update_user` (`:92-96`).\n3. **`recover_password_html_content`**, `login.py:109`: raises 404 if there is no user (`:111-115`). Otherwise it uses `user.email` to build the reset email (`:118`). The trace tool did not list this caller, but the grep shows it.\n4. **`create_user`**, `backend/app/api/routes/users.py:61`: returns 400 if the email exists (`:62-66`). Otherwise it creates the user.\n5. **`update_user_me`**, `users.py:90`: returns 409 if another user (by `id`) owns the email (`:91-94`).\n6. **`register_user`**, `users.py:151`: returns 400 if the email exists (`:152-156`).\n7. **`update_user`**, `users.py:204`: returns 409 if a different user owns the email (`:205-208`).\n\n**Indirect caller**\n\n- **`authenticate`**, `backend/app/crud.py:46`: uses the result to choose between a dummy password check and a real one (`:47-53`). The trace shows `login_access_token` calls `authenticate`, but I did not open that function.\n\n**Implications for a signature change**\n\n- Most callers only check for `None` or read `.email`, `.id`, `.is_active`, or `.hashed_password`. Keeping the return type `User | None` keeps them working.\n- Renaming `email` or `session` breaks all callers, since every call uses keywords.\n- If you change the return type, for example to raise on not-found, the \"not found\" branches in items 1\u20137 would need rewriting. Items 1 and 5 rely on the `None` path to avoid enumeration leaks.\n- Test helpers call it too: `backend/tests/utils/user.py:39` and `backend/tests/api/routes/test_users.py` (lines 55, 74, 112, 496).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00227248,
+  "duration_ms": 11069,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6068,
+    "cache_read": 21778,
+    "output": 1681,
+    "context": 6074,
+    "total": 29533
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "offset": 50,
+        "limit": 70
+      },
+      "result_chars": 2624,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\users.py",
+        "offset": 55,
+        "limit": 160
+      },
+      "result_chars": 5613,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 25
+      },
+      "result_chars": 1140,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 20.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "Item 1 claims recover_password uses user.email as recipient and item 5 claims enumeration-leak reliance; minor, not contradicted by key",
+      "Describes authenticate as an 'indirect caller' although it calls it directly (labelling inconsistency, though line 46 cited correctly)",
+      "Item 1 claims recover_password's result is used with user.email as recipient while key says it only sends if user exists (minor, likely true)",
+      "Claims items 1 and 5 rely on None path to avoid enumeration leaks; item 5 (update_user_me) is a 409 conflict check, not enumeration prevention (minor)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

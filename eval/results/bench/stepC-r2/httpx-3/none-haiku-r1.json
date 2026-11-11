@@ -1,0 +1,155 @@
+{
+  "answer": "**Where it's configured**\n\n- The `Timeout` class (connect/read/write/pool fields) is at `httpx/_config.py:72`. A bare float sets all four; a tuple or keyword form sets them individually (`_config.py:88-130`).\n- The default is `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` (`_config.py:246`), used as the default argument on `Client.__init__` (`_client.py:196`, stored at `_client.py:212`).\n\n**How it reaches the network layer**\n\n1. **Client:** `Client.send()` calls `self._set_timeout(request)` (`_client.py:910`). That helper uses the request's own timeout if one was passed, otherwise the client's (`_client.py:584-591`). Per-call `timeout=` values are resolved against the client default in `build_request` (`_client.py:371-377`).\n2. **Serialization:** `Timeout.as_dict()` (`_config.py:132-138`) turns the config into `{\"connect\", \"read\", \"write\", \"pool\"}`, which is stored in `request.extensions[\"timeout\"]`.\n3. **Transport:** `_send_single_request` picks a transport for the URL and calls `transport.handle_request(request)` (`_client.py:1005-1014`).\n4. **Network:** `HTTPTransport.handle_request` (`_transports/default.py:230-250`) copies `request.extensions` into an `httpcore.Request` and passes it to the httpcore connection pool. httpcore reads the timeout dict from there and enforces it. That enforcement lives in httpcore, not in this repo, so I did not verify the socket-level mechanics.\n\n**Exceptions when it fires**\n\nhttpcore raises its own timeout exceptions. `map_httpcore_exceptions()` (`_transports/default.py:78-82`, applied at `:249` and for streamed bodies at `:270`) translates them to httpx types:\n\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout`\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout`\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout`\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout`\n\nAll of these subclass `httpx.TimeoutException` (`_exceptions.py:132-161`), which in turn subclasses `TransportError`. Catch `httpx.TimeoutException` to handle any timeout, or a specific subclass to distinguish the phase.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 11,
+  "model_calls": 5,
+  "cost_usd": 0.0038738600000000002,
+  "duration_ms": 17267,
+  "tokens": {
+    "input": 10,
+    "cache_write": 9523,
+    "cache_read": 50326,
+    "output": 2930,
+    "context": 9533,
+    "total": 62789
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class Timeout|def _init_transport|def _transport_for_url|timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 150
+      },
+      "result_chars": 8787,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "**/*.py",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx"
+      },
+      "result_chars": 463,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "timeout|Timeout|def map_httpcore|def _send_single_request|def handle_request",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\default.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 595,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 900,
+        "limit": 25
+      },
+      "result_chars": 808,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_exceptions.py",
+        "offset": 128,
+        "limit": 40
+      },
+      "result_chars": 811,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\default.py",
+        "offset": 228,
+        "limit": 45
+      },
+      "result_chars": 1580,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def as_dict|def _send_single_request|transport.handle_request|def _init_transport",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 506,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 1001,
+        "limit": 16
+      },
+      "result_chars": 682,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_config.py",
+        "offset": 132,
+        "limit": 12
+      },
+      "result_chars": 415,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 718,
+        "limit": 12
+      },
+      "result_chars": 442,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 18.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": true,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

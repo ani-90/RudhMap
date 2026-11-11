@@ -1,0 +1,117 @@
+{
+  "answer": "**Short answer:** `Response.text` never touches the raw wire bytes. Decompression happens earlier, when the body is read. `text` then picks a codec and runs an incremental decoder over the already-decompressed bytes.\n\n**1. Decompression (happens before `.text`)**\n- `Response._get_content_decoder` reads every `Content-Encoding` header value, looks each up in `SUPPORTED_DECODERS`, and builds one decoder, or a `MultiDecoder` if several encodings were applied. Unknown encodings are skipped. With none, it uses `IdentityDecoder`. (`httpx/_models.py:699-722`; the table is at `httpx/_decoders.py:381`)\n- That decoder is applied by `Response.iter_bytes` (`httpx/_models.py:894`) and `aiter_bytes` (`:994`), which is how `_content` gets filled. `Response.text` reads it via `self.content` (`httpx/_models.py:636-639`), so it sees decompressed bytes.\n\n**2. Encoding selection**\n`Response.encoding` (`httpx/_models.py:653-672`) applies these in priority order:\n1. An explicit `.encoding = ...` assignment (cached in `_encoding`).\n2. The `charset=` parameter of the `Content-Type` header, via `charset_encoding` (`httpx/_models.py:689-697`, parsed by `_parse_content_type_charset` at `:85`). It is ignored if `_is_known_encoding` (`:56`) says the codec is unknown.\n3. `default_encoding`. If it is a string, it is used directly. If it is a callable (autodetection), it is called with `_content`.\n4. Otherwise `\"utf-8\"`.\n\n**3. Decoding (`Response.text`, `httpx/_models.py:642-650`)**\n- An empty body gives `\"\"`.\n- Otherwise it builds `TextDecoder(encoding=self.encoding or \"utf-8\")` (`httpx/_decoders.py:306-318`), then returns `\"\".join([decoder.decode(content), decoder.flush()])`. The `flush()` call finishes any multi-byte sequence left pending at the end of the input.\n- The result is cached in `_text`.\n\n**Caveat:** I inferred the read-path detail from the call graph and did not open `iter_bytes` or the codec-level error handling in `TextDecoder`. Those would show whether decode errors are strict or replaced.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 4,
+  "cost_usd": 0.00236134,
+  "duration_ms": 12226,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5637,
+    "cache_read": 35014,
+    "output": 1766,
+    "context": 5645,
+    "total": 42425
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Response.text"
+      },
+      "result_chars": 1118,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def text\\b|def _get_content_decoder|def _decode|def encoding|charset_encoding|default_encoding",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 3746,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text"
+      },
+      "result_chars": 1089,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding"
+      },
+      "result_chars": 1649,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response._get_content_decoder"
+      },
+      "result_chars": 2171,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.charset_encoding"
+      },
+      "result_chars": 966,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.content"
+      },
+      "result_chars": 622,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "TextDecoder"
+      },
+      "result_chars": 474,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 21.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

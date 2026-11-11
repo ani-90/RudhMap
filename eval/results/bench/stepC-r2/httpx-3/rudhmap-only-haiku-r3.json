@@ -1,0 +1,138 @@
+{
+  "answer": "**Where it's configured:** `Timeout` is a class in `httpx/_config.py:72`. Its `__init__` (`_config.py:86`) accepts a single float, `None`, a tuple, or a `Timeout`, plus keyword overrides for `connect`, `read`, `write`, and `pool`. `as_dict()` (`_config.py:132`) flattens it into the four fields. The client stores its default in `BaseClient.__init__` (`httpx/_client.py:212`), and `BaseClient.timeout` (`_client.py:254`) exposes it.\n\n**How it reaches the network layer:**\n1. `Client.send` (`httpx/_client.py:910`) calls `BaseClient._set_timeout(request)`.\n2. `_set_timeout` (`_client.py:584-591`) skips the work if the request already has a `timeout` extension. Otherwise it uses the client default, wraps a bare value in `Timeout(...)`, and writes `timeout.as_dict()` into `request.extensions[\"timeout\"]`.\n3. `send` then goes through auth and redirect handling (`_client.py:914`) and reads the body (`_client.py:922`).\n4. `HTTPTransport.handle_request` (`httpx/_transports/default.py:230-259`) copies `request.extensions` into an `httpcore.Request` (`default.py:247`) and calls `self._pool.handle_request(req)` (`default.py:250`). httpcore reads `extensions[\"timeout\"]` to apply the connect, read, write, and pool limits. That reading happens inside httpcore, which is not in this repo, so I haven't verified the exact code path there.\n\n**Exceptions when it fires:** httpcore's exceptions are translated by `map_httpcore_exceptions` (`default.py:96-118`). It picks the most specific match from the table in `_load_httpcore_exceptions` (`default.py:74-92`) and re-raises it `from` the original. The timeout mappings are:\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout` (`_exceptions.py:140`)\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout` (`_exceptions.py:146`)\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout` (`_exceptions.py:152`)\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout` (`_exceptions.py:158`)\n- any other `httpcore.TimeoutException` \u2192 `httpx.TimeoutException` (`_exceptions.py:132`)\n\nAll of these subclass `TimeoutException`, which subclasses `TransportError`. The mapping applies during the response body stream as well (`default.py:126`), so a read timeout can surface while the body is being consumed, not only when the request is sent.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 11,
+  "model_calls": 5,
+  "cost_usd": 0.00326263,
+  "duration_ms": 14188,
+  "tokens": {
+    "input": 10,
+    "cache_write": 9374,
+    "cache_read": 35483,
+    "output": 2064,
+    "context": 9384,
+    "total": 46931
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout",
+        "detail": "full"
+      },
+      "result_chars": 1090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout",
+        "detail": "full"
+      },
+      "result_chars": 4526,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseClient._set_timeout"
+      },
+      "result_chars": 148,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "map_httpcore_exceptions"
+      },
+      "result_chars": 1097,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "HTTPTransport.handle_request",
+        "detail": "full"
+      },
+      "result_chars": 1899,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send",
+        "detail": "full"
+      },
+      "result_chars": 3835,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "map_httpcore_exceptions",
+        "detail": "full"
+      },
+      "result_chars": 1927,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions",
+        "detail": "full"
+      },
+      "result_chars": 1100,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 21.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": false,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

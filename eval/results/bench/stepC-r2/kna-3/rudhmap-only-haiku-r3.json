@@ -1,0 +1,111 @@
+{
+  "answer": "**No. The daily refresh is not running when the API server starts.** The scheduler code exists, but nothing calls it.\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler()`.\n- `app/scheduler.py:15-40` defines `_daily_refresh()`, which creates a pipeline run and calls `run_pipeline` for `DOMAINS` as `user_id=1`.\n- `app/scheduler.py:43-53` defines `start_scheduler(hour=7, minute=0)`. It registers a `CronTrigger` job with id `daily_refresh` and calls `scheduler.start()`.\n- `app/scheduler.py:56-58` defines `stop_scheduler()`.\n\n**What's missing:**\n- `app/main.py:17-20` defines the FastAPI `lifespan`, and it only calls `init_db()` before `yield`. It never imports or calls `start_scheduler`, and there is no shutdown call to `stop_scheduler`.\n- `app/main.py:23-28` passes that lifespan to the app, and the routers are included at lines 41-44. No scheduler startup is wired in there.\n- `run.py:4-6` starts uvicorn on `app.main:app` and does not touch the scheduler either.\n- The rudhmap call graph shows `start_scheduler` has no callers in the repo.\n\n**Result:** starting the server (via `run.py` or `uvicorn app.main:app`) creates the scheduler object but never starts it, so no 07:00 refresh fires. The refresh only happens through the manual `POST /api/feed/refresh` route (`app/api/feed.py`).\n\n**To wire it up:** call `start_scheduler()` inside `lifespan` after `init_db()` (`app/main.py:19`), and call `stop_scheduler()` after the `yield`. Without that, the daily job never runs.\n\nI relied on the rudhmap call graph and the source it returned, not a text search for `start_scheduler`, so a dynamic call path would not show up. I did not run the server to confirm the behavior.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 4,
+  "cost_usd": 0.0011765500000000002,
+  "duration_ms": 11472,
+  "tokens": {
+    "input": 8,
+    "cache_write": 1031,
+    "cache_read": 27605,
+    "output": 1387,
+    "context": 1039,
+    "total": 30031
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule"
+      },
+      "result_chars": 300,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "cron"
+      },
+      "result_chars": 163,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/scheduler.py"
+      },
+      "result_chars": 2054,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "lifespan"
+      },
+      "result_chars": 759,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "start_scheduler",
+        "direction": "up"
+      },
+      "result_chars": 95,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "run.py"
+      },
+      "result_chars": 231,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/main.py"
+      },
+      "result_chars": 1386,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 19.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

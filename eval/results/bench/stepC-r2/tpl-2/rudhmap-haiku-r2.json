@@ -1,0 +1,95 @@
+{
+  "answer": "**Direct application callers (non-test):** 8 call sites across 2 route files, plus one internal caller in `crud.py`.\n\n**Internal caller: `crud.authenticate`**\n- `backend/app/crud.py:46` calls it, then returns `None` if there's no user (`:47`), or checks the password against `db_user.hashed_password` (`:52`). A dummy hash is verified when the user is missing, to prevent timing attacks (`:50`).\n- It is reached from `login_access_token` (`backend/app/api/routes/login.py:24`).\n\n**`backend/app/api/routes/login.py`**\n- `recover_password` (`:58`): uses the result only as a truthy check. If a user exists, it sends a reset email to `user.email`. The response is the same either way, to prevent enumeration.\n- `reset_password` (`:85`): a `None` result gives a 400 \"Invalid token\". It also reads `user.is_active` (`:89`), then passes the user to `crud.update_user` (`:92`).\n- `recover_password_html_content` (`:109`): a `None` result gives a 404 (`:111-115`). Otherwise it reads `user.email` to build the email (`:118`).\n\n**`backend/app/api/routes/users.py`**\n- `create_user` (`:61`): a non-`None` result raises 400 for a duplicate email.\n- `update_user_me` (`:90`): a match with a different `id` raises 409.\n- `register_user` (`:151`): a match raises 400.\n- `update_user` (`:204`): a match with a different `id` than `user_id` raises 409.\n\n**Impact of changing the signature**\n- Every application caller uses keyword arguments (`session=..., email=...`). Renaming `email` or `session`, or changing the return type, would require updating all of these sites.\n- Every caller depends on the return being either a `User` or `None`. A change to raise on not-found, or to return a tuple, would break them.\n- Test code also calls it at `backend/tests/utils/user.py:39` and `backend/tests/api/routes/test_users.py:55, 74, 112, 496`.\n\nThe \"callers\" list comes from the rudhmap call graph, which I checked against a grep for the name. Line numbers come from the source files I read.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00224958,
+  "duration_ms": 10981,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6066,
+    "cache_read": 21778,
+    "output": 1636,
+    "context": 6072,
+    "total": 29486
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "offset": 50,
+        "limit": 70
+      },
+      "result_chars": 2624,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\users.py",
+        "offset": 55,
+        "limit": 160
+      },
+      "result_chars": 5613,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 25
+      },
+      "result_chars": 1140,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 18.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

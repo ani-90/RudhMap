@@ -1,0 +1,85 @@
+{
+  "answer": "**Digest auth in httpx** (`httpx/_auth.py`) is a two-request handshake that is implemented as a generator.\n\n**State.** `DigestAuth.__init__` stores the credentials as bytes, plus `_last_challenge` and `_nonce_count` (`_auth.py:187-191`).\n\n**The flow** (`auth_flow`, `_auth.py:193-222`):\n1. If a previous challenge is cached, it signs the request up front with `_build_auth_header` (`:194-197`). Otherwise the first request goes out unauthenticated.\n2. It yields the request and receives the response (`:199`).\n3. If the status is not 401, or there is no `Digest` entry in `WWW-Authenticate`, it returns and the response is final (`:201-212`).\n4. Otherwise it parses the challenge (`_parse_challenge`, `:224-253`), resets `_nonce_count` to 1 (`:215`), attaches the new `Authorization` header, copies any response cookies, and yields the request again (`:217-222`).\n\n**Header construction** (`_build_auth_header`, `:255-301`):\n- HA1 = hash(user:realm:pass); with `-sess` algorithms it is rehashed with nonce and cnonce (`:263-276`).\n- HA2 = hash(method:uri) (`:265-268`).\n- response = hash(HA1:nonce:nc:cnonce:qop:HA2), or the RFC 2069 form when there is no qop (`:278-291`).\n- `qop=auth` is the only supported value. `auth-int` raises `NotImplementedError` (`_resolve_qop`, `:336-337`).\n- The cnonce is a SHA-1 of nonce count, nonce, time, and `os.urandom(8)` (`_get_client_nonce`, `:303-309`).\n\n**How the client drives it.** `Auth.sync_auth_flow` defers to `auth_flow` by default (`_auth.py:62-74`). `Client._send_handling_auth` (`_client.py:930-962`) does the driving:\n- It calls `next()` to get the first request (`:939`).\n- Each iteration sends the request through `_send_handling_redirects` (`:942`), then calls `auth_flow.send(response)` (`:949`).\n- A `StopIteration` means the flow is done and the response is returned (`:950-951`).\n- Otherwise the response is read, recorded in history, and the new request is sent (`:953-956`).\n- `auth_flow.close()` runs in `finally` (`:962`).\n\nThe async path mirrors this with `async_auth_flow` / `asend` (`_client.py:1652-1677`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.00223835,
+  "duration_ms": 10030,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6201,
+    "cache_read": 24005,
+    "output": 1515,
+    "context": 6207,
+    "total": 31727
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 860,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|_build_auth_header|sync_auth_flow",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 4562,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 180
+      },
+      "result_chars": 7090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 35
+      },
+      "result_chars": 1199,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 18.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

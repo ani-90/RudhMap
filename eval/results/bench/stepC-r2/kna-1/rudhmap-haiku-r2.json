@@ -1,0 +1,69 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It enforces a cooldown, starts a background pipeline run, and returns immediately.\n\n**What it does**\n1. **Cooldown check (L27-42):** It loads the last successful run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns early with `status=\"skipped\"`, the remaining seconds, and minutes since the last refresh. No new run is created.\n2. **Resolve domains (L44):** `request.resolved_domains()` (`app/schemas/feed.py:11-14`) returns all `DOMAINS` (`app/config.py:37`) if none were requested, otherwise only the requested ones that are valid.\n3. **Create run record (L45-48):** It generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`), which commits.\n4. **Schedule work (L50):** `background_tasks.add_task(_run_pipeline_bg, ...)` queues the job to run after the response is sent.\n5. **Return (L52):** It responds with `run_id`, `status=\"running\"`, and `domains`.\n\n**What happens after it returns**\n- FastAPI sends the response, then runs `_run_pipeline_bg` (`app/api/feed.py:55-72`).\n- That function awaits `run_pipeline` (`app/pipeline/graph.py:69`), which builds a graph (`graph.py:56`) of `run_all_agents_node` (`graph.py:28`) and `aggregator_node` (`app/pipeline/aggregator.py:14`).\n- If anything raises, `_run_pipeline_bg` opens a new session from `SessionLocal` (`app/db/sqlite.py:11`) and marks the run `failed` with the error and a `finished_at` timestamp. The `finished_at` value is what the cooldown check later reads.\n- On success, the run's final status is written by the pipeline itself. I did not verify where that happens.\n\n**Notes**\n- The cooldown check only considers *successful* runs, so a failed run does not block a retry.\n- The `\"skipped\"` response uses the same `run_id` as the last successful run, not a new one.\n- Callers: none in the code; it is reached only via HTTP.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 3,
+  "cost_usd": 0.00142551,
+  "duration_ms": 8530,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3198,
+    "cache_read": 22181,
+    "output": 1127,
+    "context": 3204,
+    "total": 26512
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_run_pipeline_bg",
+        "detail": "full"
+      },
+      "result_chars": 1489,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 16.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": true,
+      "status": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "The 'skipped' response uses the same run_id as the last successful run (not stated in key; possibly unsupported)",
+      "The cooldown check 'only considers successful runs' omits that partial runs also count",
+      "The 'skipped' response uses the same run_id as the last successful run, not a new one (key does not support this; unverified)",
+      "The cooldown check only considers successful runs (omits 'partial' status, minor)",
+      "The cooldown check only considers successful runs, so a failed run does not block a retry (partially off: key says success or partial status, though the main point holds)",
+      "The 'skipped' response uses the same run_id as the last successful run, not a new one (not supported by the key)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

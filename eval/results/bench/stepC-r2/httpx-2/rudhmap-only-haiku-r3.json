@@ -1,0 +1,76 @@
+{
+  "answer": "**Direct caller (one site in httpx):**\n- `Client._send_single_request` calls `transport.handle_request(request)` at `httpx/_client.py:1014`. It is defined at `httpx/_client.py:1001`. This is the only non-test call site found in the library.\n\n**Indirect callers (via `_send_single_request`):**\n- `Client._send_handling_redirects` calls it at `httpx/_client.py:979` (`httpx/_client.py:964`).\n- `Client._send_handling_auth` calls it at `httpx/_client.py:942` (`httpx/_client.py:930`).\n\nChanging `BaseTransport.handle_request`'s signature only breaks `_client.py:1014` directly. The two indirect callers pass a `Request` through and don't depend on the transport's signature, so they break only if `_send_single_request` changes too.\n\n**Overrides that must match the new signature:**\n- `HTTPTransport.handle_request` (`httpx/_transports/default.py:230`)\n- `MockTransport.handle_request` (`httpx/_transports/mock.py:19`)\n- `WSGITransport.handle_request` (`httpx/_transports/wsgi.py:91`)\n\nAll three are declared as `(request: Request) -> Response`, so they would need the same change to stay Liskov-compatible.\n\n**Not affected:**\n- The docstring example at `httpx/_transports/base.py:48` is documentation, not code, but it shows the single-argument usage and would need updating.\n- The async counterpart (`AsyncBaseTransport`) is a separate method and is not touched by this change.\n\n**Caveats:**\n- The search was name-based through rudhmap. I did not run a full text grep, so a call through a dynamic reference or `getattr` could be missed.\n- Your own subclasses of `BaseTransport` outside this repo would also need updating; I can't see them from here.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 2,
+  "cost_usd": 0.0007683499999999999,
+  "duration_ms": 8428,
+  "tokens": {
+    "input": 4,
+    "cache_write": 0,
+    "cache_read": 11395,
+    "output": 1308,
+    "context": 4,
+    "total": 12707
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "handle_request"
+      },
+      "result_chars": 1143,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "detail": "full"
+      },
+      "result_chars": 2039,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 16.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": true,
+      "httpcore": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "Claims _send_handling_redirects and _send_handling_auth are indirect callers; plausible and not contradicted by key, so not clearly false.",
+      "Claims _send_handling_redirects and _send_handling_auth are indirect callers; plausible but not contradicted by key. Docstring example listed under 'Not affected' while also saying it needs updating (minor inconsistency).",
+      "Claims _send_handling_redirects and _send_handling_auth are indirect callers; plausible and not contradicted by key, not clearly false.",
+      "States the docstring example in base.py is 'Not affected' yet also says it needs updating (minor inconsistency)."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

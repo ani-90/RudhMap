@@ -1,0 +1,62 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a background news-ingestion run and returns immediately. No code in the repo calls it directly; the only caller is HTTP clients.\n\n**What it does, in order:**\n\n1. **Cooldown check** (`:27-42`): It loads the last successful pipeline run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `:17`) ago, it returns `status=\"skipped\"` with the remaining seconds, without starting anything.\n2. **Domain resolution** (`:44`): `request.resolved_domains()` (`app/schemas/feed.py:11-14`) returns all `DOMAINS` if none were requested, otherwise only the requested ones that appear in `DOMAINS`. Unknown domains are dropped silently, and if every requested domain is unknown the result is an empty list.\n3. **Run record** (`:45-48`): It generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`).\n4. **Schedule work** (`:50`): It queues `_run_pipeline_bg(run_id, user_id, domains)` (`app/api/feed.py:55`) with FastAPI's `BackgroundTasks`.\n5. **Respond** (`:52`): It returns `FeedRefreshResponse(status=\"running\")` with the `run_id`.\n\n**What happens after it returns:**\n\nFastAPI sends the response, then runs the background task. Per the trace, `_run_pipeline_bg` calls `run_pipeline` (`app/pipeline/graph.py:69`), which builds a graph (`app/pipeline/graph.py:56`) of:\n- `run_all_agents_node` (`app/pipeline/graph.py:28`), which fans out per-domain searches.\n- `aggregator_node` (`app/pipeline/aggregator.py:14`), which checks for similar articles in Qdrant (`app/db/qdrant.py:39`), bulk-inserts articles (`app/db/crud.py:40`), upserts vectors (`app/db/qdrant.py:51`), and updates the run status.\n\n`run_pipeline` also calls `update_pipeline_run` at `app/pipeline/graph.py:64`, which I did not open, so I can't confirm what status it sets there.\n\n**Observations:**\n- The cooldown only looks at *successful* runs. A second request while one is still `running` is not blocked, so overlapping runs are possible.\n- The `db` session is injected for the request. The background task calls `run_pipeline` with only `run_id`, `user_id`, and `domains`, so it must open its own session. I did not verify this.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 2,
+  "cost_usd": 0.0014967600000000002,
+  "duration_ms": 9056,
+  "tokens": {
+    "input": 4,
+    "cache_write": 3126,
+    "cache_read": 13466,
+    "output": 1473,
+    "context": 3130,
+    "total": 18069
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 1273,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 17.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "The answer states the cooldown looks only at successful runs; the key says success or partial status, which is a minor omission rather than a contradiction."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

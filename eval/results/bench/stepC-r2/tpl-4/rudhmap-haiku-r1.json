@@ -1,0 +1,83 @@
+{
+  "answer": "**How the frontend decides \"logged in\":** it only checks whether a token exists in `localStorage`. `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`). Nothing decodes the JWT or checks its expiry, and no request is made to confirm it.\n\n**Route guard:** the protected `/_layout` route runs `isLoggedIn()` in `beforeLoad` and redirects to `/login` if it returns false (`frontend/src/routes/_layout.tsx:14-19`).\n\n**Attaching the token:** `main.tsx:17-20` configures the generated API client with `auth: () => localStorage.getItem(\"access_token\") || \"\"`. `getAuthToken` in `frontend/src/client/core/auth.gen.ts:22-41` turns that into a `Bearer` header on each request.\n\n**Login and logout:** `login` stores `access_token` after a successful response (`useAuth.ts:41-46`). `logout` removes it and navigates to `/login` (`useAuth.ts:56-59`).\n\n**Expired or invalid token:** there is no proactive handling. The app waits for the backend to reject a request:\n- `handleApiError` in `frontend/src/main.tsx:22-30` is attached to both the `QueryCache` and `MutationCache`. On a 401 or 403 it removes `access_token` and does `window.location.href = \"/login\"`.\n- Until a request fails, an expired token still passes the `_layout` guard, so the user sees the protected shell before the first failing call sends them to login.\n- Only 401 and 403 responses trigger the redirect. Other errors go to the normal error handling.\n\n**Edge cases worth knowing:**\n- The `currentUser` query's `enabled: isLoggedIn()` (`useAuth.ts:26`) is evaluated once when the hook runs, so it does not react to later changes in storage.\n- Because `handleApiError` uses a hard `window.location.href` redirect, it reloads the whole app, which clears in-memory query state.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.0026206199999999997,
+  "duration_ms": 10049,
+  "tokens": {
+    "input": 6,
+    "cache_write": 8029,
+    "cache_read": 24672,
+    "output": 1535,
+    "context": 8035,
+    "total": 34242
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "token|login|logout|401|expired|localStorage|Authorization",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "output_mode": "files_with_matches",
+        "glob": "!**/node_modules/**"
+      },
+      "result_chars": 1652,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {
+        "path": "frontend"
+      },
+      "result_chars": 5693,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\hooks\\useAuth.ts"
+      },
+      "result_chars": 1933,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\main.tsx"
+      },
+      "result_chars": 1698,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\routes\\_layout.tsx"
+      },
+      "result_chars": 1146,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\client\\core\\auth.gen.ts"
+      },
+      "result_chars": 977,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 17.2,
+  "returncode": 0
+}

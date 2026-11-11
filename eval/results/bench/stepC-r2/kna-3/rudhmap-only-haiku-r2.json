@@ -1,0 +1,120 @@
+{
+  "answer": "**No.** The daily refresh is defined but never started, so it does not run when the API server starts.\n\n**What is wired up**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:43-53` `start_scheduler()` registers `_daily_refresh` as a cron job (default 07:00, `misfire_grace_time=3600`) and calls `scheduler.start()`.\n- `app/scheduler.py:15-40` `_daily_refresh()` creates a pipeline run for `user_id=1` and runs `run_pipeline` via `asyncio.run`.\n- `app/scheduler.py:56-58` `stop_scheduler()` shuts the scheduler down, but nothing calls it either.\n\n**What is missing**\n- `app/main.py:18-20` (`lifespan`) only calls `init_db()` and yields. It does not call `start_scheduler()` or `stop_scheduler()`.\n- `app/main.py:23-28` creates the FastAPI app with that lifespan and no other startup hook.\n- `run.py:4-6` starts uvicorn on `app.main:app`, so it never imports or starts the scheduler either.\n- A search for callers of `start_scheduler` finds only its own definition, so no code in the repo invokes it.\n\n**Result:** The scheduler code is dead. Starting the server does not register or start the 07:00 job. A refresh only happens through the manual `POST /api/feed/refresh` endpoint in `app/api/feed.py`.\n\n**To wire it up:** call `start_scheduler()` in the `lifespan` before `yield` and `stop_scheduler()` after it, in `app/main.py`.\n\nCaveat: I checked this with the rudhmap call graph and file reads, not by running the server. Calls made by dynamic import or string reference would not appear in the graph, but I found no such references.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 5,
+  "cost_usd": 0.00202262,
+  "duration_ms": 11404,
+  "tokens": {
+    "input": 10,
+    "cache_write": 5426,
+    "cache_read": 31792,
+    "output": 1237,
+    "context": 5436,
+    "total": 38465
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule"
+      },
+      "result_chars": 300,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "cron"
+      },
+      "result_chars": 163,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/scheduler.py"
+      },
+      "result_chars": 2054,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "lifespan"
+      },
+      "result_chars": 759,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "start_scheduler",
+        "direction": "up"
+      },
+      "result_chars": 95,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "run.py"
+      },
+      "result_chars": 231,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "start_scheduler"
+      },
+      "result_chars": 446,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/main.py"
+      },
+      "result_chars": 1386,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 18.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

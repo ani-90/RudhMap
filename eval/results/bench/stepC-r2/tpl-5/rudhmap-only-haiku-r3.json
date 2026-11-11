@@ -1,0 +1,71 @@
+{
+  "answer": "**SECRET_KEY usages (backend)**\n\n- Declared as a `Settings` field: `backend/app/core/config.py:23`\n- JWT signing for access tokens: `backend/app/core/security.py:25` (`jwt.encode(..., settings.SECRET_KEY, ...)`)\n- JWT verification in the auth dependency: `backend/app/api/deps.py:33` (`get_current_user`)\n- Password-reset token generation: `backend/app/utils.py:112`\n- Password-reset token verification: `backend/app/utils.py:121`\n\n**Startup behavior when it is `\"changethis\"`**\n\n1. `Settings` is validated when the module is imported. `_enforce_non_default_secrets` is an `@model_validator(mode=\"after\")` (`backend/app/core/config.py:79-81`), so it runs as soon as the settings object is built.\n2. It calls `_check_default_secret(\"SECRET_KEY\", self.SECRET_KEY)` (`config.py:81`). The same check also runs on the database password and `FIRST_SUPERUSER_PASSWORD` (`config.py:82-86`).\n3. `_check_default_secret` (`config.py:68-77`) tests `value == \"changethis\"`. If it matches:\n   - If `FASTAPI_ENV == \"development\"`, it emits a `warnings.warn` and startup continues.\n   - Otherwise, it raises `ValueError`, so the import fails and the app does not start.\n\nThe settings object is created at module level in `backend/app/core/config.py`, and modules such as `deps.py:12` and `alembic/env.py:23` import it. So in any non-development environment, a `changethis` secret stops the backend from loading at all. In development it only logs a warning.\n\nI did not run the app to confirm this, so the behavior is based on reading the code.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00086706,
+  "duration_ms": 10627,
+  "tokens": {
+    "input": 8,
+    "cache_write": 589,
+    "cache_read": 23996,
+    "output": 1017,
+    "context": 597,
+    "total": 25610
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "SECRET_KEY"
+      },
+      "result_chars": 950,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "changethis"
+      },
+      "result_chars": 531,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Settings._enforce_non_default_secrets"
+      },
+      "result_chars": 901,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Settings._check_default_secret"
+      },
+      "result_chars": 824,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "settings = Settings()"
+      },
+      "result_chars": 966,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-5",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 18.5,
+  "returncode": 0
+}

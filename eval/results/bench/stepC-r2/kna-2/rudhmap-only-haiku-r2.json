@@ -1,0 +1,148 @@
+{
+  "answer": "**Path of one article (single agent run, then aggregation)**\n\n1. **Search and URL dedup (per agent).** `BaseAgent._fetch_all` (`app/pipeline/agents/base_agent.py:84`) runs Tavily queries and NewsAPI keywords. Each result URL goes through `_normalise_url` (`base_agent.py:19`), which strips tracking params like `utm_*` and `fbclid`. It is kept only if not in the per-agent `seen_urls` set (`base_agent.py:101`, `:112`).\n\n2. **Enrichment and quality gate.** In `BaseAgent.run` (`base_agent.py:44`), `scraper.enrich_content` keeps the snippet if it is at least 300 chars, otherwise scrapes it with trafilatura and truncates to 8000 chars (`app/services/scraper.py:28-35`). `_is_quality` drops anything under 40 words or with average line length under 5 words (`base_agent.py:28`).\n\n3. **Embedding and hash.** `embedder.embed` is a stub that always returns `[]` (`app/services/embedder.py:5`). A SHA-256 of the URL is computed as `content_hash` (`base_agent.py:61`) but nothing reads it.\n\n4. **Pass 1, semantic dedup (aggregator).** `aggregator_node` (`app/pipeline/aggregator.py:14`) calls `search_similar(..., threshold=0.85)` (`aggregator.py:31`) only when `article.embedding` is truthy (`aggregator.py:29`). Because the stub returns `[]`, this pass never runs. If Qdrant errors, the article is kept (`aggregator.py:37`).\n\n5. **Pass 2, URL-exact dedup (SQLite).** `crud.bulk_insert_articles` (`app/db/crud.py:40`) queries by URL and skips existing rows (`crud.py:43-45`). It commits per row, and a failed commit from a parallel insert is rolled back and skipped (`crud.py:58-63`). The DB backstop is `Article.url unique=True` (`app/db/models.py:27`).\n\n6. **Pass 3, vector upsert.** Only rows that were actually inserted and have an embedding are upserted to Qdrant (`aggregator.py:64-79`, `upsert_articles` at `app/db/qdrant.py:51`). With empty embeddings, nothing is upserted. A Qdrant failure leaves the article in SQLite only (`aggregator.py:81-82`).\n\n7. **Bookkeeping.** `duplicate_count` is `skipped_semantic + (clean \u2212 inserted)` (`aggregator.py:60`). The run's status and counts are written to `PipelineRun` in the `finally` block (`aggregator.py:98-106`).\n\n**Caveat:** Because the embedder is a stub, the semantic-dedup and Qdrant steps are currently inert. Only the in-run URL check and the SQLite URL check are effective.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 12,
+  "model_calls": 5,
+  "cost_usd": 0.00446981,
+  "duration_ms": 15645,
+  "tokens": {
+    "input": 10,
+    "cache_write": 13945,
+    "cache_read": 42981,
+    "output": 2500,
+    "context": 13955,
+    "total": 59436
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedup"
+      },
+      "result_chars": 448,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch article"
+      },
+      "result_chars": 1030,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run",
+        "detail": "full"
+      },
+      "result_chars": 2975,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node",
+        "detail": "full"
+      },
+      "result_chars": 5991,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "enrich_content",
+        "detail": "full"
+      },
+      "result_chars": 1248,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent._fetch_all",
+        "detail": "full"
+      },
+      "result_chars": 3044,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles",
+        "detail": "full"
+      },
+      "result_chars": 1358,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar",
+        "detail": "full"
+      },
+      "result_chars": 825,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/db/models.py",
+        "detail": "full"
+      },
+      "result_chars": 3887,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/pipeline/agents/base_agent.py",
+        "detail": "full"
+      },
+      "result_chars": 5189,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 22.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

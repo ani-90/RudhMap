@@ -1,0 +1,87 @@
+{
+  "answer": "`Response.text` (`httpx/_models.py:642-650`) works in two stages: decompress the body to bytes, then decode those bytes to a string.\n\n**Decompression (happens before `.text`)**\n- `.text` reads `self.content` (`_models.py:636-639`). That raises `ResponseNotRead` unless the body has already been read.\n- `read()` joins the chunks from `iter_bytes()` into `_content` (`_models.py:876-882`).\n- `iter_bytes()` gets a decoder from `_get_content_decoder()`. It feeds each raw chunk from `iter_raw()` through `decoder.decode()`, then calls `decoder.flush()` (`_models.py:894-905`).\n- `_get_content_decoder()` (`_models.py:699-722`) splits the `Content-Encoding` header on commas and looks each value up in `SUPPORTED_DECODERS`. Unknown values are skipped.\n- With one match it uses that decoder, with several it wraps them in a `MultiDecoder`, and with none it uses `IdentityDecoder`.\n- The decoder classes live in `_decoders.py`: `DeflateDecoder` (line 56), `GZipDecoder` (85), `BrotliDecoder` (108), `ZStandardDecoder` (161) and `MultiDecoder` (203).\n\n**Character-encoding selection**\n- `.text` returns `\"\"` for empty content. Otherwise it builds a `TextDecoder(encoding=self.encoding or \"utf-8\")` and joins `decode()` and `flush()` (`_models.py:645-649`). The result is cached in `_text`.\n- `TextDecoder` (`_decoders.py:306-318`) wraps `codecs.getincrementaldecoder(encoding)(errors=\"replace\")`. Invalid bytes become replacement characters instead of raising.\n- `.encoding` (`_models.py:653-672`) picks the encoding in this priority order:\n  1. An explicit `response.encoding = ...`, stored in `_encoding` (setter at `_models.py:674-686`). The setter raises `ValueError` if `.text` has already been accessed.\n  2. The `charset` parameter of the `Content-Type` header, via `charset_encoding` (`_models.py:689-697`). It is used only if `_is_known_encoding()` accepts it (`_models.py:666`).\n  3. `default_encoding`. A string is used directly. A callable is called with `_content`, which allows charset autodetection (`_models.py:667-670`).\n  4. `\"utf-8\"` as the final fallback (`_models.py:671`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0325868,
+  "duration_ms": 11586,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3927,
+    "cache_read": 18068,
+    "output": 1506,
+    "context": 3933,
+    "total": 23507
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def text|def encoding|def read|def content|def iter_bytes|def iter_raw|def _get_content_decoder|def decode|class .*Decoder|def default_encoding|def charset_encoding",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "glob": "{_models,_decoders}.py"
+      },
+      "result_chars": 2077,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 634,
+        "limit": 100
+      },
+      "result_chars": 3979,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 874,
+        "limit": 40
+      },
+      "result_chars": 1857,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_decoders.py",
+        "offset": 304,
+        "limit": 18
+      },
+      "result_chars": 477,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 13.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

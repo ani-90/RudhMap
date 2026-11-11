@@ -1,0 +1,162 @@
+{
+  "answer": "**Short version:** An article gets deduplicated three times: by URL within one agent run, by URL against SQLite at insert time, and by embedding similarity in Qdrant. The embedding check is currently inactive because the embedder is a stub.\n\n**1. Fetch (per agent run)**\n- `BaseAgent.run` (`app/pipeline/agents/base_agent.py:44`) calls `_fetch_all` (`:84`). That generates Groq queries (`groq_client.py:110`), then calls Tavily (`tavily_client.py:10`) and NewsAPI (`newsapi_client.py:38`).\n- Each URL goes through `_normalise_url` (`base_agent.py:19`), which strips tracking params such as `utm_*` and `fbclid` (`:13`).\n- **Dedup 1, in-run URL:** a `seen_urls` set (`base_agent.py:86`, checked at `:101` and `:112`) drops repeats across queries and sources.\n\n**2. Enrich and filter**\n- Items with an empty URL or title are skipped (`base_agent.py:52`).\n- `enrich_content` (`app/services/scraper.py:28`) keeps the snippet if it is at least 300 chars (`scraper.py:7`). Otherwise it scrapes with trafilatura and caps the result at 8000 chars (`scraper.py:35`).\n- `_is_quality` (`base_agent.py:28`) requires at least 40 words and an average of at least 5 words per line.\n- A `now` timestamp is set at `base_agent.py:47`. A SHA-256 `content_hash` of the URL is computed at `:61` but never stored.\n\n**3. Embed**\n- `embedder.embed` (`base_agent.py:60`) is a stub that always returns `[]` (`app/services/embedder.py:4-5`).\n\n**4. Aggregator (`app/pipeline/aggregator.py:14`)**\n- **Dedup 2, semantic (Pass 1, `:26-38`):** only runs when an embedding exists. It calls `search_similar` with threshold 0.85 (`:31`, `app/db/qdrant.py:39`) and drops matches. Because embeddings are empty, this never runs.\n- **Dedup 3, URL against SQLite (Pass 2, `:40-61`):** `bulk_insert_articles` (`app/db/crud.py:40`) queries for an existing URL (`:43`) and skips it. A commit failure from a parallel insert is rolled back (`:62-63`). The unique constraint on `url` (`app/db/models.py:27`) is the backstop.\n- **Pass 3 (`:63-82`):** upserts newly inserted articles to Qdrant. Nothing is upserted while embeddings are empty.\n- `duplicate_count` and `persisted_count` are written to the pipeline run record (`:84-109`).\n\n**Caveat:** I read the code without running it. The stub behaviour is from `show` output, so I did not check it at runtime.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 13,
+  "model_calls": 4,
+  "cost_usd": 0.00408326,
+  "duration_ms": 18099,
+  "tokens": {
+    "input": 8,
+    "cache_write": 10536,
+    "cache_read": 29876,
+    "output": 3353,
+    "context": 10544,
+    "total": 43773
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedup"
+      },
+      "result_chars": 448,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch article"
+      },
+      "result_chars": 1030,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run",
+        "detail": "full"
+      },
+      "result_chars": 2975,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node",
+        "detail": "full"
+      },
+      "result_chars": 5991,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent._fetch_all",
+        "detail": "full"
+      },
+      "result_chars": 3044,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_normalise_url",
+        "detail": "full"
+      },
+      "result_chars": 795,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "enrich_content",
+        "detail": "full"
+      },
+      "result_chars": 1248,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles",
+        "detail": "full"
+      },
+      "result_chars": 1358,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar",
+        "detail": "full"
+      },
+      "result_chars": 825,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_is_quality",
+        "detail": "full"
+      },
+      "result_chars": 603,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article",
+        "detail": "full"
+      },
+      "result_chars": 1258,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 24.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.833,
+    "critical_ok": true,
+    "false_claims": [
+      "Says the embedding check is a third dedup that is 'currently inactive' - consistent with key, not false",
+      "Claims enrich_content keeps snippet if >=300 chars, scraped with trafilatura capped at 8000 chars - not covered by key, unverifiable",
+      "Claims a SHA-256 content_hash of the URL is computed but never stored (not covered by key; unverified)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "answer": "**Short answer:** In the current code, only URL-based dedup is active. Semantic dedup is wired up but disabled, because `embedder.embed` is a stub that returns `[]` (`app/services/embedder.py:4-5`).\n\n**Path of one article**\n\n1. **Fetch.** `BaseAgent.run` calls `_fetch_all` (`app/pipeline/agents/base_agent.py:49`), which pulls results from Tavily queries and NewsAPI keywords.\n2. **Dedup layer 1: URL normalisation.** `_normalise_url` strips tracking params such as `utm_*` and `fbclid` (`base_agent.py:13-25`).\n3. **Dedup layer 2: in-memory `seen_urls`.** Each normalised URL is added to a set, and repeats within one agent's fetch are dropped (`base_agent.py:86-117`).\n4. **Enrich and quality gate.** The scraper enriches content (`base_agent.py:55`). `_is_quality` drops items under 40 words or with short average line length (`base_agent.py:28-36`, `56-58`).\n5. **Embed and hash.** The embedding is computed, but it is `[]` in practice (`base_agent.py:60`). A `content_hash` is computed as SHA-256 of the URL (`base_agent.py:61`), but nothing reads it. It never reaches the SQLite record (`aggregator.py:46-57`), so it is dead code.\n6. **Aggregator, pass 1: semantic dedup.** For each article with a non-empty embedding, `search_similar(threshold=0.85)` runs against Qdrant. A match counts as a duplicate (`app/pipeline/aggregator.py:28-38`). With empty embeddings this step is skipped entirely.\n7. **Aggregator, pass 2: URL-exact dedup in SQLite.** `crud.bulk_insert_articles` queries for an existing row with the same URL and skips it (`app/db/crud.py:43-45`). It then commits each row individually. If a parallel agent wins the race, the `IntegrityError` from the `UNIQUE` constraint on `Article.url` is caught and rolled back (`crud.py:58-63`, `app/db/models.py:27`). Duplicates are counted as `len(clean) - len(inserted)` (`aggregator.py:60`).\n8. **Aggregator, pass 3: Qdrant upsert.** Only newly inserted rows are upserted to Qdrant (`aggregator.py:64-82`). A failure here is logged, and the article stays in SQLite only.\n9. **Run record.** `duplicate_count` and `persisted_count` are written to `PipelineRun` (`aggregator.py:98-106`).\n\n**Discrepancy:** `decisions and tradeoffs.md:178-190` and the README describe a \"4-layer\" chain with semantic dedup at cosine \u2265 0.85. The code matches that description only when embeddings are enabled. The README says they are disabled on Railway, and the stub confirms that they are disabled everywhere right now.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00355531,
+  "duration_ms": 14323,
+  "tokens": {
+    "input": 8,
+    "cache_write": 10337,
+    "cache_read": 40311,
+    "output": 2168,
+    "context": 10345,
+    "total": 52824
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "dedup|duplicate|hash|fingerprint|seen|exists",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 6669,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\agents\\base_agent.py"
+      },
+      "result_chars": 4734,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py"
+      },
+      "result_chars": 4784,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles"
+      },
+      "result_chars": 1358,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def embed|return \\[\\]|return None|unique=True|UNIQUE|content_hash",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1010,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 23.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [
+      "Fetch step says Tavily queries and NewsAPI keywords but omits Groq-generated queries; not false per se.",
+      "Claims content_hash is SHA-256 of URL computed in base_agent and dead code; not covered by key.",
+      "The answer says SHA-256 content_hash of the URL is computed and dead code; not covered by key (uncertain, not necessarily false)."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

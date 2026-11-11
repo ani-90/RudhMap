@@ -1,0 +1,140 @@
+{
+  "answer": "**Short answer:** an article passes through three URL-based dedup checks and one semantic check. The semantic check never fires, because the embedder is a stub.\n\n**1. Fetch (per domain agent, in parallel)**\n- `BaseAgent._fetch_all` pulls results from Tavily and NewsAPI (`app/pipeline/agents/base_agent.py:84-119`).\n- **Dedup 1, URL normalisation:** `_normalise_url` strips UTM and tracking params (`base_agent.py:13-25`).\n- **Dedup 2, per-agent set:** `seen_urls` drops repeats within one agent's fetch (`base_agent.py:86, 100-103, 111-114`). It is not shared across agents.\n\n**2. Enrich and quality-check**\n- `BaseAgent.run` (`base_agent.py:51-58`) calls `scraper.enrich_content`, which runs trafilatura only if the existing text is under 300 chars (`scraper.py:28-36`).\n- `_is_quality` drops text under 40 words or with short average line length (`base_agent.py:28-36`).\n\n**3. Embed and hash**\n- `embedder.embed` returns `[]` unconditionally (`app/services/embedder.py:4-5`).\n- `content_hash` is a SHA-256 of the URL (`base_agent.py:61`), but nothing reads it.\n\n**4. Aggregator (`app/pipeline/aggregator.py`)**\n- Agents' outputs are concatenated with no cross-agent dedup (`app/pipeline/graph.py:48-53`).\n- **Pass 1, semantic dedup:** `search_similar` (cosine \u2265 0.85, `app/db/qdrant.py:39-48`) runs only when `article.embedding` is truthy (`aggregator.py:29-35`). Since embeddings are always empty, this never runs.\n- **Pass 2, SQLite insert:** `crud.bulk_insert_articles` (`app/db/crud.py:40-64`) checks each URL with a query (`crud.py:43`), then commits. An `IntegrityError` from a racing agent is rolled back and skipped (`crud.py:58-63`). The `UNIQUE` constraint on `Article.url` is in `app/db/models.py:27`.\n- `duplicate_count` = clean articles minus inserted rows (`aggregator.py:60`).\n- **Pass 3, Qdrant upsert:** `url_to_embedding` is empty, so no points are upserted (`aggregator.py:64-82`).\n- The run's status and counts are written to `PipelineRun` (`aggregator.py:98-106`).\n\n**Discrepancy:** `decisions and tradeoffs.md:178-190` and `README.md:48` describe four layers, including Qdrant semantic dedup. In this code that layer is inert. The effective dedup is normalised URL, per-agent `seen_urls`, and the SQLite unique constraint.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 11,
+  "model_calls": 5,
+  "cost_usd": 0.00595108,
+  "duration_ms": 22103,
+  "tokens": {
+    "input": 10,
+    "cache_write": 16692,
+    "cache_read": 62568,
+    "output": 3972,
+    "context": 16702,
+    "total": 83242
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "dedup|duplicate|hash|seen|exists",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 6669,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\agents\\base_agent.py"
+      },
+      "result_chars": 4734,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py"
+      },
+      "result_chars": 4784,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py"
+      },
+      "result_chars": 7598,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def search_similar|def upsert_articles|score_threshold|threshold|unique=True|UNIQUE|def enrich_content|def embed|def search|def get_india_headlines|def run_single|def run_all_agents_node|Send\\(|add_node|add_edge",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app"
+      },
+      "result_chars": 1799,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\qdrant.py"
+      },
+      "result_chars": 2724,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\scraper.py"
+      },
+      "result_chars": 1182,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\embedder.py"
+      },
+      "result_chars": 131,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\graph.py"
+      },
+      "result_chars": 2932,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 31.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": true
+    },
+    "fact_score": 0.833,
+    "critical_ok": false,
+    "false_claims": [
+      "content_hash is a SHA-256 of the URL and nothing reads it (unverified against key, minor)",
+      "content_hash is a SHA-256 of the URL and nothing reads it (unverified against key, minor)"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

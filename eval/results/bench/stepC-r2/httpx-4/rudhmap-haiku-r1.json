@@ -1,0 +1,87 @@
+{
+  "answer": "**Overview:** `DigestAuth` (`httpx/_auth.py:175`) is a generator-based auth flow. It sends the request unauthenticated, reads a 401 `WWW-Authenticate: Digest` challenge, and retries once with a computed `Authorization` header.\n\n**The flow** (`auth_flow`, `httpx/_auth.py:193-222`):\n- If a previous challenge is cached (`_last_challenge`, line 194), it adds an `Authorization` header up front.\n- It yields the request (line 199) and receives the response.\n- If the response is not a 401 or has no Digest challenge, it returns and the response passes through (lines 201-212).\n- Otherwise it parses the challenge (`_parse_challenge`, line 214), resets the nonce count (line 215), builds the header (line 217), copies any response cookies onto the request (lines 220-221), and yields the request again (line 222).\n\n**Header computation** (`_build_auth_header`, `httpx/_auth.py:255-301`):\n- HA1 = hash(user:realm:password). For `-sess` algorithms it is re-hashed with nonce and cnonce (lines 274-276).\n- HA2 = hash(method:path) (lines 265-268).\n- The response is `hash(HA1:nonce:nc:cnonce:qop:HA2)`, or the RFC 2069 form without qop (lines 278-291).\n- `qop=auth` is the only mode supported. `auth-int` raises `NotImplementedError` (lines 329-337).\n- The client nonce is derived from the nonce count, nonce, time, and `os.urandom` (lines 303-309).\n\n**Client driving** (`Client._send_handling_auth`, `httpx/_client.py:930-962`):\n- It calls `auth.sync_auth_flow(request)` (line 937). The base class defers to `auth_flow()` (`httpx/_auth.py:62-74`).\n- It advances the generator with `next()` to get the first request (line 939).\n- Each yielded request is sent through `_send_handling_redirects` (lines 942-946).\n- The response goes back into the generator with `send()` (line 949). `StopIteration` means the flow is done and the response is returned (lines 950-951).\n- Otherwise the response is read and kept in history, and the next request is sent (lines 953-956).\n- `finally` closes the generator (line 962).\n\nThe async path mirrors this in `httpx/_client.py:1652-1677`.\n\n**Limitations:** the nonce count is reset on every new challenge and the cached challenge is reused for later requests on the same `DigestAuth` instance. Digest support is limited to MD5/SHA variants with `qop=auth` or no qop, and `auth-int` is not implemented.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0023702000000000003,
+  "duration_ms": 10563,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6791,
+    "cache_read": 23090,
+    "output": 1561,
+    "context": 6797,
+    "total": 31448
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 860,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|sync_auth_flow|def _build_auth_header",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 4202,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 170
+      },
+      "result_chars": 6986,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 35
+      },
+      "result_chars": 1199,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 18.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "The answer says it 'retries once' and that the nonce count 'is reset on every new challenge', which is consistent with the code, though the key says nonce count is incremented on reuse; not clearly contradictory."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "answer": "**What it does:** `refresh_feed` is the `POST /api/feed/refresh` handler (`app/api/feed.py:20-21`). It enforces a 2-hour cooldown, then starts an asynchronous news pipeline run.\n\n1. **Cooldown check (`feed.py:27-42`):** It loads the last successful run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `feed.py:17`) ago, it returns `status=\"skipped\"` with the remaining seconds, and nothing new is created. Naive timestamps are treated as UTC (`feed.py:30-31`).\n\n2. **Domain resolution (`feed.py:44`):** `request.resolved_domains()` (`app/schemas/feed.py:11-14`) returns all `DOMAINS` if none were requested, otherwise only requested values that appear in `DOMAINS`.\n\n3. **Run record (`feed.py:45-48`):** It generates a UUID and calls `create_pipeline_run` (`app/db/crud.py:107`), then `update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121-123`), which commits.\n\n4. **Background work (`feed.py:50`):** It queues `_run_pipeline_bg(run_id, user_id, domains)` with FastAPI's `BackgroundTasks`. Per the trace, that calls `run_pipeline` (`app/pipeline/graph.py:69`), which builds a graph of `run_all_agents_node` and `aggregator_node` (`graph.py:56`). The aggregator searches Qdrant (`app/db/qdrant.py:39`), bulk-inserts articles (`app/db/crud.py:40`), upserts vectors (`app/db/qdrant.py:51`), and updates the run status (`aggregator.py:98`).\n\n**What happens after it returns:** The handler returns `FeedRefreshResponse` with `status=\"running\"` and the `run_id` (`feed.py:52`). The client gets the response immediately. The pipeline runs after the response is sent, and the client must poll or otherwise check the run by `run_id` to learn the outcome. The trace shows `run_pipeline` also updates the run at `graph.py:64`.\n\n**Observations:**\n- Nothing in the repo calls `refresh_feed` directly; it's reached only via HTTP.\n- The cooldown check and the run creation are separate steps with no lock, so two near-simultaneous requests could both pass the check (inferred from the code, not tested).\n- If the caller requests domains but none are valid, `resolved_domains()` returns an empty list, and the run is still created.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 2,
+  "cost_usd": 0.00223996,
+  "duration_ms": 8372,
+  "tokens": {
+    "input": 4,
+    "cache_write": 7377,
+    "cache_read": 4866,
+    "output": 1431,
+    "context": 7381,
+    "total": 13678
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 1273,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "refresh_feed",
+        "direction": "up"
+      },
+      "result_chars": 91,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 16.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

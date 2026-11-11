@@ -1,0 +1,84 @@
+{
+  "answer": "**Short answer:** The frontend treats \"logged in\" as \"a token string exists in localStorage.\" It does not validate the token. Expiry or invalidity is discovered only when an API call returns 401/403, and that response clears the token and redirects.\n\n**How it decides logged-in state**\n- `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`).\n- The protected layout route checks this in `beforeLoad` and redirects to `/login` if it's false (`frontend/src/routes/_layout.tsx:14-19`). This is the only route guard.\n- The current-user query runs only when `isLoggedIn()` is true (`frontend/src/hooks/useAuth.ts:23-27`).\n- Every request reads the token from localStorage and sends it as a bearer token (`frontend/src/main.tsx:17-20`, `frontend/src/client/core/auth.gen.ts:32-33`).\n\n**What happens when the token is expired or invalid**\n- Login stores the token after a successful `/login/access-token` call (`frontend/src/hooks/useAuth.ts:41-46`).\n- A global handler on the query and mutation caches catches errors. If the error is an Axios 401 or 403, it removes `access_token` and sets `window.location.href = \"/login\"` (`frontend/src/main.tsx:22-38`).\n- Logout just removes the token and navigates to `/login` (`frontend/src/hooks/useAuth.ts:56-59`).\n\n**Gaps to be aware of**\n- A stale token still passes the `beforeLoad` guard, so the user sees the protected shell until a query fails. The redirect is delayed, not prevented.\n- The handler only reacts to 401/403 from React Query calls. A non-query request that fails with 401 won't trigger it, and nothing proactively checks token expiry.\n- The redirect is a full page reload (`window.location.href`), not a router navigation, so in-memory query state is discarded.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.0016728899999999998,
+  "duration_ms": 10201,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3442,
+    "cache_read": 21939,
+    "output": 1529,
+    "context": 3448,
+    "total": 26916
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "token login logged in expired invalid"
+      },
+      "result_chars": 1158,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {
+        "path": "frontend"
+      },
+      "result_chars": 5693,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/hooks/useAuth.ts",
+        "detail": "full"
+      },
+      "result_chars": 2139,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/main.tsx",
+        "detail": "full"
+      },
+      "result_chars": 1892,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/client/core/auth.gen.ts",
+        "detail": "full"
+      },
+      "result_chars": 1112,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/_layout.tsx",
+        "detail": "full"
+      },
+      "result_chars": 1304,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 17.1,
+  "returncode": 0
+}

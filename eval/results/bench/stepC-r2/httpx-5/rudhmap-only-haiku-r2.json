@@ -1,0 +1,137 @@
+{
+  "answer": "**Short answer:** `Response.text` doesn't decompress anything itself. It reads `self.content`, which was already decompressed when the body was read. It then picks a charset and decodes the bytes with an incremental decoder.\n\n**1. Decompression (happens earlier, during read)**\n- `Response.text` reads `self.content` (`httpx/_models.py:644`), which returns the stored `_content` or raises `ResponseNotRead` (`httpx/_models.py:636-639`).\n- `_content` is filled by `Response.read()`, which joins `iter_bytes()` (`httpx/_models.py:876-882`).\n- `iter_bytes()` gets a decoder from `_get_content_decoder()` and runs each raw chunk from `iter_raw()` through it (`httpx/_models.py:894-900`).\n- `_get_content_decoder()` parses the `Content-Encoding` header(s) and looks each one up in `SUPPORTED_DECODERS` (gzip, deflate, br, zstd, identity). It chains them with `MultiDecoder` when there is more than one (`httpx/_models.py:699-722`, table at `httpx/_decoders.py:381`).\n\n**2. Charset selection (`Response.encoding`, `httpx/_models.py:653-672`)**\n\nIn priority order:\n1. The charset from the `Content-Type` header, parsed by `_parse_content_type_charset` (`httpx/_models.py:689-697`, parser at `:85`).\n2. `default_encoding`. This is used if the header charset is missing or unknown (checked by `_is_known_encoding`, `:56`). If it is a string, it is used directly. If it is a callable, it is called with the content bytes so it can autodetect.\n3. Fallback to `\"utf-8\"`.\n\nThe result is cached in `_encoding`.\n\n**3. Decoding (`httpx/_models.py:642-650`)**\n- An empty body returns `\"\"`.\n- Otherwise a `TextDecoder(encoding=self.encoding or \"utf-8\")` (`httpx/_decoders.py:306-318`) decodes the bytes and then calls `flush()`. The two results are joined and cached in `_text`.\n\n**Caveat:** I read `TextDecoder.decode`/`flush` as thin wrappers around a codec decoder (`httpx/_decoders.py:314-318`), but I did not open the constructor to confirm which codec object it uses.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 11,
+  "model_calls": 5,
+  "cost_usd": 0.00282066,
+  "duration_ms": 13235,
+  "tokens": {
+    "input": 10,
+    "cache_write": 7781,
+    "cache_read": 33446,
+    "output": 1858,
+    "context": 7791,
+    "total": 43095
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Response.text"
+      },
+      "result_chars": 1118,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding"
+      },
+      "result_chars": 1649,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.content"
+      },
+      "result_chars": 622,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "TextDecoder"
+      },
+      "result_chars": 474,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.read"
+      },
+      "result_chars": 970,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.iter_bytes"
+      },
+      "result_chars": 3052,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.charset_encoding"
+      },
+      "result_chars": 966,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.iter_raw"
+      },
+      "result_chars": 2548,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response._get_content_decoder"
+      },
+      "result_chars": 2171,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 24.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": false,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.4,
+    "critical_ok": false,
+    "false_claims": [
+      "Charset priority list omits the explicitly set .encoding as the first priority (it lists Content-Type charset as first).",
+      "Encoding priority omits the explicitly set .encoding as the first priority; the answer lists Content-Type charset as first priority.",
+      "Encoding priority omits the explicitly set .encoding as the first priority; it lists the Content-Type charset as first.",
+      "The answer says the result of the encoding property is cached in _encoding, but does not mention that an explicitly set encoding takes precedence."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

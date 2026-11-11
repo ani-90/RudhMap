@@ -1,0 +1,183 @@
+90 runs to do (3 at a time)
+[1/90] ('kna-1', 'rudhmap', 'haiku', 2) ok turns=3 total=26512 16.6s
+[2/90] ('kna-1', 'rudhmap', 'haiku', 1) ok turns=3 total=18069 17.1s
+[3/90] ('kna-1', 'rudhmap', 'haiku', 3) ok turns=3 total=18071 17.2s
+[4/90] ('kna-1', 'rudhmap-only', 'haiku', 2) ok turns=4 total=13536 15.3s
+[5/90] ('kna-1', 'rudhmap-only', 'haiku', 3) ok turns=4 total=13669 15.9s
+[6/90] ('kna-1', 'rudhmap-only', 'haiku', 1) ok turns=4 total=13678 16.5s
+[7/90] ('kna-2', 'rudhmap', 'haiku', 3) ok turns=7 total=52824 23.1s
+[8/90] ('kna-2', 'rudhmap', 'haiku', 2) ok turns=14 total=67288 23.4s
+[9/90] ('kna-2', 'rudhmap', 'haiku', 1) ok turns=11 total=83242 31.2s
+[10/90] ('kna-2', 'rudhmap-only', 'haiku', 1) ok turns=13 total=45082 20.6s
+[11/90] ('kna-2', 'rudhmap-only', 'haiku', 2) ok turns=12 total=59436 22.4s
+[12/90] ('kna-2', 'rudhmap-only', 'haiku', 3) ok turns=13 total=43773 24.8s
+[13/90] ('kna-3', 'rudhmap', 'haiku', 1) ok turns=6 total=45805 21.3s
+[14/90] ('kna-3', 'rudhmap', 'haiku', 2) ok turns=8 total=48442 20.2s
+[15/90] ('kna-3', 'rudhmap', 'haiku', 3) ok turns=8 total=50652 19.7s
+[16/90] ('kna-3', 'rudhmap-only', 'haiku', 1) ok turns=9 total=30106 18.3s
+[17/90] ('kna-3', 'rudhmap-only', 'haiku', 2) ok turns=10 total=38465 18.4s
+[18/90] ('kna-3', 'rudhmap-only', 'haiku', 3) ok turns=9 total=30031 19.0s
+[19/90] ('kna-4', 'rudhmap', 'haiku', 1) ok turns=6 total=34964 18.2s
+[20/90] ('kna-4', 'rudhmap', 'haiku', 2) ok turns=6 total=35387 17.8s
+[21/90] ('kna-4', 'rudhmap', 'haiku', 3) ok turns=5 total=28063 16.7s
+[22/90] ('kna-4', 'rudhmap-only', 'haiku', 1) ok turns=5 total=19949 15.6s
+[23/90] ('kna-4', 'rudhmap-only', 'haiku', 2) ok turns=5 total=19593 15.1s
+[24/90] ('kna-4', 'rudhmap-only', 'haiku', 3) ok turns=5 total=19865 16.7s
+[25/90] ('kna-5', 'rudhmap', 'haiku', 1) ok turns=6 total=37253 16.4s
+[26/90] ('kna-5', 'rudhmap', 'haiku', 2) ok turns=6 total=37175 16.4s
+[27/90] ('kna-5', 'rudhmap', 'haiku', 3) ok turns=6 total=37249 18.5s
+[28/90] ('kna-5', 'rudhmap-only', 'haiku', 1) ok turns=6 total=28288 19.4s
+[29/90] ('kna-5', 'rudhmap-only', 'haiku', 2) ok turns=6 total=28313 19.7s
+[30/90] ('kna-5', 'rudhmap-only', 'haiku', 3) ok turns=6 total=28298 17.3s
+[31/90] ('tpl-1', 'rudhmap', 'haiku', 1) ok turns=6 total=29205 17.5s
+[32/90] ('tpl-1', 'rudhmap', 'haiku', 2) ok turns=7 total=41012 19.3s
+[33/90] ('tpl-1', 'rudhmap', 'haiku', 3) ok turns=6 total=29308 17.4s
+[34/90] ('tpl-1', 'rudhmap-only', 'haiku', 1) ok turns=7 total=21619 17.1s
+[35/90] ('tpl-1', 'rudhmap-only', 'haiku', 2) ok turns=7 total=21436 17.6s
+[36/90] ('tpl-1', 'rudhmap-only', 'haiku', 3) ok turns=7 total=21446 18.8s
+[37/90] ('tpl-2', 'rudhmap', 'haiku', 1) ok turns=6 total=29533 20.4s
+[38/90] ('tpl-2', 'rudhmap', 'haiku', 2) ok turns=6 total=29486 18.4s
+[39/90] ('tpl-2', 'rudhmap', 'haiku', 3) ok turns=6 total=30433 20.0s
+[40/90] ('tpl-2', 'rudhmap-only', 'haiku', 1) ok turns=13 total=38594 24.0s
+[41/90] ('tpl-2', 'rudhmap-only', 'haiku', 2) ok turns=13 total=39248 23.8s
+[42/90] ('tpl-2', 'rudhmap-only', 'haiku', 3) ok turns=14 total=54066 23.9s
+[43/90] ('tpl-3', 'rudhmap', 'haiku', 2) ok turns=13 total=76916 26.5s
+[44/90] ('tpl-3', 'rudhmap', 'haiku', 1) ok turns=14 total=92582 27.3s
+[45/90] ('tpl-3', 'rudhmap', 'haiku', 3) ok turns=16 total=87182 30.5s
+[46/90] ('tpl-3', 'rudhmap-only', 'haiku', 1) ok turns=14 total=57322 23.6s
+[47/90] ('tpl-3', 'rudhmap-only', 'haiku', 2) ok turns=19 total=101987 30.9s
+[48/90] ('tpl-4', 'rudhmap', 'haiku', 1) ok turns=7 total=34242 17.2s
+[49/90] ('tpl-4', 'rudhmap', 'haiku', 2) ok turns=6 total=31637 17.0s
+[50/90] ('tpl-3', 'rudhmap-only', 'haiku', 3) ok turns=21 total=124366 35.5s
+[51/90] ('tpl-4', 'rudhmap', 'haiku', 3) ok turns=7 total=34315 17.6s
+[52/90] ('tpl-4', 'rudhmap-only', 'haiku', 1) ok turns=7 total=26639 17.2s
+[53/90] ('tpl-4', 'rudhmap-only', 'haiku', 2) ok turns=7 total=26916 17.1s
+[54/90] ('tpl-4', 'rudhmap-only', 'haiku', 3) ok turns=7 total=27254 21.4s
+[55/90] ('tpl-5', 'rudhmap', 'haiku', 1) ok turns=4 total=37207 26.4s
+[56/90] ('tpl-5', 'rudhmap', 'haiku', 2) ok turns=4 total=36951 27.1s
+[57/90] ('tpl-5', 'rudhmap', 'haiku', 3) ok turns=4 total=37294 19.4s
+[58/90] ('tpl-5', 'rudhmap-only', 'haiku', 1) ok turns=6 total=25699 17.9s
+[59/90] ('tpl-5', 'rudhmap-only', 'haiku', 2) ok turns=6 total=25701 19.5s
+[60/90] ('tpl-5', 'rudhmap-only', 'haiku', 3) ok turns=6 total=25610 18.5s
+[61/90] ('httpx-1', 'rudhmap', 'haiku', 1) ok turns=9 total=46592 22.9s
+[62/90] ('httpx-1', 'rudhmap', 'haiku', 2) ok turns=7 total=21664 19.0s
+[63/90] ('httpx-1', 'rudhmap', 'haiku', 3) ok turns=7 total=21544 16.9s
+[64/90] ('httpx-1', 'rudhmap-only', 'haiku', 1) ok turns=10 total=37407 21.3s
+[65/90] ('httpx-1', 'rudhmap-only', 'haiku', 2) ok turns=11 total=38236 21.6s
+[66/90] ('httpx-1', 'rudhmap-only', 'haiku', 3) ok turns=11 total=38961 22.6s
+[67/90] ('httpx-2', 'rudhmap', 'haiku', 1) ok turns=5 total=35428 21.9s
+[68/90] ('httpx-2', 'rudhmap', 'haiku', 2) ok turns=6 total=44014 24.1s
+[69/90] ('httpx-2', 'rudhmap', 'haiku', 3) ok turns=4 total=26336 22.3s
+[70/90] ('httpx-2', 'rudhmap-only', 'haiku', 1) ok turns=5 total=19695 18.3s
+[71/90] ('httpx-2', 'rudhmap-only', 'haiku', 2) ok turns=4 total=11890 15.6s
+[72/90] ('httpx-2', 'rudhmap-only', 'haiku', 3) ok turns=4 total=12707 16.0s
+[73/90] ('httpx-3', 'rudhmap', 'haiku', 1) ok turns=7 total=48738 20.8s
+[74/90] ('httpx-3', 'rudhmap', 'haiku', 3) ok turns=8 total=41192 19.6s
+[75/90] ('httpx-3', 'rudhmap', 'haiku', 2) ok turns=8 total=49800 21.0s
+[76/90] ('httpx-3', 'rudhmap-only', 'haiku', 1) ok turns=10 total=33759 19.1s
+[77/90] ('httpx-3', 'rudhmap-only', 'haiku', 2) ok turns=9 total=32154 19.8s
+[78/90] ('httpx-3', 'rudhmap-only', 'haiku', 3) ok turns=11 total=46931 21.4s
+[79/90] ('httpx-4', 'rudhmap', 'haiku', 1) ok turns=5 total=31448 18.9s
+[80/90] ('httpx-4', 'rudhmap', 'haiku', 2) ok turns=5 total=31727 18.7s
+[81/90] ('httpx-4', 'rudhmap', 'haiku', 3) ok turns=5 total=30126 20.1s
+[82/90] ('httpx-4', 'rudhmap-only', 'haiku', 2) ok turns=6 total=35825 19.1s
+[83/90] ('httpx-4', 'rudhmap-only', 'haiku', 1) ok turns=5 total=26046 21.5s
+[84/90] ('httpx-4', 'rudhmap-only', 'haiku', 3) ok turns=7 total=45794 20.2s
+[85/90] ('httpx-5', 'rudhmap', 'haiku', 2) ok turns=9 total=42425 21.0s
+[86/90] ('httpx-5', 'rudhmap', 'haiku', 1) ok turns=10 total=63516 23.8s
+[87/90] ('httpx-5', 'rudhmap', 'haiku', 3) ok turns=10 total=60688 23.4s
+[88/90] ('httpx-5', 'rudhmap-only', 'haiku', 1) ok turns=10 total=39486 24.7s
+[89/90] ('httpx-5', 'rudhmap-only', 'haiku', 3) ok turns=10 total=32381 20.2s
+[90/90] ('httpx-5', 'rudhmap-only', 'haiku', 2) ok turns=11 total=43095 24.6s
+done, 0 failed (failed runs are not saved; rerun to retry)
+90 answers to grade
+httpx-1/rudhmap-only-haiku-r3: correct=True score=1.0
+httpx-1/rudhmap-only-haiku-r1: correct=True score=1.0
+httpx-1/rudhmap-haiku-r3: correct=True score=1.0
+httpx-1/rudhmap-only-haiku-r2: correct=True score=1.0
+httpx-1/rudhmap-haiku-r2: correct=True score=0.8
+httpx-1/rudhmap-haiku-r1: correct=False score=0.8
+httpx-2/rudhmap-haiku-r1: correct=True score=1.0
+httpx-2/rudhmap-haiku-r3: correct=True score=0.8
+httpx-2/rudhmap-only-haiku-r1: correct=True score=0.8
+httpx-2/rudhmap-haiku-r2: correct=True score=1.0
+httpx-2/rudhmap-only-haiku-r2: correct=True score=0.6
+httpx-2/rudhmap-only-haiku-r3: correct=True score=0.8
+httpx-3/rudhmap-haiku-r1: correct=False score=0.6
+httpx-3/rudhmap-haiku-r3: correct=True score=0.8
+httpx-3/rudhmap-only-haiku-r2: correct=False score=0.6
+httpx-3/rudhmap-only-haiku-r1: correct=False score=0.8
+httpx-3/rudhmap-haiku-r2: correct=True score=0.8
+httpx-3/rudhmap-only-haiku-r3: correct=False score=0.8
+httpx-4/rudhmap-haiku-r1: correct=True score=1.0
+httpx-4/rudhmap-haiku-r3: correct=True score=1.0
+httpx-4/rudhmap-only-haiku-r2: correct=True score=1.0
+httpx-4/rudhmap-only-haiku-r1: correct=True score=1.0
+httpx-4/rudhmap-haiku-r2: correct=True score=1.0
+httpx-4/rudhmap-only-haiku-r3: correct=True score=1.0
+httpx-5/rudhmap-haiku-r1: correct=True score=0.6
+httpx-5/rudhmap-only-haiku-r1: correct=True score=0.6
+httpx-5/rudhmap-haiku-r2: correct=True score=0.6
+httpx-5/rudhmap-haiku-r3: correct=False score=0.4
+httpx-5/rudhmap-only-haiku-r2: correct=False score=0.4
+httpx-5/rudhmap-only-haiku-r3: correct=True score=0.6
+kna-1/rudhmap-haiku-r1: correct=False score=0.6
+kna-1/rudhmap-haiku-r2: correct=True score=0.8
+kna-1/rudhmap-haiku-r3: correct=False score=0.6
+kna-1/rudhmap-only-haiku-r1: correct=False score=0.6
+kna-1/rudhmap-only-haiku-r2: correct=False score=0.6
+kna-1/rudhmap-only-haiku-r3: correct=False score=0.6
+kna-2/rudhmap-haiku-r1: correct=False score=0.833
+kna-2/rudhmap-haiku-r3: correct=False score=0.667
+kna-2/rudhmap-haiku-r2: correct=False score=0.667
+kna-2/rudhmap-only-haiku-r2: correct=False score=0.667
+kna-2/rudhmap-only-haiku-r1: correct=True score=0.833
+kna-2/rudhmap-only-haiku-r3: correct=True score=0.833
+kna-3/rudhmap-haiku-r2: correct=True score=0.667
+kna-3/rudhmap-haiku-r1: correct=True score=1.0
+kna-3/rudhmap-haiku-r3: correct=True score=0.667
+kna-3/rudhmap-only-haiku-r1: correct=True score=0.667
+kna-3/rudhmap-only-haiku-r3: correct=True score=0.667
+kna-3/rudhmap-only-haiku-r2: correct=True score=0.667
+kna-4/rudhmap-haiku-r1: correct=True score=0.667
+kna-4/rudhmap-haiku-r2: correct=True score=0.667
+kna-4/rudhmap-haiku-r3: correct=True score=0.667
+kna-4/rudhmap-only-haiku-r1: correct=True score=0.667
+kna-4/rudhmap-only-haiku-r3: correct=True score=0.667
+kna-4/rudhmap-only-haiku-r2: correct=True score=0.667
+kna-5/rudhmap-haiku-r1: correct=True score=0.8
+kna-5/rudhmap-haiku-r2: correct=True score=0.8
+kna-5/rudhmap-haiku-r3: correct=True score=0.8
+kna-5/rudhmap-only-haiku-r2: correct=True score=0.8
+kna-5/rudhmap-only-haiku-r3: correct=True score=0.8
+kna-5/rudhmap-only-haiku-r1: correct=True score=0.8
+tpl-1/rudhmap-haiku-r2: correct=True score=1.0
+tpl-1/rudhmap-haiku-r1: correct=True score=1.0
+tpl-1/rudhmap-haiku-r3: correct=True score=1.0
+tpl-1/rudhmap-only-haiku-r1: correct=True score=1.0
+tpl-1/rudhmap-only-haiku-r3: correct=True score=1.0
+tpl-1/rudhmap-only-haiku-r2: correct=True score=1.0
+tpl-2/rudhmap-haiku-r2: correct=True score=0.75
+tpl-2/rudhmap-haiku-r1: correct=True score=0.75
+tpl-2/rudhmap-haiku-r3: correct=True score=0.75
+tpl-2/rudhmap-only-haiku-r1: correct=True score=0.75
+tpl-2/rudhmap-only-haiku-r2: correct=True score=0.75
+tpl-2/rudhmap-only-haiku-r3: correct=True score=0.75
+tpl-3/rudhmap-haiku-r2: correct=True score=0.8
+tpl-3/rudhmap-haiku-r1: correct=True score=0.8
+tpl-4/rudhmap-haiku-r1: grading FAILED substring not found
+tpl-4/rudhmap-haiku-r2: grading FAILED substring not found
+tpl-3/rudhmap-haiku-r3: correct=True score=1.0
+tpl-3/rudhmap-only-haiku-r1: correct=True score=1.0
+tpl-3/rudhmap-only-haiku-r3: grading FAILED substring not found
+tpl-4/rudhmap-only-haiku-r1: grading FAILED substring not found
+tpl-3/rudhmap-only-haiku-r2: correct=False score=0.6
+tpl-5/rudhmap-haiku-r2: grading FAILED substring not found
+tpl-5/rudhmap-haiku-r1: grading FAILED substring not found
+tpl-5/rudhmap-only-haiku-r2: grading FAILED substring not found
+tpl-5/rudhmap-haiku-r3: grading FAILED substring not found
+tpl-5/rudhmap-only-haiku-r1: grading FAILED substring not found
+tpl-4/rudhmap-only-haiku-r2: grading FAILED substring not found
+tpl-4/rudhmap-haiku-r3: grading FAILED substring not found
+tpl-4/rudhmap-only-haiku-r3: correct=False score=0.4
+tpl-5/rudhmap-only-haiku-r3: grading FAILED substring not found

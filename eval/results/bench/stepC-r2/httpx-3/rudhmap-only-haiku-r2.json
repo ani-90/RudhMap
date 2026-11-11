@@ -1,0 +1,114 @@
+{
+  "answer": "**Where it's configured:** `Timeout` is a class in `httpx/_config.py:72`. Its `__init__` (`_config.py:86-130`) accepts a single float, a 4-tuple `(connect, read, write, pool)`, a `Timeout`, or the four keyword args. A bare value becomes the default for any phase that isn't set explicitly.\n\n**Path from Client to network:**\n1. `Client.send` (`httpx/_client.py:910`) calls `BaseClient._set_timeout` (`_client.py:584-591`). If the request has no per-request `timeout` extension, it uses the client's timeout, wraps it in `Timeout` if needed, and stores `timeout.as_dict()` in `request.extensions`. `AsyncClient.send` does the same at `_client.py:1625`.\n2. `HTTPTransport.handle_request` (`httpx/_transports/default.py:230-259`) copies `request.extensions` into an `httpcore.Request` and calls `self._pool.handle_request`. The timeout values reach httpcore through this extensions dict. The consuming code is in httpcore, which isn't in this repo, so that part is inferred from the data flow.\n\n**Exceptions when it fires:** httpcore raises its own timeout types. `map_httpcore_exceptions` (`default.py:96-118`) catches them and re-raises the most specific httpx equivalent, chained with `from exc`. The mapping table is at `default.py:74-92`:\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout` (`_exceptions.py:140`)\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout` (`_exceptions.py:146`)\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout` (`_exceptions.py:152`)\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout` (`_exceptions.py:158`)\n- Any other `httpcore.TimeoutException` \u2192 `httpx.TimeoutException` (`_exceptions.py:132`)\n\nAll of these subclass `TimeoutException`, which subclasses `TransportError`. Catch `httpx.TimeoutException` to handle any timeout, or a specific subclass to tell the phases apart.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 4,
+  "cost_usd": 0.0016210600000000001,
+  "duration_ms": 12752,
+  "tokens": {
+    "input": 8,
+    "cache_write": 2351,
+    "cache_read": 28056,
+    "output": 1739,
+    "context": 2359,
+    "total": 32154
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout"
+      },
+      "result_chars": 1090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout.__init__"
+      },
+      "result_chars": 3115,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseClient._set_timeout"
+      },
+      "result_chars": 148,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "map_httpcore_exceptions"
+      },
+      "result_chars": 1927,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "HTTPTransport.handle_request"
+      },
+      "result_chars": 1899,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions"
+      },
+      "result_chars": 1100,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 19.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": false,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

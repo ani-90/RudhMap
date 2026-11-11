@@ -1,0 +1,130 @@
+{
+  "answer": "**Short answer:** `Response.text` never decompresses or decodes on its own. It reads `self.content`, which is already decompressed bytes. It then decodes those bytes with an encoding chosen by `Response.encoding`.\n\n**1. Decompression (happens before `.text`)**\n- `Response.text` reads `self.content` (`httpx/_models.py:644`). `content` raises `ResponseNotRead` if the body was never read, and otherwise returns `_content` (`httpx/_models.py:636-639`).\n- `_content` is filled by `read()`, which joins `self.iter_bytes()` (`httpx/_models.py:881`).\n- `iter_bytes()` picks a decoder from the `Content-Encoding` header (`httpx/_models.py:894`). `_get_content_decoder()` maps each listed encoding through `SUPPORTED_DECODERS` (gzip, deflate, br, zstd, identity), and wraps multiple encodings in a `MultiDecoder` (`httpx/_models.py:699-722`, `httpx/_decoders.py:381`).\n- Raw chunks go through that decoder, then `decoder.flush()` (`httpx/_models.py:897-901`).\n\n**2. Encoding selection**\n- `Response.text` uses `self.encoding or \"utf-8\"` (`httpx/_models.py:648`).\n- `encoding` resolves in this order (`httpx/_models.py:664-671`):\n  1. An explicit `.encoding = ...` assignment.\n  2. The `charset=` parameter of `Content-Type`, via `charset_encoding` (`httpx/_models.py:689-697`) and `_parse_content_type_charset` (`httpx/_models.py:85`). A charset is ignored if Python does not know the codec (`_is_known_encoding`, `httpx/_models.py:56`).\n  3. `default_encoding`. If it is a string, that is used. If it is a callable, it receives `_content` for autodetection.\n  4. Otherwise `\"utf-8\"`.\n\n**3. Decoding**\n- `text` builds `TextDecoder(encoding=...)` (`httpx/_decoders.py:306-312`). This wraps `codecs.getincrementaldecoder(encoding)` with `errors=\"replace\"`, so invalid bytes become U+FFFD instead of raising.\n- It calls `decode(self.content)` and then `flush()` to finish any buffered multibyte sequence, and joins the two (`httpx/_models.py:649`).\n- The result is cached in `_text`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 4,
+  "cost_usd": 0.00213872,
+  "duration_ms": 11373,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5061,
+    "cache_read": 25572,
+    "output": 1740,
+    "context": 5069,
+    "total": 32381
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Response.text"
+      },
+      "result_chars": 1118,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding",
+        "detail": "full"
+      },
+      "result_chars": 1649,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.content",
+        "detail": "full"
+      },
+      "result_chars": 622,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "TextDecoder",
+        "detail": "full"
+      },
+      "result_chars": 943,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.iter_bytes",
+        "detail": "full"
+      },
+      "result_chars": 3052,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response._get_content_decoder",
+        "detail": "full"
+      },
+      "result_chars": 2171,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.charset_encoding",
+        "detail": "full"
+      },
+      "result_chars": 966,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.read",
+        "detail": "full"
+      },
+      "result_chars": 970,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 20.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "answer": "**Digest auth is a generator-based auth flow.** `DigestAuth` (`httpx/_auth.py:175`) subclasses `Auth` and implements `auth_flow` (`httpx/_auth.py:193`), which yields the request, receives the response, and may yield a second, signed request.\n\n**Flow inside `auth_flow`:**\n1. If a previous challenge is cached (`_last_challenge`, set at `:190`), it attaches an `Authorization` header up front (`:194-197`).\n2. It yields the request and receives the response (`:199`).\n3. If the status is not 401, or there is no Digest `WWW-Authenticate` header, it returns (`:201-212`).\n4. Otherwise it parses the challenge (`_parse_challenge`, `:224`), resets `_nonce_count` to 1 (`:215`), builds the header, copies any response cookies onto the request (`:220-221`), and yields the retried request (`:222`).\n\n**Header construction** (`_build_auth_header`, `:255`):\n- HA1 = hash(user:realm:password). For `-sess` algorithms it is rehashed with nonce and cnonce (`:263-276`).\n- HA2 = hash(method:path) (`:265-268`).\n- With qop, the response is hash(HA1:nonce:nc:cnonce:qop:HA2). Without qop it follows RFC 2069 (`:278-291`).\n- `_resolve_qop` prefers `auth`. Pure `auth-int` raises `NotImplementedError` (`:329-337`).\n- The cnonce is a truncated SHA-1 over nonce count, nonce, time, and `os.urandom(8)` (`:303-309`).\n- Fields are serialized with quoting rules for algorithm, qop, and nc (`:311-327`).\n\n**How the client drives it:**\n- `Client.send` calls `_build_request_auth` (`httpx/_client.py:914` area, via `:912`) and then `_send_handling_auth` (`:914`).\n- `_send_handling_auth` (`httpx/_client.py:930-962`) calls `auth.sync_auth_flow(request)` (`:937`) and takes the first yielded request.\n- It loops: send through `_send_handling_redirects` (`:942`), then `auth_flow.send(response)` (`:949`).\n- On `StopIteration` it returns the final response (`:950-951`).\n- Otherwise it reads the response body so the connection can be reused (`:953-954`), records it in history (`:956`), and sends the next yielded request.\n- The `finally` block closes the generator (`:962`).\n- `AsyncClient._send_handling_auth` (`httpx/_client.py:1645`) mirrors this with `async_auth_flow`.\n\nEach auth attempt therefore costs one extra round trip on the first request to a Digest-protected resource. Later requests reuse the cached challenge, with an incrementing nonce count.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 5,
+  "cost_usd": 0.00168519,
+  "duration_ms": 12794,
+  "tokens": {
+    "input": 10,
+    "cache_write": 2323,
+    "cache_read": 41859,
+    "output": 1602,
+    "context": 2333,
+    "total": 45794
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 860,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth",
+        "detail": "full"
+      },
+      "result_chars": 8269,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "DigestAuth.auth_flow",
+        "direction": "up"
+      },
+      "result_chars": 99,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_build_request_auth"
+      },
+      "result_chars": 968,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_send_handling_auth"
+      },
+      "result_chars": 941,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_auth",
+        "detail": "full"
+      },
+      "result_chars": 2789,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 20.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

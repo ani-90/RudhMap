@@ -1,0 +1,75 @@
+{
+  "answer": "All line numbers below are in `httpx/_client.py`.\n\n**Code path**\n- `Client.send()` (879) resolves `follow_redirects` against the client default (904-908). It then calls `_send_handling_auth()` (914), which runs the auth flow and calls `_send_handling_redirects()` (942).\n- `_send_handling_redirects()` (964) loops:\n  - It raises `TooManyRedirects` when `len(history) > max_redirects` (971).\n  - It sends the request with `_send_single_request()` (979).\n  - If the response has no redirect location, it returns the response (985).\n  - Otherwise it builds the next request with `_build_redirect_request()` (988) and appends the response to `history` (989).\n  - If `follow_redirects` is true, it reads the response body and loops again (991-992).\n  - If not, it stores the new request in `response.next_request` and returns (994-995).\n\n**How the redirected request is decided** (`_build_redirect_request`, 475-492)\n\n- **Method** (`_redirect_method`, 494-515):\n  - A 303 becomes GET unless the method is HEAD (502).\n  - A 302 becomes GET unless the method is HEAD (507).\n  - A 301 becomes GET only if the method is POST (512).\n  - 307 and 308 keep the original method, since no rule matches them.\n- **URL** (`_redirect_url`, 517-544):\n  - It reads the `Location` header and fills in a missing host (532).\n  - It joins relative URLs onto the request URL (537-538).\n  - It carries over the old fragment if the new URL has none (541).\n- **Headers** (`_redirect_headers`, 546-571):\n  - It copies the original headers (550).\n  - If the origin changes, it drops `Authorization` (556), except on an HTTP\u2192HTTPS upgrade (553). It also resets `Host` (559).\n  - If the method switched to GET, it drops `Content-Length` and `Transfer-Encoding` (561-565).\n  - It always drops `Cookie` (569). The new request's cookies are rebuilt from the client's cookie jar (484).\n- **Body** (`_redirect_stream`, 573-582):\n  - If the method switched to GET, the body is `None` (579-580).\n  - Otherwise it reuses `request.stream` (582), which is how 307 and 308 resend the body.\n\nThe extensions, including the timeout, are copied unchanged (491). The async client has the same logic in `AsyncClient._send_handling_redirects` (1679).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0306291,
+  "duration_ms": 10263,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3978,
+    "cache_read": 17251,
+    "output": 1298,
+    "context": 3984,
+    "total": 22533
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def send\\(|def _send_handling_redirects|def _build_redirect_request|def _redirect_method|def _redirect_url|def _redirect_headers|def _redirect_stream",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "output_mode": "content"
+      },
+      "result_chars": 495,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 470,
+        "limit": 125
+      },
+      "result_chars": 5160,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 879,
+        "limit": 135
+      },
+      "result_chars": 4697,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 11.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

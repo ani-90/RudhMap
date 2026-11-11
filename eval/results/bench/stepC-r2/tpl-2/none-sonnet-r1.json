@@ -1,0 +1,77 @@
+{
+  "answer": "`crud.get_user_by_email` is defined at `backend/app/crud.py:34` and takes keyword-only `session` and `email`. It returns `User | None`. It has 9 non-test call sites: one in `crud.py` and eight in the routes.\n\n**`backend/app/crud.py`**\n- `crud.py:46`, in `authenticate()`: it fetches the user to check the password against `db_user.hashed_password`.\n  - If the user is `None`, it verifies against a dummy hash to avoid a timing leak (`crud.py:47-51`).\n  - It may also rehash and save the password (`crud.py:55-59`).\n\n**`backend/app/api/routes/login.py`**\n- `login.py:58`, in `recover_password`: it sends a reset email only if the user exists. The response is the same either way, to prevent email enumeration. It uses `user.email` (`login.py:65`).\n- `login.py:85`, in the password reset endpoint: it looks the user up from the token's email.\n  - A missing user gives a 400 \"Invalid token\" (`login.py:86-88`).\n  - An inactive user gives a 400 (`login.py:89-90`).\n  - Otherwise it goes on to `crud.update_user`.\n- `login.py:109`, in `recover_password_html_content`: it returns 404 if the user is missing (`login.py:111-115`). Otherwise it builds the reset email.\n\n**`backend/app/api/routes/users.py`**\n- `users.py:61`, in `create_user`: it returns 400 if the email is already taken (a duplicate check).\n- `users.py:151`, in `register_user`: it does the same duplicate check with a 400.\n- `users.py:90`, in the update-own-user route: it returns 409 if the email belongs to a different user than `current_user` (`users.py:91`).\n- `users.py:204`, in the admin update route: it returns 409 if the email belongs to a user other than `user_id` (`users.py:205`).\n\n**Impact of a signature change**\n- Every caller passes `session=` and `email=` as keywords, and every caller treats the result as `User | None`.\n- Most callers only check truthiness or `.id`.\n- Only `authenticate` (`hashed_password`), `login.py:85` (`is_active`) and `login.py:58` (`.email`) use other attributes.\n- Test callers also use it, so they would need updating too: `tests/utils/user.py:39` and `tests/api/routes/test_users.py` at lines 55, 74, 112 and 496.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0346528,
+  "duration_ms": 10889,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5006,
+    "cache_read": 16868,
+    "output": 1293,
+    "context": 5012,
+    "total": 23173
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1484,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 30,
+        "limit": 30
+      },
+      "result_chars": 1328,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "get_user_by_email",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes",
+        "output_mode": "content",
+        "-n": true,
+        "-B": 4,
+        "-A": 8
+      },
+      "result_chars": 6768,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 12.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

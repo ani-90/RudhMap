@@ -1,0 +1,123 @@
+{
+  "answer": "**Short answer:** `Response.text` doesn't decompress anything itself. It reads `self.content`, which is already decompressed bytes, and decodes them with the encoding chosen by `Response.encoding`.\n\n**1. Decompression (happens earlier, in `read()`)**\n- `Response.text` calls `self.content` (`httpx/_models.py:644`), which only returns `self._content` and raises `ResponseNotRead` if the body hasn't been read (`httpx/_models.py:636-639`).\n- `_content` is filled by `read()`, which joins `iter_bytes()` (`httpx/_models.py:880-881`).\n- `iter_bytes()` wraps the raw stream with a decoder from `_get_content_decoder()` and feeds each raw chunk through `decoder.decode`, then `decoder.flush()` (`httpx/_models.py:894-901`).\n- `_get_content_decoder()` reads the `Content-Encoding` header(s), looks each token up in `SUPPORTED_DECODERS` (gzip, deflate, br, zstd, identity; `httpx/_models.py:706-710`, `httpx/_decoders.py:381`), and returns a single decoder or a `MultiDecoder` for stacked encodings. Unknown tokens are skipped, and with no recognized encoding it falls back to `IdentityDecoder` (`httpx/_models.py:715-720`).\n\n**2. Character encoding selection**\n`Response.text` uses `self.encoding or \"utf-8\"` (`httpx/_models.py:648`). The `encoding` property (`httpx/_models.py:664-671`) resolves in this order:\n1. An explicit `.encoding = ...` assignment, which is stored in `_encoding`.\n2. The `charset` parameter from `Content-Type` (`self.charset_encoding`), if `_is_known_encoding` accepts it (`httpx/_models.py:665-666`).\n3. Otherwise `default_encoding`: if it's a string, it's used directly; if it's a callable, it's called with the content bytes for autodetection (`httpx/_models.py:667-670`).\n4. If that yields nothing, it falls back to `\"utf-8\"` (`httpx/_models.py:671`).\n\n**3. Decoding to str**\n`Response.text` returns `\"\"` for empty content. Otherwise it creates `TextDecoder(encoding=...)` and returns `\"\".join([decoder.decode(content), decoder.flush()])` (`httpx/_models.py:645-649`). `TextDecoder` wraps `codecs.getincrementaldecoder(encoding)(errors=\"replace\")` (`httpx/_decoders.py:311-312`), so invalid byte sequences become U+FFFD rather than raising. The result is cached in `_text` (`httpx/_models.py:643, 649`).\n\nI read these from the rudhmap call graph and did not open the files directly. I didn't inspect `_is_known_encoding` (`httpx/_models.py:56`) or `charset_encoding`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 5,
+  "cost_usd": 0.00246912,
+  "duration_ms": 13172,
+  "tokens": {
+    "input": 10,
+    "cache_write": 6407,
+    "cache_read": 31322,
+    "output": 1747,
+    "context": 6417,
+    "total": 39486
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Response.text"
+      },
+      "result_chars": 1118,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding"
+      },
+      "result_chars": 1649,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.content"
+      },
+      "result_chars": 622,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "TextDecoder"
+      },
+      "result_chars": 474,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.iter_bytes"
+      },
+      "result_chars": 3052,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.read"
+      },
+      "result_chars": 970,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response._get_content_decoder"
+      },
+      "result_chars": 2171,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "TextDecoder.__init__"
+      },
+      "result_chars": 420,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 24.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

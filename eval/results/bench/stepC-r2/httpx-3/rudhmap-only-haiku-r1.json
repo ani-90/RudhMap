@@ -1,0 +1,123 @@
+{
+  "answer": "**Where it's configured:** `Timeout` is defined in `httpx/_config.py:72`. Its `__init__` (`_config.py:86-130`) accepts a single float or `None`, a 4-tuple `(connect, read, write, pool)`, a `Timeout` instance, or keyword overrides. A single value becomes the default for all four phases. Omitting it with no default raises `ValueError`.\n\n**How it reaches the network layer:**\n\n1. **Client:** `Client.send` (`httpx/_client.py:910`) calls `BaseClient._set_timeout` (`_client.py:584-591`). If the request has no `\"timeout\"` extension, this uses the client's timeout, wraps non-`Timeout` values in `Timeout(...)`, and stores `timeout.as_dict()` in `request.extensions[\"timeout\"]`.\n2. **Auth and redirects:** `send` then calls `_send_handling_auth` (`_client.py:914`), which goes through redirect handling. The request carries the timeout extension through these steps.\n3. **Transport:** `HTTPTransport.handle_request` (`httpx/_transports/default.py:230-259`) copies `request.extensions` into an `httpcore.Request` (`default.py:247`) and calls `self._pool.handle_request`. The timeout values are read by httpcore, which is an external library and not in this repo, so I did not verify exactly where it applies each phase.\n\n**Exceptions:** httpcore exceptions are translated in `map_httpcore_exceptions` (`default.py:96-118`) using the table in `_load_httpcore_exceptions` (`default.py:74-92`). Each one is re-raised as the most specific httpx type, chained with `from exc`:\n- `httpcore.ConnectTimeout` \u2192 `ConnectTimeout` (`httpx/_exceptions.py:140`)\n- `httpcore.ReadTimeout` \u2192 `ReadTimeout` (`_exceptions.py:146`)\n- `httpcore.WriteTimeout` \u2192 `WriteTimeout` (`_exceptions.py:152`)\n- `httpcore.PoolTimeout` \u2192 `PoolTimeout` (`_exceptions.py:158`)\n- any other httpcore timeout \u2192 `TimeoutException` (`_exceptions.py:132`)\n\nAll of these subclass `TimeoutException`, which subclasses `TransportError`. Non-timeout network errors are mapped in the same way (for example, `ConnectError` and `ReadError`).\n\nUnlike the exception table, the `_set_timeout` path does not show `Timeout.as_dict` in the output I pulled, so I did not verify its definition.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 4,
+  "cost_usd": 0.00272339,
+  "duration_ms": 11913,
+  "tokens": {
+    "input": 8,
+    "cache_write": 8076,
+    "cache_read": 23939,
+    "output": 1736,
+    "context": 8084,
+    "total": 33759
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout"
+      },
+      "result_chars": 1090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout.__init__"
+      },
+      "result_chars": 3115,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseClient._set_timeout"
+      },
+      "result_chars": 148,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "map_httpcore_exceptions"
+      },
+      "result_chars": 1927,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "HTTPTransport.handle_request"
+      },
+      "result_chars": 1899,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions"
+      },
+      "result_chars": 1100,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 3835,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 19.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": false,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

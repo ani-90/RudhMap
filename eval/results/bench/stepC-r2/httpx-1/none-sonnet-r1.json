@@ -1,0 +1,76 @@
+{
+  "answer": "**Code path** (all in `httpx/_client.py`)\n\n1. `Client.send()` (`:879`) resolves `follow_redirects` (`:905-908`), builds auth, and calls `_send_handling_auth()` (`:914`).\n2. `_send_handling_auth()` (`:930`) runs the auth flow. Each request it yields goes to `_send_handling_redirects()` (`:942`).\n3. `_send_handling_redirects()` (`:964`) loops:\n   - It raises `TooManyRedirects` if `len(history) > max_redirects` (`:971`).\n   - It sends one request via `_send_single_request` (`:979`).\n   - It returns the response if there is no redirect `Location` (`:985`).\n   - Otherwise it calls `_build_redirect_request()` (`:988`) and appends the response to `history`.\n   - With `follow_redirects` set, it reads the response body and loops (`:991-992`).\n   - Without it, it stores the request in `response.next_request` and returns (`:994-995`).\n\n**How the redirect request is built** (`_build_redirect_request`, `:475-492`)\n\n- **Method** (`_redirect_method`, `:494`):\n  - A 303 becomes GET unless the method is HEAD (`:502`).\n  - A 302 becomes GET unless the method is HEAD (`:507`).\n  - A 301 becomes GET only if the method is POST (`:512`).\n  - 307 and 308 keep the original method, since no rule matches them.\n- **URL** (`_redirect_url`, `:517`):\n  - It reads `Location`.\n  - It fills in a missing host (`:532`).\n  - It resolves relative URLs against the request URL (`:537`).\n  - It carries over the old fragment (`:541`).\n- **Headers** (`_redirect_headers`, `:546`):\n  - It copies the original headers.\n  - For a cross-origin redirect it drops `Authorization`, except on an HTTP\u2192HTTPS upgrade (`:552-556`). It also resets `Host` (`:559`).\n  - If the method changed to GET, it drops `Content-Length` and `Transfer-Encoding` (`:561-565`).\n  - It always drops `Cookie` (`:569`). The new `Request` is given the client's cookie jar instead (`:484`).\n- **Body** (`_redirect_stream`, `:573`): it returns `None` if the method changed to GET (`:579-580`). Otherwise it reuses the original `request.stream` (`:582`). This is why 307 and 308 resend the same body.\n\nThe async client mirrors this in `_send_handling_redirects` at `:1679`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0398333,
+  "duration_ms": 11142,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6145,
+    "cache_read": 15113,
+    "output": 1373,
+    "context": 6151,
+    "total": 22637
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def send\\(|_send_handling_auth|_send_handling_redirects|def _build_redirect_request|def _redirect_method|def _redirect_url|def _redirect_headers|def _redirect_stream",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "glob": "**/_client.py",
+        "output_mode": "content"
+      },
+      "result_chars": 1059,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 470,
+        "limit": 125
+      },
+      "result_chars": 5160,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 905,
+        "limit": 100
+      },
+      "result_chars": 3346,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 12.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

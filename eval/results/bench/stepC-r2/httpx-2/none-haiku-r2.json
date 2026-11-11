@@ -1,0 +1,76 @@
+{
+  "answer": "**Direct subclasses that override or inherit `handle_request`:**\n- `HTTPTransport(BaseTransport)`, `httpx/_transports/default.py:135`, overrides it at `default.py:230`. It calls `self._pool.handle_request` at `default.py:250`, which is httpcore's method, not this one.\n- `WSGITransport(BaseTransport)`, `httpx/_transports/wsgi.py:44`, overrides it at `wsgi.py:91`.\n- `MockTransport(AsyncBaseTransport, BaseTransport)`, `httpx/_transports/mock.py:15`, overrides it at `mock.py:19`.\n\nEach override would need the same signature change, or type checkers will flag the mismatch. Python won't fail at runtime.\n\n**Call sites:**\n- `httpx/_client.py:1014` is the only internal caller, inside `Client._send_single_request` (defined at `_client.py:1001`). That method is reached from `Client.send` via `_client.py:979`.\n- The async path does not use this method. `AsyncClient` calls `handle_async_request` through `_send_single_request` at `_client.py:1694` and `_client.py:1717`. `ASGITransport` (`asgi.py:63`) and `AsyncHTTPTransport` (`default.py:279`) are unaffected.\n- `base.py:48` is a usage example in the `BaseTransport.handle_request` docstring. Update it if the signature changes.\n\n**Other references:**\n- `_client.py:652`, `_client.py:659`, `_client.py:697`, `_client.py:726`, and `_client.py:760` use `BaseTransport` as a type only. They don't call `handle_request`, so they aren't affected by a signature change.\n- `httpx/__init__.py:39` and `httpx/_transports/__init__.py:10` export `BaseTransport` by name. A signature change doesn't affect those exports.\n\n**Not covered:** I didn't search for `handle_request` in non-Python files or in docs. Users' custom transports subclassing `BaseTransport` outside this repo would also break at the type level, and I can't see them from here.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0015641700000000001,
+  "duration_ms": 10346,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2834,
+    "cache_read": 19977,
+    "output": 1594,
+    "context": 2840,
+    "total": 24411
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "handle_request|class BaseTransport|class .*\\(BaseTransport\\)|class .*\\(AsyncBaseTransport\\)",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1060,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class MockTransport|BaseTransport|_send_single_request|self\\._transport\\.handle_request|\\.handle_request\\(",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2898,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\base.py",
+        "limit": 30
+      },
+      "result_chars": 861,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 11.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": true,
+      "httpcore": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

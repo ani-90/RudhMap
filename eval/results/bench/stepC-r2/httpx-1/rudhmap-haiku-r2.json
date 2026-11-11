@@ -1,0 +1,99 @@
+{
+  "answer": "**Flow:** `Client.send()` (`httpx/_client.py:879-928`) resolves `follow_redirects` from the client default (904-908), builds auth (912), and calls `_send_handling_auth` (914). That method calls `_send_handling_redirects` (`_client.py:942`), which holds the loop (`_client.py:964-999`):\n\n1. Raises `TooManyRedirects` once `len(history) > max_redirects` (971-974).\n2. Sends one hop via `_send_single_request` (979).\n3. If the response has no redirect location, returns it (985-986).\n4. Otherwise builds the next request with `_build_redirect_request` (988) and appends to `history` (989).\n5. If `follow_redirects` is true, reads the response and loops (991-992). Otherwise it sets `response.next_request` and returns (993-995).\n\n**Method** (`_redirect_method`, `_client.py:494-515`): the default is the original method. 303 becomes GET unless the method is HEAD (502-503). 302 becomes GET unless HEAD (507-508). 301 becomes GET only for POST (512-513). 307 and 308 keep the method, since no branch changes it.\n\n**Headers** (`_redirect_headers`, `_client.py:546-571`): starts from a copy of the original headers (550).\n- On cross-origin redirects, `Authorization` is dropped unless the change is an HTTP\u2192HTTPS upgrade (552-556). `Host` is rewritten to the new netloc (559).\n- If the method changed to GET, `Content-Length` and `Transfer-Encoding` are removed (561-565).\n- `Cookie` is always removed (569). The new `Cookies` object is built from the client's cookie jar (`_client.py:484`), not the original request.\n\n**Body** (`_redirect_stream`, `_client.py:573-582`): if the method was switched to GET, the body is `None` (579-580). Otherwise the original `request.stream` is reused (582).\n\n**Target URL:** `_redirect_url` (`_client.py:481`) resolves the target. I did not open its body, so I can't describe the Location parsing from the code I read.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 2,
+  "cost_usd": 0.00213592,
+  "duration_ms": 11013,
+  "tokens": {
+    "input": 4,
+    "cache_write": 5687,
+    "cache_read": 14262,
+    "output": 1711,
+    "context": 5691,
+    "total": 21664
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 3835,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3043,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._build_redirect_request"
+      },
+      "result_chars": 2366,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_method"
+      },
+      "result_chars": 1336,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_headers"
+      },
+      "result_chars": 2286,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_stream"
+      },
+      "result_chars": 728,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 19.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "Authorization is dropped unless the change is an HTTP\u2192HTTPS upgrade \u2014 the key says exception is only a same-host http->https upgrade (minor imprecision)",
+      "Authorization is dropped on cross-origin redirects 'unless the change is an HTTP\u2192HTTPS upgrade' \u2014 the key says the exception is only a same-host http->https upgrade; this is a minor imprecision"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

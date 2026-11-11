@@ -1,0 +1,67 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) is the handler for `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a background news-refresh pipeline run and returns right away, unless a refresh finished recently.\n\n**What it does**\n\n1. **Cooldown check (L26-42):** It loads the last successful pipeline run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns `status=\"skipped\"` with the old `run_id` and the remaining cooldown. No new run is created.\n2. **Start a run (L44-48):** It resolves the requested domains with `FeedRefreshRequest.resolved_domains()` (`app/schemas/feed.py:11`), which falls back to the full `DOMAINS` list (`app/config.py:37`) or filters the request to known domains. It generates a UUID, then calls `crud.create_pipeline_run` (`app/db/crud.py:107`) and `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`).\n3. **Queue work (L50):** It schedules `_run_pipeline_bg(run_id, user_id, domains)` (`app/api/feed.py:55`) with `background_tasks.add_task`.\n\n**What happens after it returns**\n\n- It returns `FeedRefreshResponse(status=\"running\")` (`app/api/feed.py:52`). The client gets the `run_id` immediately.\n- FastAPI runs the background task after the response is sent. `_run_pipeline_bg` calls `run_pipeline` (`app/pipeline/graph.py:69`), which builds a LangGraph-style graph (`_build_graph`, `app/pipeline/graph.py:56`). The graph runs the per-domain agents (`app/pipeline/graph.py:28`), then `aggregator_node` (`app/pipeline/aggregator.py:14`). The aggregator does similarity search and inserts articles (`app/db/qdrant.py:39`, `app/db/crud.py:40`, `app/db/qdrant.py:51`). `run_pipeline` then updates the run's status (`app/pipeline/graph.py:64`).\n- The client finds out the outcome by checking the run record. Nothing in this handler reports completion.\n\n**Observations**\n\n- `refresh_feed` is `async def` but calls synchronous SQLAlchemy functions, which block the event loop while they run.\n- A \"skipped\" response reuses the previous run's `run_id`, so a client can't tell it apart from a real run except by `status`.\n- The rudhmap call graph shows no callers inside the code, so the only entry point is the HTTP route.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 2,
+  "cost_usd": 0.0014977600000000003,
+  "duration_ms": 9087,
+  "tokens": {
+    "input": 4,
+    "cache_write": 3126,
+    "cache_read": 13466,
+    "output": 1475,
+    "context": 3130,
+    "total": 18071
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 1273,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 17.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "The answer says that after returning, the client finds out the outcome by checking the run record, and that nothing reports completion \u2014 it doesn't mention the failure handling; but this is not false per se.",
+      "The answer says run_pipeline updates the run's status, rather than the aggregator writing the final status and counts (minor attribution mismatch).",
+      "The client finds out the outcome by checking the run record; nothing mentions the GET /api/feed/status/{run_id} endpoint (omission, not false)",
+      "Skipped response reuses the previous run's run_id (key says it returns remaining cooldown seconds, run_id not specified) - unverified",
+      "A skipped response reuses the previous run's run_id (key says it returns skipped with remaining cooldown seconds; not stated to carry the old run_id)",
+      "The client finds out outcome only by checking the run record and 'Nothing in this handler reports completion' - omits the status endpoint, minor"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}
