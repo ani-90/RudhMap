@@ -1,0 +1,94 @@
+{
+  "answer": "**Password login flow (`POST /login/access-token`)**\n\n1. **Request parsing:** The route takes an `OAuth2PasswordRequestForm` dependency, so the body is form-encoded and `username` carries the email. `login.py:23-26`\n\n2. **Authentication:** The route calls `crud.authenticate(email=form_data.username, password=form_data.password)`. `login.py:30-32`\n\n3. **Lookup and verification:** `authenticate` loads the user by email and checks the password with `verify_password`, which uses pwdlib with Argon2 preferred and bcrypt accepted. `crud.py:45-52`, `security.py:11-16`, `security.py:29-32`\n   - If the password is wrong, it returns `None`. `crud.py:53-54`\n   - If the hash is an older scheme and pwdlib returns an updated hash, the user's hash is rewritten (in practice, bcrypt is upgraded to Argon2) and committed. `crud.py:55-59`\n\n4. **Active check:** Back in the route, `None` yields `400 \"Incorrect email or password\"`, and an inactive user yields `400 \"Inactive user\"`. `login.py:33-36`\n\n5. **Token issuance:** The route sets the lifetime from `settings.ACCESS_TOKEN_EXPIRE_MINUTES` and returns `Token(access_token=...)`. `login.py:37-42`. `create_access_token` builds a payload with `exp` (UTC now plus the lifetime) and `sub = str(user.id)`, then signs it as HS256 with `settings.SECRET_KEY`. `security.py:19-26`\n\n**Unknown email:** `authenticate` looks up no user and, instead of returning early, runs `verify_password` against `DUMMY_HASH`, a fixed Argon2 hash, so the response time doesn't reveal whether the email exists. It then returns `None`. `crud.py:40-42`, `crud.py:47-51`. The route returns the same `400 \"Incorrect email or password\"` as for a wrong password, so the response body doesn't reveal it either. `login.py:33-34`\n\n**Not verified:** I didn't open `models.py` to confirm the `Token` schema, or `get_user_by_email`. The tests in `backend/tests/api/routes/test_login.py` cover this endpoint, but I didn't run them.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0030065,
+  "duration_ms": 11063,
+  "tokens": {
+    "input": 6,
+    "cache_write": 9595,
+    "cache_read": 20340,
+    "output": 1767,
+    "context": 9601,
+    "total": 31708
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "access-token|authenticate|create_access_token|verify_password|HTTPException",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 8224,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "**/*.py",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901"
+      },
+      "result_chars": 1198,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\login.py",
+        "limit": 50
+      },
+      "result_chars": 1743,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "offset": 40,
+        "limit": 25
+      },
+      "result_chars": 1242,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\security.py"
+      },
+      "result_chars": 1009,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "unknown-email": true,
+      "verify": true,
+      "inactive": true,
+      "token": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

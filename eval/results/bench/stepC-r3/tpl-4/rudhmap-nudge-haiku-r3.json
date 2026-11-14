@@ -1,0 +1,113 @@
+{
+  "answer": "**Logged-in check: token presence only.** `isLoggedIn()` returns true if `localStorage` has an `access_token` (`frontend/src/hooks/useAuth.ts:14-16`). It doesn't decode or verify the token. The protected `_layout` route's `beforeLoad` redirects to `/login` when that check fails (`frontend/src/routes/_layout.tsx:14-19`).\n\n**Token attachment.** `main.tsx` configures the API client to read the token from localStorage on each request (`frontend/src/main.tsx:17-20`). `getAuthToken` prefixes it as `Bearer <token>` (`frontend/src/client/core/auth.gen.ts:22-41`).\n\n**Server-side validation.** `get_current_user` decodes the JWT. An invalid or expired token raises `403 \"Could not validate credentials\"`. A missing user returns 404, and an inactive user returns 400 (`backend/app/api/deps.py:30-46`).\n\n**Expired or invalid token handling.** The frontend only reacts when a query or mutation fails:\n- `handleApiError` runs on every query and mutation error. If the error is an Axios 401 or 403, it removes `access_token` and does `window.location.href = \"/login\"` (`frontend/src/main.tsx:22-30`, wired at `:31-38`).\n- The `currentUser` query (`useAuth.ts:23-27`) is what usually detects an expired token. Its request fails, and the handler clears the token and redirects.\n- `logout` clears the token and navigates to `/login` (`useAuth.ts:56-59`).\n\n**Gaps:**\n- The `beforeLoad` guard never checks validity, so an expired token passes it until an API call fails. There is a brief window where protected UI renders before the redirect.\n- `handleApiError` only handles 401 and 403. The backend's 400 (inactive user) and 404 (user deleted) responses don't clear the token or redirect.\n- The backend's `get_current_user` returns 403 for bad tokens, not the usual 401, so the 401 check is only partly relevant here.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 4,
+  "cost_usd": 0.00291622,
+  "duration_ms": 12257,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7931,
+    "cache_read": 39372,
+    "output": 1871,
+    "context": 7939,
+    "total": 49182
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 5469,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "token expired invalid login frontend"
+      },
+      "result_chars": 1263,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/hooks/useAuth.ts"
+      },
+      "result_chars": 2139,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/main.tsx"
+      },
+      "result_chars": 1892,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/client/core/auth.gen.ts"
+      },
+      "result_chars": 1112,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/_layout.tsx"
+      },
+      "result_chars": 1304,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "get_current_user",
+        "detail": "full"
+      },
+      "result_chars": 1522,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/login.tsx"
+      },
+      "result_chars": 161,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 15.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": true,
+      "global-handler": true,
+      "login-stores": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

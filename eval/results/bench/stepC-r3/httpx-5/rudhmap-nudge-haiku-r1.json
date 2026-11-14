@@ -1,0 +1,80 @@
+{
+  "answer": "**Short answer:** `Response.text` doesn't decompress anything itself. It reads `self.content`, which already holds decompressed bytes, then decodes them with an incremental text decoder whose charset comes from the `encoding` property.\n\n**1. Bytes \u2192 decoded content**\n\n- `Response.text` (`httpx/_models.py:642-650`) reads `self.content` and, if non-empty, builds a `TextDecoder` and joins `decode(content)` with `flush()`.\n- `Response.content` (`httpx/_models.py:636-639`) returns `_content` and raises `ResponseNotRead` if the body hasn't been read.\n- `Response.read()` (`httpx/_models.py:876-882`) fills `_content` with `b\"\".join(self.iter_bytes())`.\n- `iter_bytes` (`httpx/_models.py:884-905`) is where decompression happens. It calls `_get_content_decoder()` and runs each raw chunk from `iter_raw()` through `decoder.decode`, then `flush()`.\n\n**2. Decompression selection**\n\n- `_get_content_decoder` (`httpx/_models.py:699-722`) reads every `Content-Encoding` header value, splits on commas, and looks each one up in `SUPPORTED_DECODERS` (`httpx/_decoders.py:381`). Unknown encodings are skipped silently.\n- One decoder is used directly. Several are wrapped in `MultiDecoder` (`httpx/_decoders.py:203-225`), which applies them in reverse order of how they were applied. No encoding gives `IdentityDecoder`.\n\n**3. Character-encoding selection**\n\nThe `encoding` property (`httpx/_models.py:652-672`) caches its result and follows this priority, per its docstring:\n1. An explicit `.encoding = ...` value.\n2. The `charset` parameter from `Content-Type` (`charset_encoding`, `httpx/_models.py:689-697`, parsed by `_parse_content_type_charset` at line 85). It is ignored unless `_is_known_encoding` (line 56) confirms the codec exists.\n3. `default_encoding`: a string is used as-is, or a callable is applied to `_content` for autodetection.\n4. Fallback to `\"utf-8\"`.\n\n**4. Decoding**\n\n`TextDecoder` (`httpx/_decoders.py:306-318`) wraps `codecs.getincrementaldecoder(encoding)(errors=\"replace\")`. Invalid bytes become U+FFFD rather than raising. `flush()` decodes the remaining buffered bytes with `final=True`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.00261266,
+  "duration_ms": 10112,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7531,
+    "cache_read": 32766,
+    "output": 1556,
+    "context": 7539,
+    "total": 41861
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.content"
+      },
+      "result_chars": 622,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding, Response.iter_bytes, Response.read, TextDecoder, IdentityDecoder, Response.iter_raw",
+        "detail": "full"
+      },
+      "result_chars": 6608,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response._get_content_decoder, Response.charset_encoding, MultiDecoder, Response.iter_raw",
+        "detail": "full"
+      },
+      "result_chars": 7118,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 13.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

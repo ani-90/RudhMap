@@ -1,0 +1,90 @@
+{
+  "answer": "**Generation** (`POST /api/quiz/generate`, `app/api/quiz.py:23`)\n\n1. Loads the article by ID and returns 404 if missing (`app/api/quiz.py:24-26`).\n2. If the article has no summary, it calls `groq_client.summarize` on the raw content and saves the result (`app/api/quiz.py:28-31`).\n3. Calls `groq_client.generate_quiz(article.summary)` (`app/api/quiz.py:33`). That function sends a quiz-master system prompt through `_call`, parses the reply with `_extract_json`, and keeps at most 3 questions. It returns `[]` on bad JSON (`app/services/groq_client.py:88-97`).\n4. Empty output returns 422 (`app/api/quiz.py:34-35`). Otherwise it stores a `QuizSession` holding the questions, including their answer keys (`app/api/quiz.py:37-43`, `app/db/crud.py:141`).\n5. The response strips the answer keys and returns only the question, options A\u2013D, and explanation (`app/api/quiz.py:45-64`).\n\n**Scoring** (`POST /api/quiz/submit`, `app/api/quiz.py:68`)\n\n1. Returns 404 if the session doesn't exist and 409 if it was already submitted (`app/api/quiz.py:69-73`).\n2. `crud.submit_quiz_session` (`app/db/crud.py:155-171`) does the grading:\n   - Compares each answer to the stored answer for its index, `user_answers[str(i)]`. The comparison is case-insensitive via `.upper()`.\n   - A missing answer counts as wrong, because it defaults to `\"\"`.\n   - `correct_count` is the number of matches. `score = correct / total`, or 0.0 if there are no questions.\n   - It saves the answers, sets `submitted_at`, and commits.\n3. The endpoint rebuilds a per-question breakdown from the stored questions (`app/api/quiz.py:75-88`). It returns `score` rounded to 3 decimals, `correct_count`, `total_questions`, and the breakdown (`app/api/quiz.py:90-96`).\n\n**Notes**\n- Answer keys are sent to the client in the submit response breakdown, not in the generate response.\n- Scoring is pure string equality on the option letter, so an answer like \"A \" with whitespace would be marked wrong.\n- I only read these functions. I did not run the code or check the Groq prompt's full text.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.0009300600000000001,
+  "duration_ms": 9669,
+  "tokens": {
+    "input": 8,
+    "cache_write": 0,
+    "cache_read": 28576,
+    "output": 1287,
+    "context": 8,
+    "total": 29871
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "quiz generate"
+      },
+      "result_chars": 1006,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "quiz score submit"
+      },
+      "result_chars": 1198,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "generate_quiz, submit_quiz, submit_quiz_session"
+      },
+      "result_chars": 3728,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/api/quiz.py:generate_quiz"
+      },
+      "result_chars": 3249,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/services/groq_client.py:generate_quiz"
+      },
+      "result_chars": 1250,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-5",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "summary-first": true,
+      "generate": true,
+      "answers-hidden": true,
+      "scoring": true,
+      "groq-retry": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "The answer says 'keeps at most 3 questions' which is slightly different from asking for exactly 3, but is minor.",
+      "Answer states the generate response includes an explanation field; not contradicted by key."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

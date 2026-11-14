@@ -1,0 +1,68 @@
+{
+  "answer": "**Where SECRET_KEY is used (backend):**\n\n- **Declaration:** `backend/app/core/config.py:23` defines `SECRET_KEY: str` on `Settings`.\n- **JWT signing:** `backend/app/core/security.py:25` in `create_access_token` calls `jwt.encode(..., settings.SECRET_KEY, algorithm=...)`.\n- **JWT verification:** `backend/app/api/deps.py:33` in `get_current_user` calls `jwt.decode(token, settings.SECRET_KEY, algorithms=[security.ALGORITHM])`.\n- **Password-reset tokens:** `backend/app/utils.py:112` (`generate_password_reset_token`) signs with it, and `backend/app/utils.py:121` (`verify_password_reset_token`) verifies with it.\n- **Startup check:** `backend/app/core/config.py:81` in `_enforce_non_default_secrets` passes it to the default-value check.\n\n**What happens if it is \"changethis\":**\n\nThe check runs when `Settings` is validated, because `_enforce_non_default_secrets` is a `model_validator(mode=\"after\")` (`backend/app/core/config.py:79-80`). `_check_default_secret` (`config.py:68-77`) tests `value == \"changethis\"`:\n\n- If `FASTAPI_ENV == \"development\"`, it only issues `warnings.warn(...)` and startup continues (`config.py:74-75`).\n- Otherwise (any other environment, such as staging or production), it raises `ValueError`, so the settings fail to load and the app does not start (`config.py:76-77`).\n\nThe same check applies to the database password (`config.py:82-83`) and `FIRST_SUPERUSER_PASSWORD` (`config.py:84-86`).\n\nI did not run the app to confirm this at runtime. The conclusions come from reading the code and the call graph.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.00079553,
+  "duration_ms": 6749,
+  "tokens": {
+    "input": 6,
+    "cache_write": 804,
+    "cache_read": 16563,
+    "output": 937,
+    "context": 810,
+    "total": 18310
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "SECRET_KEY"
+      },
+      "result_chars": 950,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "changethis"
+      },
+      "result_chars": 531,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Settings._check_default_secret, Settings._enforce_non_default_secrets"
+      },
+      "result_chars": 1723,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-5",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 9.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "access-tokens": true,
+      "reset-tokens": true,
+      "changethis": true,
+      "other-secrets": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

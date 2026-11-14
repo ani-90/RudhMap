@@ -1,0 +1,78 @@
+{
+  "answer": "**Where it's configured:** `Timeout` is defined at `httpx/_config.py:72`, with `__init__` at `:86` (connect/read/write/pool, plus a default) and `as_dict()` at `:132`. Clients take it through `BaseClient.timeout` (`httpx/_client.py:254`). Per-request values come from the `timeout=` argument of `build_request` (`httpx/_client.py:352`).\n\n**How it reaches the network layer:**\n1. `Client.send` calls `_set_timeout` (`httpx/_client.py:910`). If the request has no `\"timeout\"` extension, it uses the client's `Timeout` (or wraps a bare number in `Timeout(...)`) and stores `timeout.as_dict()` in `request.extensions[\"timeout\"]` (`httpx/_client.py:584-591`).\n2. `HTTPTransport.handle_request` copies `request.extensions` into an `httpcore.Request` and passes it to `self._pool.handle_request` (`httpx/_transports/default.py:230-250`).\n3. httpcore reads the `timeout` extension and applies it to connect, read, write, and pool waits. That code is not in this repo, so the socket-level enforcement is inferred from the extension contract rather than read directly.\n\n**Exceptions when it fires:**\nhttpcore raises its own timeout exceptions. `map_httpcore_exceptions` (`httpx/_transports/default.py:96-118`) catches them and re-raises the most specific httpx type, chained with `from exc`. The mapping is at `default.py:74-92`:\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout`\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout`\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout`\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout`\n- any other `httpcore.TimeoutException` \u2192 `httpx.TimeoutException`\n\nAll of these subclass `TimeoutException` (`httpx/_exceptions.py:132`), which is a `TransportError`. `ReadTimeout` is at `:146` and `PoolTimeout` at `:158`.\n\nThe map is wrapped in `map_httpcore_exceptions` on the sync path (`default.py:249`). Async transports use the same mapping.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.00210746,
+  "duration_ms": 10673,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4666,
+    "cache_read": 37046,
+    "output": 1606,
+    "context": 4674,
+    "total": 43326
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "request timeout configuration Timeout"
+      },
+      "result_chars": 1760,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout"
+      },
+      "result_chars": 696,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout, BaseClient.build_request, HTTPTransport.handle_request, map_httpcore_exceptions"
+      },
+      "result_chars": 8997,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions"
+      },
+      "result_chars": 1100,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": false,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

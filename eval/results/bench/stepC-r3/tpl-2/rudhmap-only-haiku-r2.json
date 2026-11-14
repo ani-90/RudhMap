@@ -1,0 +1,109 @@
+{
+  "answer": "**Application callers of `get_user_by_email`** (defined at `backend/app/crud.py:34`, body is a single `select(User).where(User.email == email)` returning `.first()` or `None`):\n\nDirect callers:\n\n1. **`recover_password`**, `backend/app/api/routes/login.py:58`: checks existence, then uses `user.email` to send the reset email. Returns the same message either way to prevent enumeration.\n2. **`reset_password`**, `login.py:85`: rejects if `None` (\"Invalid token\"), rejects if `not user.is_active`, then calls `crud.update_user` on the object.\n3. **`recover_password_html_content`**, `login.py:109`: 404 if `None`, otherwise uses `user.email` to build the reset email HTML. Superuser-only.\n4. **`create_user`**, `backend/app/api/routes/users.py:61`: duplicate-email check (`user` truthy means conflict).\n5. **`update_user_me`**, `users.py:90`: `existing_user.id != current_user.id` check, returns 409 on a different user with that email.\n6. **`register_user`**, `users.py:151`: duplicate-email check before `crud.create_user`, returns 400 on conflict.\n7. **`update_user`**, `users.py:204`: from the trace only, not read directly. The route is `PATCH /users/{user_id}` at `users.py:187`.\n\nIndirect caller:\n\n8. **`authenticate`**, `backend/app/crud.py:46`: returns `None` if missing, and still runs a dummy `verify_password` for timing safety (`crud.py:50`). Otherwise it checks the password and returns the `User`. Its only caller is `login_access_token`, `backend/app/api/routes/login.py:30`.\n\n**Impact of changing the signature:** Every call site uses keyword arguments (`session=`, `email=`), so adding or renaming a parameter is safe only if you update all eight sites. Most callers depend on the return value being either a `User` or `None`, so keep that contract. `recover_password` and `authenticate` are the most sensitive, since they're tied to timing and enumeration behavior. `update_user_me` and `register_user` only need truthiness.\n\nCaveat: this list comes from the rudhmap call graph plus source reads. I didn't open `users.py` around line 204 directly, so verify the `update_user` call there. I also didn't check for dynamic or string-based references.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.0023956000000000003,
+  "duration_ms": 11050,
+  "tokens": {
+    "input": 8,
+    "cache_write": 6019,
+    "cache_read": 29550,
+    "output": 1791,
+    "context": 6027,
+    "total": 37368
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "get_user_by_email"
+      },
+      "result_chars": 2513,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password, reset_password, recover_password_html_content"
+      },
+      "result_chars": 6279,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_user, update_user_me, register_user, update_user"
+      },
+      "result_chars": 4269,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "authenticate"
+      },
+      "result_chars": 1999,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:update_user",
+        "detail": "signature"
+      },
+      "result_chars": 318,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "login_access_token",
+        "detail": "signature"
+      },
+      "result_chars": 324,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "Claims reset_password rejects if not user.is_active and then calls crud.update_user on the object; the key only mentions 400 Invalid token (possibly extra detail, not contradicting)."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

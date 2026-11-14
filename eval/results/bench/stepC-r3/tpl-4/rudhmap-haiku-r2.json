@@ -1,0 +1,108 @@
+{
+  "answer": "**Logged-in check:** The frontend only checks whether a token string exists in `localStorage`. `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`). It doesn't validate the token or check expiry.\n\n**Where the check is used:**\n- The protected layout route runs `beforeLoad`, and redirects to `/login` if `isLoggedIn()` is false (`frontend/src/routes/_layout.tsx:14-19`).\n- The `currentUser` query (`GET /users/me`) is only enabled when a token exists (`frontend/src/hooks/useAuth.ts:23-27`).\n- Login stores the token after a successful `loginAccessToken` call (`frontend/src/hooks/useAuth.ts:41-46`). Logout removes it and navigates to `/login` (`frontend/src/hooks/useAuth.ts:56-59`).\n\n**Attaching the token:** The generated client reads the token from `localStorage` on each request via `auth: () => localStorage.getItem(\"access_token\") || \"\"` (`frontend/src/main.tsx:19`). `getAuthToken` adds it as `Bearer <token>` (`frontend/src/client/core/auth.gen.ts:22-41`).\n\n**Expired or invalid token:** Nothing checks this up front. The backend rejects the request, and the frontend reacts to the error:\n- `handleApiError` is wired into the query and mutation caches (`frontend/src/main.tsx:22-36`, handler at line 22, wired at lines 33 and 36). For any Axios error with status 401 or 403, it removes `access_token` and sets `window.location.href = \"/login\"` (`frontend/src/main.tsx:23-29`).\n- This is a hard redirect, not a router navigation, so the in-memory React Query cache is not cleared by this path.\n- Until the next 401/403 happens, `isLoggedIn()` still returns true for an expired token. The layout would render, and the user only gets bounced once a request fails.\n\n**Gaps worth knowing:**\n- Other errors, such as network failures or 500s, don't clear the token.\n- The `/login` redirect and the `beforeLoad` guard are both client-side conveniences. The backend's dependency checks (`backend/app/api/deps.py`) are what actually enforce authentication.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.0029293799999999997,
+  "duration_ms": 11321,
+  "tokens": {
+    "input": 8,
+    "cache_write": 8450,
+    "cache_read": 38908,
+    "output": 1699,
+    "context": 8458,
+    "total": 49065
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 5469,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "token|logged|login|401|expired|localStorage|interceptor",
+        "output_mode": "files_with_matches",
+        "glob": "!**/node_modules/**"
+      },
+      "result_chars": 1632,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "useAuth.ts"
+      },
+      "result_chars": 2139,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "handleApiError"
+      },
+      "result_chars": 482,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_layout.tsx"
+      },
+      "result_chars": 1304,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "getAuthToken"
+      },
+      "result_chars": 881,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "access_token|handleApiError|OpenAPI\\.TOKEN|TOKEN:|onError",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 3965,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": true,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

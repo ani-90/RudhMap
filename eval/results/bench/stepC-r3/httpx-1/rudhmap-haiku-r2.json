@@ -1,0 +1,102 @@
+{
+  "answer": "**Entry point.** `Client.send()` resolves `follow_redirects` against the client default (`httpx/_client.py:904-908`), then calls `_send_handling_auth`, which in turn calls `_send_handling_redirects` (`httpx/_client.py:914-919`, `:942`). The response body is read unless `stream=True` (`:921-922`).\n\n**Loop.** `_send_handling_redirects` (`httpx/_client.py:970-995`) runs:\n1. Checks `len(history) > self.max_redirects`, raising `TooManyRedirects` (`:971-974`).\n2. Sends one hop via `_send_single_request` (`:979`).\n3. If the response has no redirect `Location`, returns it (`:985-986`).\n4. Otherwise builds the next request with `_build_redirect_request` (`:988`), appends to `history` (`:989`), and either reads the response and loops (`:991-992`) or, with `follow_redirects=False`, sets `response.next_request` and returns (`:993-995`).\n\n**Building the new request.** `_build_redirect_request` (`httpx/_client.py:475-492`) assembles the new `Request` from four helpers:\n\n- **Method** \u2014 `_redirect_method` (`:494-515`): 303 becomes GET (unless HEAD); 302 becomes GET (unless HEAD); 301 turns POST into GET. 307/308 keep the method.\n- **URL** \u2014 `_redirect_url` (`:517`), which resolves the `Location` against the current URL.\n- **Headers** \u2014 `_redirect_headers` (`:546-571`):\n  - Copies the original headers (`:550`).\n  - On a cross-origin redirect, drops `Authorization` unless the change is a direct HTTP\u2192HTTPS upgrade, and rewrites `Host` (`:552-559`, using `_same_origin` and `_is_https_redirect`).\n  - If the method changed to GET, drops `Content-Length` and `Transfer-Encoding` (`:561-565`).\n  - Always drops `Cookie` (`:569`); the new request gets cookies from the client jar, `Cookies(self.cookies)` (`:484`).\n- **Body** \u2014 `_redirect_stream` (`:573-582`): returns `None` if the method switched to GET; otherwise reuses the original `request.stream` (`:579-582`).\n\nThe new request also inherits `request.extensions` (`:491`).\n\nNote that `_build_redirect_request` is called from both `Client._send_handling_redirects` and `AsyncClient._send_handling_redirects` (`:1704`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.00293563,
+  "duration_ms": 9591,
+  "tokens": {
+    "input": 6,
+    "cache_write": 9219,
+    "cache_read": 22273,
+    "output": 1737,
+    "context": 9225,
+    "total": 33235
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send",
+        "detail": "full"
+      },
+      "result_chars": 3835,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._build_redirect_request",
+        "detail": "full"
+      },
+      "result_chars": 2366,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_stream",
+        "detail": "full"
+      },
+      "result_chars": 728,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_headers",
+        "detail": "full"
+      },
+      "result_chars": 2286,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects",
+        "detail": "full"
+      },
+      "result_chars": 3043,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_method",
+        "detail": "full"
+      },
+      "result_chars": 1336,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 12.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

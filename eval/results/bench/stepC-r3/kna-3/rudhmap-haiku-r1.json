@@ -1,0 +1,114 @@
+{
+  "answer": "**No. The daily refresh is defined but never started when the API server boots.**\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:43-53` `start_scheduler()` registers `_daily_refresh` with a `CronTrigger(hour, minute)` job (`id=\"daily_refresh\"`) and calls `scheduler.start()`.\n- `app/scheduler.py:15-40` `_daily_refresh()` creates a pipeline run for `user_id=1` and runs `run_pipeline` for all `DOMAINS`.\n- `app/config.py:31-32` defines `schedule_hour = 7` and `schedule_minute = 0`, and the README (lines 138-139) documents `SCHEDULE_HOUR`/`SCHEDULE_MINUTE` env vars.\n\n**What's missing:**\n- `app/main.py:17-20`, the FastAPI `lifespan`, only calls `init_db()` before `yield`. It never calls `start_scheduler()`.\n- A search of the repo finds no caller of `start_scheduler` or `stop_scheduler` anywhere. The only files that mention the scheduler are `app/config.py`, `app/scheduler.py`, `README.md`, and `requirements.txt`. No other entry point, Procfile, or startup script calls it either.\n- Nothing reads `settings.schedule_hour` or `settings.schedule_minute`, so the env-var configuration is dead too.\n\n**Consequence:** The server runs, but no scheduled refresh fires. The only way articles get refreshed is the manual `POST /api/feed/refresh` endpoint (`app/api/feed.py:20`), which has a 2-hour cooldown.\n\n**Fix:** Call `start_scheduler(settings.schedule_hour, settings.schedule_minute)` in `lifespan` after `init_db()`, and call `stop_scheduler()` after the `yield`. Also fix the timing mismatch: `app/config.py:30` says \"01:30 UTC = 07:00 IST\" but the default is `hour=7, minute=0`. `CronTrigger` also uses the scheduler's local timezone unless one is set, so the intended time needs to be pinned to a specific timezone.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 5,
+  "cost_usd": 0.00315297,
+  "duration_ms": 12254,
+  "tokens": {
+    "input": 10,
+    "cache_write": 8288,
+    "cache_read": 52887,
+    "output": 1931,
+    "context": 8298,
+    "total": 63116
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule cron daily news refresh"
+      },
+      "result_chars": 3063,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "cron|schedule|setInterval|node-cron|apscheduler|refresh",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 80
+      },
+      "result_chars": 6399,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|lifespan|on_event|@app\\.|include_router",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "*.py"
+      },
+      "result_chars": 442,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\scheduler.py"
+      },
+      "result_chars": 1895,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\main.py"
+      },
+      "result_chars": 1244,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "schedule_hour|schedule_minute|SCHEDULE_",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 203,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|scheduler",
+        "output_mode": "files_with_matches",
+        "-i": true
+      },
+      "result_chars": 71,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 15.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

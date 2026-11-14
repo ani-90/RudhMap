@@ -1,0 +1,109 @@
+{
+  "answer": "**Where it's configured**\n\n- Default: `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` (`httpx/_config.py:246`).\n- `Timeout` holds four fields, `connect`, `read`, `write`, `pool`, and accepts a single float, a tuple, or keyword overrides (`httpx/_config.py:72-130`). `as_dict()` returns them as a dict (`httpx/_config.py:132-138`).\n- The client stores it in `BaseClient.__init__` (`httpx/_client.py:196`, `:212`). A per-request `timeout=` argument overrides it, and `USE_CLIENT_DEFAULT` means \"use the client's setting\" (`httpx/_client.py:96-107`).\n\n**How it reaches the network layer**\n\n1. `Client.request()` forwards `timeout` into `build_request`, which places it in `request.extensions[\"timeout\"]` (`httpx/_client.py:371-377`).\n2. `Client.send()` calls `_set_timeout(request)` (`httpx/_client.py:910`). This fills in the client default if no timeout is already in the extensions (`httpx/_client.py:584-591`).\n3. `_send_single_request` picks the transport for the URL (`httpx/_client.py:1005`) and calls its `handle_request`.\n4. `HTTPTransport.handle_request` copies `request.extensions` into an `httpcore.Request` and passes it to the httpcore pool (`httpx/_transports/default.py:237-250`). The timeout values travel in that extensions dict. httpcore reads them and applies them to socket operations. That code lives in the httpcore package, not this repo, so I did not verify it here.\n\n**Exceptions when a timeout fires**\n\nhttpcore raises its own timeout errors. `map_httpcore_exceptions()` (`httpx/_transports/default.py:96-118`) re-raises them as the most specific httpx type, using the mapping at `httpx/_transports/default.py:79-82`:\n\n- `ConnectTimeout` (connect phase, `httpx/_exceptions.py:140`)\n- `ReadTimeout` (`httpx/_exceptions.py:146`)\n- `WriteTimeout` (`httpx/_exceptions.py:152`)\n- `PoolTimeout` (waiting for a pool connection, `httpx/_exceptions.py:158`)\n\nAll four subclass `TimeoutException` (`httpx/_exceptions.py:132`), which is a `TransportError`. The original httpcore exception is kept as `__cause__`, via `raise ... from exc`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0032119700000000006,
+  "duration_ms": 12879,
+  "tokens": {
+    "input": 8,
+    "cache_write": 9111,
+    "cache_read": 37297,
+    "output": 2032,
+    "context": 9119,
+    "total": 48448
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout httpx Client request timeout"
+      },
+      "result_chars": 1194,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class Timeout|def _transport_for_url|ReadTimeout|ConnectTimeout|PoolTimeout|WriteTimeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1765,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout, Timeout, HTTPTransport.handle_request, map_httpcore_exceptions",
+        "detail": "full"
+      },
+      "result_chars": 8966,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\default.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 16,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "timeout",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 3814,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "DEFAULT_TIMEOUT_CONFIG =|self._transport_for_url\\(request\\.url\\)|_send_single_request\\(",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 571,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 15.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": true,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

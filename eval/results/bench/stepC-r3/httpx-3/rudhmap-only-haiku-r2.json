@@ -1,0 +1,97 @@
+{
+  "answer": "**Configuration:** `Timeout` is defined in `httpx/_config.py:72`. Its `__init__` (`_config.py:86`) takes a single float, a 4-tuple, or a `Timeout`, plus keyword overrides for `connect`, `read`, `write`, and `pool`. `Client` and `BaseClient.__init__` (`httpx/_client.py:189`, `Client.__init__` at `:639`) accept a `timeout` argument. I did not open that line, so the exact parameter handling is unverified.\n\n**Path to the network layer:**\n1. `Client.send` (`httpx/_client.py:910`) calls `BaseClient._set_timeout` (`_client.py:584`). If the request has no per-call `timeout` in `request.extensions`, this method substitutes the client default. It wraps a plain value in `Timeout(...)`, then stores `timeout.as_dict()` in `request.extensions[\"timeout\"]`. A per-request `timeout=` therefore overrides the client default.\n2. `HTTPTransport.handle_request` (`httpx/_transports/default.py:230`) copies `request.extensions` into the `httpcore.Request` (`default.py:247`) and calls `self._pool.handle_request` (`default.py:250`). The timeout values travel with the request in that dict. The httpcore side that reads `extensions[\"timeout\"]` lives in the httpcore library, not this repo, so I did not verify it.\n\n**Exceptions when it fires:**\n- httpcore raises its own timeout errors. `map_httpcore_exceptions` (`default.py:96-118`) catches them inside the `with` block at `default.py:249`. It picks the most specific mapping from `_load_httpcore_exceptions` (`default.py:74-92`) and re-raises it as the httpx class, chained with `from exc`.\n- The mapping is:\n  - `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout` (`_exceptions.py:140`)\n  - `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout` (`_exceptions.py:146`)\n  - `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout` (`_exceptions.py:152`)\n  - `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout` (`_exceptions.py:158`)\n  - Generic `httpcore.TimeoutException` \u2192 `httpx.TimeoutException` (`_exceptions.py:132`)\n- All of these subclass `TimeoutException`, which subclasses `TransportError`. Callers can catch `httpx.TimeoutException` to cover every case, or a specific subclass to tell connect, read, write, and pool timeouts apart.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0013529,
+  "duration_ms": 10115,
+  "tokens": {
+    "input": 8,
+    "cache_write": 1373,
+    "cache_read": 28650,
+    "output": 1582,
+    "context": 1381,
+    "total": 31613
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Timeout exception"
+      },
+      "result_chars": 1198,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout, HTTPTransport.handle_request, map_httpcore_exceptions"
+      },
+      "result_chars": 4912,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout.__init__",
+        "detail": "outline"
+      },
+      "result_chars": 871,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions"
+      },
+      "result_chars": 1100,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Client __init__ timeout parameter"
+      },
+      "result_chars": 1171,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": false,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

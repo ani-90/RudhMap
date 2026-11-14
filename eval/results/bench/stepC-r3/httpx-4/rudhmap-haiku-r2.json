@@ -1,0 +1,83 @@
+{
+  "answer": "**Overview:** `DigestAuth` is a subclass of `Auth` (`httpx/_auth.py:175`) that implements the Digest challenge-response as a generator-based auth flow. It does not implement `sync_auth_flow` or `async_auth_flow` itself. It only overrides `auth_flow`, and the base class wraps that generator (`httpx/_auth.py:38`, `:62`, `:87`).\n\n**The flow (`httpx/_auth.py:193-222`):**\n1. If a previous challenge is cached in `self._last_challenge`, it builds an `Authorization` header from it and sends the request (`:194-197`). This lets later requests to the same client skip the initial 401.\n2. It yields the request and receives the response (`:199`).\n3. If the status is not 401, or there is no `WWW-Authenticate` header starting with `digest `, the generator returns and the response is passed through (`:201-212`).\n4. Otherwise it parses the challenge (`:214`, `_parse_challenge` at `:224`), resets the nonce count to 1 (`:215`), builds a new header (`:217`, `_build_auth_header` at `:255`), copies any response cookies into the retry (`:220-221`), and yields the retried request (`:222`).\n\nHeader construction is split into helpers: `_resolve_qop` (`:329`), `_get_client_nonce` (`:303`), and `_get_header_value` (`:311`).\n\n**How the client drives it (`httpx/_client.py:930-962`, `_send_handling_auth`):**\n- It calls `auth.sync_auth_flow(request)` (`:937`) and takes the first yielded request with `next()`.\n- Each iteration sends that request through `_send_handling_redirects` (`:942`), so redirects still apply.\n- It feeds the response back with `auth_flow.send(response)` (`:949`). A `StopIteration` means the flow is done, and the response is returned (`:950-951`).\n- Otherwise it reads the intermediate 401 body (`:954`), so the connection can be reused, then loops with the new request. Errors close the response (`:958-960`), and `finally` closes the generator (`:962`).\n- `Client.send` calls this at `_client.py:914`. The async version is at `:1652-1677`.\n\n**Notes:** `DigestAuth` does not set `requires_response_body`. The client reads the 401 body anyway at `:954`, so no extra flag is needed.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0019307600000000001,
+  "duration_ms": 9075,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4902,
+    "cache_read": 24126,
+    "output": 1417,
+    "context": 4908,
+    "total": 30451
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1793,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|sync_auth_flow|async_auth_flow|requires_request_body|requires_response_body",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "*.py"
+      },
+      "result_chars": 3277,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth.auth_flow",
+        "detail": "full"
+      },
+      "result_chars": 2633,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_auth",
+        "detail": "full"
+      },
+      "result_chars": 2789,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 12.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": false,
+      "qop": false,
+      "reuse": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

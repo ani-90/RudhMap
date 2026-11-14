@@ -1,0 +1,105 @@
+{
+  "answer": "**Path:** `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` from the client default (904-908), sets the timeout and auth, then calls `_send_handling_auth` (914). That calls `_send_handling_redirects` (`_client.py:964`), which loops:\n\n1. Enforces `max_redirects` and raises `TooManyRedirects` (971-974).\n2. Sends one hop via `_send_single_request` (979).\n3. Returns if there is no redirect location (985-986).\n4. Builds the next request with `_build_redirect_request` (988).\n5. If `follow_redirects` is true, reads the response (992) and loops. Otherwise it sets `response.next_request` and returns (994-995).\n\n`_build_redirect_request` (`_client.py:475`) composes the new request from method, URL, headers, and body. It builds a `Cookies` object from the client jar (484) and copies `request.extensions` (491).\n\n**Method** (`_redirect_method`, `_client.py:494`):\n- 303 becomes GET unless the method is HEAD (502-503).\n- 302 becomes GET unless the method is HEAD (507-508).\n- 301 becomes GET only for POST (512-513).\n- 307 and 308 keep the original method, since no branch matches them.\n\n**Body** (`_redirect_stream`, `_client.py:573`): returns `None` if the method switched to GET, otherwise reuses `request.stream` (579-582).\n\n**Headers** (`_redirect_headers`, `_client.py:546`), starting from a copy of the original headers (550):\n- If the redirect leaves the origin (552), `Authorization` is dropped unless the redirect is an HTTP\u2192HTTPS upgrade (553-556). `Host` is set to the new netloc (559).\n- If the method switched to GET, `Content-Length` and `Transfer-Encoding` are removed (561-565).\n- `Cookie` is always removed (569). The cookie header is rebuilt from the client's cookie store, not the original outgoing request.\n\n**URL:** `_redirect_url` (`_client.py:517`) builds the target URL. I only read its call graph and did not inspect its body, so I haven't verified how it resolves relative `Location` values.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.00291828,
+  "duration_ms": 9660,
+  "tokens": {
+    "input": 6,
+    "cache_write": 9221,
+    "cache_read": 21898,
+    "output": 1709,
+    "context": 9227,
+    "total": 32834
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send",
+        "detail": "full"
+      },
+      "result_chars": 3835,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._build_redirect_request",
+        "detail": "full"
+      },
+      "result_chars": 2366,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_stream",
+        "detail": "full"
+      },
+      "result_chars": 728,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_method",
+        "detail": "full"
+      },
+      "result_chars": 1336,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects",
+        "detail": "full"
+      },
+      "result_chars": 3043,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_headers",
+        "detail": "full"
+      },
+      "result_chars": 2286,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": false,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "Says Authorization is dropped unless the redirect is an HTTP\u2192HTTPS upgrade; the key notes this exception applies only to same-host upgrades (minor imprecision).",
+      "Step 5 / path description implies Authorization dropped unless HTTP\u2192HTTPS upgrade; minor, key says same-host upgrade only (not clearly false)"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

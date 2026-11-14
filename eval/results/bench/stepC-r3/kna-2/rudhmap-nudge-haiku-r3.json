@@ -1,0 +1,106 @@
+{
+  "answer": "**Flow for one article**\n\n1. **Query generation:** `BaseAgent._fetch_all` asks the LLM for queries, falling back to hardcoded ones (`app/pipeline/agents/base_agent.py:90-95`).\n2. **Fetch:** Tavily and NewsAPI results are collected (`base_agent.py:97-117`).\n3. **Dedup #1, within the run (URL):** each result's URL goes through `_normalise_url`, which strips tracking params like `utm_*` and `fbclid` (`base_agent.py:19-25`). A `seen_urls` set drops repeats (`base_agent.py:100-104`, `111-115`).\n4. **Filter:** `BaseAgent.run` skips items missing a URL or title (`base_agent.py:52-53`). It then enriches short content by scraping with trafilatura (`app/services/scraper.py:28-36`, threshold 300 chars). It drops anything failing `_is_quality`: under 40 words, or average under 5 words per line (`base_agent.py:28-36`, `56-58`).\n5. **Embed and hash:** the title plus the first 500 chars are embedded (`base_agent.py:60`). A SHA-256 of the URL is computed as `content_hash` (`base_agent.py:61`), but nothing downstream reads it.\n6. **Dedup #2, semantic (Qdrant):** the aggregator searches for vectors scoring \u22650.85 and skips matches (`app/pipeline/aggregator.py:26-38`, `app/db/qdrant.py:39-48`).\n7. **Dedup #3, exact URL (SQLite):** `bulk_insert_articles` queries for an existing URL and skips it. It also catches races via a rollback on commit failure (`app/db/crud.py:40-64`). Duplicates are counted as `len(clean) - len(inserted)` (`aggregator.py:59-61`).\n8. **Vector upsert:** surviving articles are pushed to Qdrant with their SQLite ID (`aggregator.py:63-82`, `app/db/qdrant.py:51-64`). A failure here leaves the article in SQLite only.\n9. **Run record:** the pipeline run is updated with persisted and duplicate counts and status (`aggregator.py:98-106`).\n\n**Important caveat:** `embed()` is a stub that always returns `[]` (`app/services/embedder.py:5`). Because of that, the semantic check at step 6 never runs (`aggregator.py:29` is falsy), and no vectors are upserted to Qdrant (`aggregator.py:64`). Only the in-run URL check and the SQLite URL check are active. The 0.85 threshold is effectively dead code until the embedder is implemented.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00337528,
+  "duration_ms": 12951,
+  "tokens": {
+    "input": 8,
+    "cache_write": 9878,
+    "cache_read": 39288,
+    "output": 2012,
+    "context": 9886,
+    "total": 51186
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedup article store fetch"
+      },
+      "result_chars": 1309,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run, BaseAgent._fetch_all, BaseAgent._normalise_url, BaseAgent._is_quality",
+        "detail": "full"
+      },
+      "result_chars": 7411,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node, bulk_insert_articles, upsert_articles, enrich_content",
+        "detail": "full"
+      },
+      "result_chars": 7801,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py",
+        "offset": 74,
+        "limit": 43
+      },
+      "result_chars": 1841,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar",
+        "detail": "full"
+      },
+      "result_chars": 825,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 16.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.833,
+    "critical_ok": true,
+    "false_claims": [
+      "Step 6 and step 8 are presented in the flow as ordinary steps (semantic dedup and vector upsert) though later caveated; the 'Groq' source of queries is just 'the LLM' (not false).",
+      "Step 6 and step 8 are presented as normal flow steps, but caveat clarifies they don't run (not actually false)",
+      "Query generation described as 'the LLM' without naming Groq (minor, not false)",
+      "Step 6 and step 8 are presented in the flow as ordinary steps (semantic dedup and vector upsert), though the caveat later corrects this; not a real contradiction.",
+      "Claims the LLM used for query generation is unspecified, fine; no clear false claims."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

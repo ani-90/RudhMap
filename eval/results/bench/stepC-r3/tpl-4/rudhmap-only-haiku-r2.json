@@ -1,0 +1,87 @@
+{
+  "answer": "**Short answer:** the frontend only checks whether a token is *stored*. It never decodes or validates it. Expiry is detected when an API call fails with 401 or 403.\n\n**Deciding logged-in state**\n- `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`).\n- The route guard on the `_layout` pathname uses it in `beforeLoad` and redirects to `/login` if it returns false (`frontend/src/routes/_layout.tsx:14-19`).\n- The current-user query only runs when `isLoggedIn()` is true (`frontend/src/hooks/useAuth.ts:23-27`).\n- Login stores the token after a successful `loginAccessToken` call (`frontend/src/hooks/useAuth.ts:41-46`). Logout removes it (`frontend/src/hooks/useAuth.ts:56-59`).\n- Every API request reads the token from localStorage via the client's `auth` callback (`frontend/src/main.tsx:17-20`), which is then sent as a bearer token (`frontend/src/client/core/auth.gen.ts:22`).\n\n**Expired or invalid tokens**\n- The guard passes for any stored string, so an expired token gets through until a request fails.\n- The shared `handleApiError` handles this. If a query or mutation fails with HTTP 401 or 403, it removes `access_token` and sets `window.location.href = \"/login\"` (`frontend/src/main.tsx:22-30`).\n- That handler is wired into both the `QueryCache` and `MutationCache` `onError` (`frontend/src/main.tsx:31-38`), so any failed API call triggers the logout.\n\n**Gaps**\n- There is no proactive expiry check, such as decoding the JWT's `exp` claim, and no refresh-token flow.\n- The redirect is a hard page load (`window.location.href`), not a router navigation. This resets all client state.\n- The 401/403 handling only runs for calls made through React Query. A direct `fetch` or SDK call outside a query/mutation would not trigger it.\n- I did not check the backend's token validation, so I haven't confirmed which status codes it returns for expired versus invalid tokens.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00222508,
+  "duration_ms": 9035,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6816,
+    "cache_read": 18828,
+    "output": 1346,
+    "context": 6822,
+    "total": 26996
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "token expired invalid logged in auth"
+      },
+      "result_chars": 2128,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {
+        "path": "frontend"
+      },
+      "result_chars": 5693,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/hooks/useAuth.ts"
+      },
+      "result_chars": 2139,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/main.tsx"
+      },
+      "result_chars": 1892,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/_layout.tsx"
+      },
+      "result_chars": 1304,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 11.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": false,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

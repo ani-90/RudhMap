@@ -1,0 +1,77 @@
+{
+  "answer": "`DigestAuth` is a generator-based auth flow. The client runs that generator in a loop and sends each request it yields.\n\n**Base protocol** (`httpx/_auth.py`)\n- `Auth.auth_flow` is a generator. It yields a request and receives the response back (`_auth.py:38`).\n- `sync_auth_flow` (`_auth.py:62-85`) and `async_auth_flow` (`_auth.py:87-110`) wrap `auth_flow`. They read the request body first if `requires_request_body` is set. They read the response body if `requires_response_body` is set. They forward each response into the generator with `flow.send(response)`.\n\n**DigestAuth** (`_auth.py:175`)\n- State is the credentials, `_last_challenge` and `_nonce_count` (`_auth.py:187-191`).\n- `auth_flow` (`_auth.py:193-222`) works in these steps:\n  1. If a previous challenge is cached, it preemptively adds an `Authorization` header (`_auth.py:194-197`). It then yields the request (`_auth.py:199`).\n  2. If the response is not a 401 or has no `www-authenticate` header, it returns (`_auth.py:201-204`).\n  3. It scans the `www-authenticate` headers for one starting with `digest ` (`_auth.py:206-212`). If none is found, it returns.\n  4. It parses the challenge and resets `_nonce_count` to 1 (`_auth.py:214-215`).\n  5. It builds the header, copies any response cookies onto the request, and yields the request a second time (`_auth.py:217-222`).\n- `_parse_challenge` (`_auth.py:224`) reads realm, nonce, algorithm, opaque and qop. A missing realm or nonce raises `ProtocolError` (`_auth.py:251-253`).\n- `_build_auth_header` (`_auth.py:255`) does the digest computation:\n  - It picks the hash from `_ALGORITHM_TO_HASH_FUNCTION` (`_auth.py:176`, `_auth.py:258`).\n  - It computes HA1 from `username:realm:password` (`_auth.py:263`). For `-SESS` algorithms it re-hashes HA1 with the nonce and cnonce (`_auth.py:275-276`).\n  - It computes HA2 from `method:path` (`_auth.py:266-268`). `auth-int` is not implemented (`_auth.py:267`).\n  - It includes `nc` and `cnonce` when qop is present, and uses the RFC 2069 form otherwise (`_auth.py:278-284`, `_auth.py:296-299`). It increments `_nonce_count` on every header built (`_auth.py:272`).\n\n**Client driver** (`httpx/_client.py`)\n- `_send_handling_auth` (`_client.py:930`) calls `auth.sync_auth_flow(request)` and takes the first request with `next()` (`_client.py:937-939`).\n- It loops: send the request through `_send_handling_redirects` (`_client.py:942`), then call `auth_flow.send(response)` (`_client.py:949`).\n  - On `StopIteration` it returns the current response (`_client.py:950-951`).\n  - Otherwise it records the response in `history`, reads it, and sends the next request the flow yielded (`_client.py:953-956`).\n- It always closes the flow in `finally` (`_client.py:961-962`).\n- The async client does the same with `async_auth_flow` (`_client.py:1652`).\n\nFor a first request, the sequence is: the request goes out unauthenticated, the server returns 401, and the retry carries the Digest header. Later requests reuse the cached challenge.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0425122,
+  "duration_ms": 13144,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5837,
+    "cache_read": 18322,
+    "output": 1732,
+    "context": 5843,
+    "total": 25897
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|def auth_flow|def _build_auth_header|def _parse_challenge|requires_response_body|auth_flow\\(",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "glob": "**/*.py",
+        "head_limit": 40
+      },
+      "result_chars": 2934,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 60,
+        "limit": 240
+      },
+      "result_chars": 9607,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 925,
+        "limit": 40
+      },
+      "result_chars": 1309,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 15.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

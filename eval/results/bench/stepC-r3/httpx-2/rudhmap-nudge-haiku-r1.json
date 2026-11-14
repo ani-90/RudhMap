@@ -1,0 +1,74 @@
+{
+  "answer": "Changing `BaseTransport.handle_request` affects three overrides and one production caller in httpx. The rest are docstring or unrelated.\n\n**Overrides (must match the new signature):**\n- `HTTPTransport.handle_request`, `httpx/_transports/default.py:230`\n- `MockTransport.handle_request`, `httpx/_transports/mock.py:19`\n- `WSGITransport.handle_request`, `httpx/_transports/wsgi.py:91`\n\n**Call sites in httpx:**\n- `Client._send_single_request`, `httpx/_client.py:1014`, calls `transport.handle_request(request)`. This is the only production caller. It is reached from `_send_handling_redirects` (`_client.py:964`) and `_send_handling_auth` (`_client.py:930`).\n\n**Not affected:**\n- `httpx/_transports/default.py:250` calls `self._pool.handle_request(req)`. That is httpcore's pool, not `BaseTransport`, so it is unaffected.\n- `httpx/_transports/base.py:48` is inside the class docstring example, so it is documentation only. It would need updating for accuracy, but it won't break.\n- `AsyncClient` and the async transports use `handle_async_request`, a separate method, so they are not affected by this change.\n\n**Caveat:** the grep covered only `httpx/` for the `handle_request(` pattern. Calls that pass the method by reference, or use `getattr`, would not show up. The rudhmap trace found no such references, but I did not check them separately.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.00120071,
+  "duration_ms": 7365,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2419,
+    "cache_read": 22081,
+    "output": 991,
+    "context": 2425,
+    "total": 25497
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "detail": "full"
+      },
+      "result_chars": 2039,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "handle_request\\(",
+        "path": "httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 531,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 10.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": false,
+      "httpcore": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

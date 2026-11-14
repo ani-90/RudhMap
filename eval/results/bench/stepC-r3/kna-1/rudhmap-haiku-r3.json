@@ -1,0 +1,60 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a background news-refresh pipeline and returns right away. It does not run the pipeline inline.\n\n**What it does, in order:**\n\n1. **Cooldown check (lines 27-42).** It loads the last successful run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns early with `status=\"skipped\"`, the remaining cooldown, and minutes since the last refresh. No new run is created. This guards against hammering Tavily.\n2. **Resolve domains (line 44).** `request.resolved_domains()` (`app/schemas/feed.py:11`) returns the requested domains filtered to the known `DOMAINS` list, or all of them if none were requested.\n3. **Create the run record (lines 45-48).** It generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`).\n4. **Schedule background work (line 50).** It queues `_run_pipeline_bg(run_id, user_id, domains)` with FastAPI's `BackgroundTasks`.\n5. **Respond (line 52).** It returns `FeedRefreshResponse` with `run_id`, `status=\"running\"`, and `domains`.\n\n**What happens after it returns:**\n\n- FastAPI sends the response, then runs `_run_pipeline_bg` (`app/api/feed.py:55`).\n- That function imports and awaits `run_pipeline` (`app/pipeline/graph.py:69`) inside a `try`.\n- If `run_pipeline` raises, the `except` block opens a fresh `SessionLocal()` session (`app/db/sqlite.py:11`) and marks the run `status=\"failed\"` with the error log and `finished_at` (`app/api/feed.py:59-72`).\n- I did not inspect `run_pipeline` itself, so I haven't confirmed how it records success. The cooldown check depends on `finished_at` being set on successful runs, so that is worth verifying.\n\n**Notes:**\n\n- The route has no in-code callers. It is reached only over HTTP.\n- The `db` session is injected for the synchronous steps. The background task does not reuse it and opens its own session for the failure update.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 3,
+  "cost_usd": 0.00146094,
+  "duration_ms": 8086,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3244,
+    "cache_read": 22304,
+    "output": 1177,
+    "context": 3250,
+    "total": 26731
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_run_pipeline_bg"
+      },
+      "result_chars": 1489,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 11.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

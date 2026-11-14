@@ -1,0 +1,76 @@
+{
+  "answer": "`Response.text` is a cached property that decompresses the body when it is read, then decodes the resulting bytes to a string.\n\n**Decompression (happens when the body is read, before `.text`)**\n- `.text` uses `self.content` (`httpx/_models.py:644`). That returns `_content`, which is only set after `read()` (`_models.py:636-639`) and raises `ResponseNotRead` otherwise.\n- `read()` joins `iter_bytes()` (`_models.py:881`). `iter_bytes()` pulls the raw chunks from `iter_raw()` and runs each through the content decoder, then flushes it (`_models.py:894-903`).\n- `_get_content_decoder()` (`_models.py:699-722`) reads the `Content-Encoding` header, splitting on commas. It looks each value up in `SUPPORTED_DECODERS` (gzip, deflate, brotli, zstd) and silently skips unknown values.\n  - One match gives that decoder.\n  - Several matches are wrapped in a `MultiDecoder`.\n  - No matches give an `IdentityDecoder`.\n\n**Text decoding (`_models.py:641-650`)**\n- An empty body returns `\"\"`.\n- Otherwise it builds `TextDecoder(encoding=self.encoding or \"utf-8\")`. It decodes the content, flushes the decoder, joins the pieces and caches the result in `_text`.\n\n**Encoding selection (`encoding` property, `_models.py:652-672`)**\nPriority order:\n1. An explicit `response.encoding = ...` (setter at `_models.py:674-686`). It raises `ValueError` if `.text` has already been accessed.\n2. The `charset` parameter of the `Content-Type` header. `charset_encoding` (`_models.py:688-697`) parses it, and the result is only used if `_is_known_encoding` accepts it (`_models.py:666`).\n3. `default_encoding` (the constructor default is `\"utf-8\"`, `_models.py:529`). If it is a string, that string is used. If it is a callable, it is called with `_content`, which allows charset autodetection (`_models.py:667-670`).\n4. A final fallback to `\"utf-8\"` (`_models.py:671`).\n\nThe chosen value is cached in `_encoding`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0271674,
+  "duration_ms": 10184,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3241,
+    "cache_read": 17614,
+    "output": 1243,
+    "context": 3247,
+    "total": 22104
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def text|def encoding|def read|def content|def decode|def iter_bytes|def iter_text|def _get_content_decoder|def charset_encoding|default_encoding",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "glob": "_models.py"
+      },
+      "result_chars": 1349,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 634,
+        "limit": 95
+      },
+      "result_chars": 3842,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 874,
+        "limit": 50
+      },
+      "result_chars": 2393,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 11.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

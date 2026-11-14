@@ -1,0 +1,65 @@
+{
+  "answer": "**What it does:** `refresh_feed()` is the `POST /api/feed/refresh` handler. It enforces a 2-hour cooldown, then starts a pipeline run in the background and returns immediately. It does not fetch or process articles itself.\n\n**Steps:**\n1. **Cooldown check** (`app/api/feed.py:27-42`): it loads the last successful run via `crud.get_last_successful_run`. If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 h, line 17) ago, it returns early with `status=\"skipped\"` and the remaining cooldown. Naive datetimes are treated as UTC (lines 30-31).\n2. **Resolve domains** (line 44): `request.resolved_domains()`. I did not read its definition in `app/schemas/feed.py`.\n3. **Create the run** (lines 45-48): it generates a UUID and calls `crud.create_pipeline_run`, then `crud.update_pipeline_run(..., status=\"running\")`.\n4. **Schedule work** (line 50): `background_tasks.add_task(_run_pipeline_bg, run_id, user_id, domains)`.\n5. **Return** (line 52): `FeedRefreshResponse(run_id, status=\"running\", domains)`.\n\n**Calls:** `crud.get_last_successful_run`, `crud.create_pipeline_run`, `crud.update_pipeline_run`, `request.resolved_domains`, `BackgroundTasks.add_task`.\n\n**After it returns:** FastAPI sends the response, then runs `_run_pipeline_bg` (lines 55-72). That function imports and awaits `app.pipeline.graph.run_pipeline` (line 58, not inspected here). If anything raises, it opens a new session and marks the run `failed` with the error in `error_log` and a `finished_at` timestamp (lines 59-72). Clients poll `GET /api/feed/status/{run_id}` (lines 75-88) to see progress.\n\n**Caveats:**\n- The cooldown check and the run creation are not atomic. Two concurrent refresh requests could both pass the check.\n- The `skipped` branch reuses the old `run_id`, so the client gets the previous run's ID rather than a new one.\n- The success path's final status and `finished_at` are set inside `run_pipeline`, which I did not read.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 2,
+  "cost_usd": 0.0015928000000000001,
+  "duration_ms": 8354,
+  "tokens": {
+    "input": 4,
+    "cache_write": 4116,
+    "cache_read": 12170,
+    "output": 1295,
+    "context": 4120,
+    "total": 17585
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "refresh_feed",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 42,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\feed.py"
+      },
+      "result_chars": 7516,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 9.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "The skipped branch reuses the old run_id, so the client gets the previous run's ID (not supported by the key; the key says it returns skipped with remaining cooldown seconds)"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

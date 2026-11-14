@@ -1,0 +1,89 @@
+{
+  "answer": "**Short answer:** The frontend only checks whether an `access_token` exists in `localStorage`. It never decodes or validates the token. The server decides validity, and the frontend learns about it when an API call fails.\n\n**Login check**\n- `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`).\n- The `_layout` route guard calls it in `beforeLoad` and redirects to `/login` if it returns false (`frontend/src/routes/_layout.tsx:14-19`). This guards every page under the layout.\n- `useAuth` fetches the current user with `UsersService.readUserMe()`, enabled only when `isLoggedIn()` is true (`frontend/src/hooks/useAuth.ts:23-27`).\n- The token is stored on successful login (`useAuth.ts:45`) and sent on every request through the client's `auth` callback, which reads `localStorage` (`frontend/src/main.tsx:17-20`).\n\n**Expired or invalid token**\n- A global handler runs on every failed query and mutation. If the error is an `AxiosError` with status 401 or 403, it removes `access_token` and sets `window.location.href = \"/login\"` (`frontend/src/main.tsx:22-30`). It is wired into both `QueryCache` and `MutationCache` (`main.tsx:31-38`).\n- Logout also removes the token and navigates to `/login` (`useAuth.ts:56-59`).\n\n**Gaps to be aware of**\n- An expired or revoked token still passes `isLoggedIn()`, so the user sees protected pages until a request fails. Then the handler clears the token and does a full-page redirect.\n- The handler is not triggered by the initial guard itself. Only API failures trigger it.\n- The handler treats 403 the same as 401. A permission-denied response therefore logs the user out, which may be stricter than intended.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00202963,
+  "duration_ms": 8720,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5622,
+    "cache_read": 24613,
+    "output": 1317,
+    "context": 5628,
+    "total": 31558
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "token|login|logged|expire|401|localStorage|isAuthenticated",
+        "-i": true,
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 1868,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "**/*.{js,jsx,ts,tsx,vue,html}"
+      },
+      "result_chars": 4021,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\hooks\\useAuth.ts"
+      },
+      "result_chars": 1933,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\routes\\_layout.tsx"
+      },
+      "result_chars": 1146,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\main.tsx"
+      },
+      "result_chars": 1698,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 11.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": true,
+      "backend-rejects": false,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

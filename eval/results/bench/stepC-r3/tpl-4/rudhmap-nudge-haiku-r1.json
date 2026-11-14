@@ -1,0 +1,96 @@
+{
+  "answer": "**Short answer:** The frontend only checks whether an `access_token` exists in `localStorage`. It never validates the token itself. The server finds out an expired or invalid token is bad when a request fails with 401/403, and then the frontend clears the token and redirects to `/login`.\n\n**How \"logged in\" is decided**\n\n- `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`).\n- The route guard on the protected `_layout` route calls it in `beforeLoad` and throws a redirect to `/login` if it returns false (`frontend/src/routes/_layout.tsx:14-19`).\n- The `currentUser` query is gated by the same check (`frontend/src/hooks/useAuth.ts:23-27`).\n- Login stores the token after `LoginService.loginAccessToken` succeeds (`frontend/src/hooks/useAuth.ts:41-46`). Logout removes it and navigates to `/login` (`frontend/src/hooks/useAuth.ts:56-59`).\n\n**Attaching the token**\n\n- At startup, the generated client is configured with `auth: () => localStorage.getItem(\"access_token\") || \"\"` (`frontend/src/main.tsx:17-20`).\n- `getAuthToken` turns that into a `Bearer` header (`frontend/src/client/core/auth.gen.ts:22-41`).\n\n**What happens when the token is expired or invalid**\n\n1. The guard passes, because the key is still present in storage.\n2. `readUserMe` is sent with the stale token and the server returns 401 or 403.\n3. The generated client uses Axios and rethrows the error (`frontend/src/client/client/client.gen.ts:103-107`), so the error is an `AxiosError`.\n4. The global `QueryCache` and `MutationCache` both call `handleApiError` (`frontend/src/main.tsx:31-38`).\n5. `handleApiError` checks for an `AxiosError` with status 401 or 403. If it matches, it removes `access_token` and sets `window.location.href = \"/login\"` (`frontend/src/main.tsx:22-30`).\n\n**Caveats**\n\n- The check is presence-only. A stale token passes the guard until a request fails, so the user can briefly see the dashboard before the redirect.\n- The redirect is a full page reload (`window.location.href`), not a router navigation, so it does not go through the route guard.\n- Only 401 and 403 trigger the cleanup. Other errors just surface as query or mutation errors.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00316385,
+  "duration_ms": 12009,
+  "tokens": {
+    "input": 8,
+    "cache_write": 9380,
+    "cache_read": 39155,
+    "output": 1791,
+    "context": 9388,
+    "total": 50334
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "token expired invalid logged in frontend"
+      },
+      "result_chars": 2184,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {
+        "path": "frontend"
+      },
+      "result_chars": 5693,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/hooks/useAuth.ts"
+      },
+      "result_chars": 2139,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/main.tsx"
+      },
+      "result_chars": 1892,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/_layout.tsx"
+      },
+      "result_chars": 1304,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "getAuthToken, createClient.request"
+      },
+      "result_chars": 3119,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 14.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": false,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

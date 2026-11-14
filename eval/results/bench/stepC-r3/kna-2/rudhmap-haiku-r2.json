@@ -1,0 +1,133 @@
+{
+  "answer": "**Flow for one article**\n\n1. **Fetch and dedup URLs (per agent).** `BaseAgent.run` calls `_fetch_all` (`app/pipeline/agents/base_agent.py:84`). Each Tavily or NewsAPI result has its URL normalised by `_normalise_url`, which strips tracking params like `utm_*` and `fbclid` (`base_agent.py:19-25`). A per-agent `seen_urls` set then drops repeats (`base_agent.py:86, 101-102, 112-113`).\n\n2. **Scrape and quality gate.** `scraper.enrich_content` fetches full text, and `_is_quality` rejects content under 40 words or with short average line length (`base_agent.py:28-36, 55-58`).\n\n3. **Build the record.** The agent embeds `title + content[:500]` (`base_agent.py:60`) and computes a SHA-256 of the URL (`base_agent.py:61`). That hash is stored on `ArticleData` but nothing reads it, so it does no dedup. `summary` is set to `\"\"` (`base_agent.py:70`).\n\n4. **Graph hand-off.** All agents run in `run_all_agents`, then `aggregator` runs (`app/pipeline/graph.py:58-62`).\n\n5. **Aggregator, three passes** (`app/pipeline/aggregator.py:14-116`):\n   - **Pass 1, semantic dedup:** `search_similar(embedding, threshold=0.85)` checks Qdrant (`aggregator.py:31`, `app/db/qdrant.py:39-48`). A match means the article is skipped. A Qdrant error logs a warning and lets the article through. Articles with no embedding skip this pass. This checks only against vectors already stored, so two near-identical articles in the same run are not compared with each other.\n   - **Pass 2, URL-exact dedup:** `crud.bulk_insert_articles` checks each URL with a query (`app/db/crud.py:43-45`). Both the query and the `UNIQUE` constraint on `Article.url` (`app/db/models.py:27`) guard against duplicates. A commit that fails is rolled back and skipped (`crud.py:58-63`), which covers parallel-insert races.\n   - **Pass 3, vector upsert:** only rows that actually inserted are written to Qdrant (`aggregator.py:64-82`, `app/db/qdrant.py:51-64`). A failure here leaves the article in SQLite with no vector.\n\n6. **Bookkeeping.** `duplicate_count` sums Pass 1 skips and Pass 2 skips (`aggregator.py:60`). Status and counts are written to `PipelineRun` (`aggregator.py:98-106`).\n\n7. **Summary later.** The stored row has an empty summary, which is filled in afterwards by `update_article_summary` (`crud.py:71-76`).\n\n**Caveat:** the README and `decisions and tradeoffs.md` say Railway runs without embeddings, so only URL-level dedup applies there. I did not verify the embedder's behaviour when disabled.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 4,
+  "cost_usd": 0.00477671,
+  "duration_ms": 17216,
+  "tokens": {
+    "input": 8,
+    "cache_write": 13928,
+    "cache_read": 43181,
+    "output": 3117,
+    "context": 13936,
+    "total": 60234
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "dedup|duplicate|seen|hash|fingerprint|url_hash|exists",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 6669,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\agents\\base_agent.py"
+      },
+      "result_chars": 4734,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py"
+      },
+      "result_chars": 4784,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\db\\crud.py"
+      },
+      "result_chars": 7598,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar, upsert_articles",
+        "detail": "full"
+      },
+      "result_chars": 1909,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "unique|content_hash|qdrant_id = Column",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 559,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "aggregator|add_edge|add_node|Send",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\graph.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 319,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 20.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": false,
+      "url-exact": true,
+      "parallel": true
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [
+      "Describes the semantic dedup pass as active (Pass 1 checks Qdrant and skips matches) without stating the embedder is a stub returning [] so it never runs",
+      "Says the Qdrant vector upsert (Pass 3) writes inserted rows, implying it happens, when it never does since embeddings are empty",
+      "Says the embedder embeds title + content[:500] as if producing a real embedding; did not verify embedder behaviour",
+      "Describes the semantic dedup pass as active (Pass 1 checks Qdrant and skips matches), without stating that embedder.embed() is a stub returning [] so it never runs",
+      "Says the Qdrant vector upsert (Pass 3) writes inserted rows, implying it actually happens",
+      "Implies the embedder produces embeddings in the normal case and that only Railway runs without them",
+      "Describes the Qdrant semantic dedup as an active pass (Pass 1) without stating that embedder.embed() is a stub returning [] so it never runs; implies embeddings are produced and vectors upserted to Qdrant",
+      "Says the article's embedding is computed and only skips on missing embedding, and the caveat claims embedder behaviour wasn't verified, implying semantic dedup works outside Railway",
+      "Claims a SHA-256 hash of the URL is computed and stored on ArticleData (not in the key; possibly fabricated)"
+    ],
+    "major_false_claim": true,
+    "correct": false,
+    "unanimous": true
+  }
+}

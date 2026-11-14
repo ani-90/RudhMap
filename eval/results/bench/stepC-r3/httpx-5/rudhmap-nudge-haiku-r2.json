@@ -1,0 +1,80 @@
+{
+  "answer": "**Short answer:** `Response.text` never decodes the wire bytes itself. It takes `self.content`, which is already decompressed, and runs it through an incremental text decoder whose codec comes from `Response.encoding`.\n\n**1. Decompression (happens earlier, in `read()`)**\n\n- `Response.text` reads `self.content` (`httpx/_models.py:644`), which raises `ResponseNotRead` if the body hasn't been read (`httpx/_models.py:636-639`).\n- `read()` fills `_content` with `b\"\".join(self.iter_bytes())` (`httpx/_models.py:881`).\n- `iter_bytes()` runs each raw chunk through a content decoder (`httpx/_models.py:894-898`).\n- `_get_content_decoder()` reads every `Content-Encoding` header value and maps it through `SUPPORTED_DECODERS` (`httpx/_models.py:706-711`). One decoder is used directly, several are wrapped in `MultiDecoder`, and none gives `IdentityDecoder` (`httpx/_models.py:715-720`).\n- Unrecognised encoding names are silently skipped (`httpx/_models.py:712-713`), so an unknown `Content-Encoding` leaves the bytes undecoded.\n\n**2. Encoding selection (`Response.encoding`, `httpx/_models.py:664-671`)**\n\nThe priority order is:\n1. An explicit `.encoding = ...` assignment, which is stored in `_encoding`.\n2. The `charset` from the Content-Type header (`self.charset_encoding`). This is used only if `_is_known_encoding()` accepts it (`httpx/_models.py:665-666`).\n3. `default_encoding`. If it is a string it is used directly. If it is a callable it is called with the content bytes to autodetect (`httpx/_models.py:667-670`).\n4. Otherwise it falls back to `\"utf-8\"` (`httpx/_models.py:671`).\n\nI did not inspect `charset_encoding` itself, so I'm relying on its name and docstring for how it parses the header.\n\n**3. Decoding (`Response.text`, `httpx/_models.py:642-650`)**\n\n- An empty body returns `\"\"` (`httpx/_models.py:645-646`).\n- Otherwise it builds `TextDecoder(encoding=self.encoding or \"utf-8\")` (`httpx/_models.py:648`).\n- `TextDecoder` wraps `codecs.getincrementaldecoder(encoding)(errors=\"replace\")` (`httpx/_decoders.py:312`), so invalid byte sequences become U+FFFD rather than raising.\n- The result is `\"\".join([decoder.decode(content), decoder.flush()])` (`httpx/_models.py:649`). `flush()` finalises any partial multi-byte sequence (`httpx/_decoders.py:317-318`).\n- The result is cached in `_text`, so repeated access is cheap (`httpx/_models.py:643`, `650`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.00190968,
+  "duration_ms": 10618,
+  "tokens": {
+    "input": 8,
+    "cache_write": 3848,
+    "cache_read": 34478,
+    "output": 1589,
+    "context": 3856,
+    "total": 39923
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.content"
+      },
+      "result_chars": 622,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding, TextDecoder, Response.iter_bytes, Response.read, Response.iter_raw, SUPPORTED_DECODERS, ContentDecoder",
+        "detail": "full"
+      },
+      "result_chars": 6608,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response._get_content_decoder",
+        "detail": "full"
+      },
+      "result_chars": 2171,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 13.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

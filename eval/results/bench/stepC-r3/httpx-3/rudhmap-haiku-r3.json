@@ -1,0 +1,88 @@
+{
+  "answer": "**Where it's configured:** The `Timeout` class is in `httpx/_config.py:72`, with its `__init__` at `_config.py:86`. The default is `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` (`_config.py:246`). `BaseClient.timeout` is at `httpx/_client.py:254`.\n\n**How it reaches the network layer:**\n1. **Client to request.** `Client.send` (`_client.py:910`) calls `BaseClient._set_timeout` (`_client.py:584-591`). If the request has no `timeout` extension, this wraps the client's timeout in a `Timeout` and stores `timeout.as_dict()` in `request.extensions[\"timeout\"]`. Per-call `timeout=` arguments override the client default through `USE_CLIENT_DEFAULT` (`_client.py:94-106`).\n2. **Client to transport.** `Client._send_single_request` (`_client.py:1001-1014`) picks a transport for the URL and calls `transport.handle_request(request)`. The extensions dict travels with the request.\n3. **Transport to httpcore.** `HTTPTransport.handle_request` (`httpx/_transports/default.py:230-250`) copies `request.extensions` into an `httpcore.Request` and calls `self._pool.handle_request`. httpcore reads the timeout values from that extensions dict. That enforcement code is in the httpcore library, not this repo, so I haven't read it.\n\n**Exceptions when a timeout fires:** httpcore raises its own timeout exceptions. `map_httpcore_exceptions` (`default.py:96-118`) catches them and re-raises the most specific httpx type, chaining the original with `from exc`. The mapping is in `_load_httpcore_exceptions` (`default.py:74-92`):\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout` (`_exceptions.py:140`)\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout` (`_exceptions.py:146`)\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout` (`_exceptions.py:152`)\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout` (`_exceptions.py:158`)\n- any other httpcore timeout \u2192 `httpx.TimeoutException` (`_exceptions.py:132`)\n\nAll of these subclass `TimeoutException`, which is a `TransportError`. Response body reads go through `ResponseStream.__iter__` (`default.py:126`), so read timeouts during streaming get the same mapping.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.00256831,
+  "duration_ms": 10116,
+  "tokens": {
+    "input": 6,
+    "cache_write": 7051,
+    "cache_read": 23451,
+    "output": 1846,
+    "context": 7057,
+    "total": 32354
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout httpx Timeout class"
+      },
+      "result_chars": 1136,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class Timeout|def _send_single_request|except .*Timeout|raise .*Timeout|timeout=",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2441,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout, Client._send_single_request, HTTPTransport.handle_request, map_httpcore_exceptions",
+        "detail": "full"
+      },
+      "result_chars": 7582,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_transports\\default.py",
+        "offset": 50,
+        "limit": 110
+      },
+      "result_chars": 4119,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": true,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "BaseClient.timeout is at _client.py:254 (minor line reference, not verifiable); and the claim that 'any other httpcore timeout \u2192 httpx.TimeoutException' is plausible but uncovered",
+      "BaseClient.timeout is at _client.py:254 and the answer says the client wraps timeout; minor line-number uncertainty only, not clearly false",
+      "BaseClient.timeout is at _client.py:254 is a line reference possibly inaccurate, but minor"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "answer": "**No. The daily scheduled refresh does not run when the API server starts, because nothing ever starts the scheduler.**\n\n**What exists**\n- `app/scheduler.py:12` creates a `BackgroundScheduler`.\n- `app/scheduler.py:15-40` defines `_daily_refresh`, which creates a pipeline run and calls `run_pipeline` for `user_id=1`.\n- `app/scheduler.py:43-53` defines `start_scheduler(hour, minute)`. It registers a `CronTrigger` job with id `daily_refresh` and then calls `scheduler.start()`.\n- `app/scheduler.py:56-58` defines `stop_scheduler()`.\n- `app/config.py:31-32` defines `schedule_hour` and `schedule_minute`.\n\n**What's missing**\n- `app/main.py:17-20` has a `lifespan` that only calls `init_db()` and then yields. It never calls `start_scheduler(...)`. It doesn't call `stop_scheduler()` on shutdown either.\n- `app/main.py` doesn't import `app.scheduler` at all (imports at lines 12-14).\n- A grep of all `*.py` files finds `start_scheduler` and `stop_scheduler` only at their definitions in `app/scheduler.py:43` and `:56`. Nothing calls them. I didn't check non-Python files such as a Procfile or Dockerfile. Neither is likely to call into the scheduler.\n\n**Consequences**\n- The `schedule_hour` and `schedule_minute` settings are unused.\n- The README advertises `SCHEDULE_HOUR`/`SCHEDULE_MINUTE` (`README.md:138-139`) and a scheduler for `user_id=1` (`README.md:146`). That behavior isn't wired up.\n- The only refresh path is the manual `POST /api/feed/refresh` in `app/api/feed.py:20`, which has a 2-hour cooldown.\n\n**Fix**\nUpdate the lifespan in `app/main.py` like this:\n```python\nfrom app.scheduler import start_scheduler, stop_scheduler\n\nasync def lifespan(app):\n    init_db()\n    start_scheduler(settings.schedule_hour, settings.schedule_minute)\n    yield\n    stop_scheduler()\n```\nAlso note that `app/config.py:31-32` defaults to hour 7. That doesn't match the comment on line 30, which says 01:30 UTC. The README says the Railway env vars override it.\n\nIf you run multiple workers, each one would start its own scheduler. That would cause duplicate runs.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.039609,
+  "duration_ms": 11752,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5738,
+    "cache_read": 29310,
+    "output": 1371,
+    "context": 5746,
+    "total": 36427
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "cron|schedule|setInterval|node-cron|APScheduler|Celery|refresh",
+        "-i": true,
+        "output_mode": "content",
+        "glob": "!**/node_modules/**",
+        "head_limit": 80
+      },
+      "result_chars": 6312,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|scheduler import|lifespan|on_event",
+        "output_mode": "content",
+        "glob": "**/*.py"
+      },
+      "result_chars": 217,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\scheduler.py"
+      },
+      "result_chars": 1895,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\main.py"
+      },
+      "result_chars": 1244,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 13.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": false,
+      "settings-unused": true
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "answer": "**DigestAuth** (`httpx/_auth.py:175`) is a generator-based `Auth` subclass. It sends the request unauthenticated first, and only computes a digest when the server answers with a Digest challenge.\n\n**The flow in `auth_flow`** (`httpx/_auth.py:193-222`):\n- If a challenge is cached from an earlier response, it adds an `Authorization` header up front (lines 194-197).\n- It yields the request and receives the response (line 199).\n- If the status isn't 401, or there's no `WWW-Authenticate` header, it stops (lines 201-204).\n- It looks for a `Digest ` challenge, parses it, and resets `_nonce_count` to 1 (lines 206-215).\n- It builds the `Authorization` header, forwards any response cookies, and yields the request again for the retry (lines 217-222).\n\n**Challenge parsing** (`_parse_challenge`, lines 224-253) splits the `key=value` fields and requires `realm` and `nonce`. It defaults `algorithm` to MD5 and captures optional `opaque` and `qop`. A missing required field raises `ProtocolError`.\n\n**Header construction** (`_build_auth_header`, lines 255-301):\n- HA1 = hash(user:realm:password). For `-sess` algorithms, HA1 is rehashed with nonce and cnonce (lines 274-276).\n- HA2 = hash(method:path) (lines 265-268). The code has a TODO for `auth-int`.\n- `qop` is resolved to `auth` (lines 329-340). Without qop it falls back to RFC 2069 style (lines 279-281). With qop it uses RFC 2617/7616 style, including the nonce count and cnonce (lines 282-284).\n- The response hash is computed and the fields are rendered. `algorithm`, `qop` and `nc` are unquoted; the rest are quoted (lines 311-327).\n- The cnonce is a truncated SHA-1 over nonce count, nonce, time and `os.urandom(8)` (lines 303-309).\n\n**How the client drives it:**\n- `Client.send` calls `_send_handling_auth` (`httpx/_client.py:930-962`).\n- That method calls `auth.sync_auth_flow(request)` (line 937). The base implementation (`httpx/_auth.py:62-85`) runs `auth_flow` as a generator.\n- Each yielded request goes through `_send_handling_redirects` (line 942), so redirects are followed inside the auth loop.\n- For each response, the client calls `auth_flow.send(response)`. On `StopIteration` it returns the response (lines 949-951). Otherwise it reads the 401 body so the connection can be reused, appends the response to history, and loops with the new request (lines 953-956).\n- `auth_flow.close()` runs in `finally` (line 962).\n\n`DigestAuth` leaves `requires_request_body` and `requires_response_body` at their `False` defaults (`httpx/_auth.py:35-36`), so the base class doesn't pre-read bodies.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00179707,
+  "duration_ms": 12001,
+  "tokens": {
+    "input": 8,
+    "cache_write": 2294,
+    "cache_read": 41847,
+    "output": 1838,
+    "context": 2302,
+    "total": 45987
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth",
+        "detail": "full"
+      },
+      "result_chars": 8269,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "DigestAuth",
+        "direction": "up"
+      },
+      "result_chars": 89,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_auth",
+        "detail": "full"
+      },
+      "result_chars": 2789,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Auth.sync_auth_flow",
+        "detail": "full"
+      },
+      "result_chars": 1513,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "requires_response_body|requires_request_body",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 253,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

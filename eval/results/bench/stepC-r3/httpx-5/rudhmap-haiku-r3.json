@@ -1,0 +1,85 @@
+{
+  "answer": "**Short answer:** `Response.text` doesn't decompress anything itself. It reads `self.content`, which is already decompressed, then runs an incremental codec over it.\n\n**1. Decompression happens earlier, when the body is read.**\n- `Response.text` (`httpx/_models.py:642-649`) takes `self.content` and passes it to `TextDecoder`.\n- `content` (`httpx/_models.py:636-639`) returns `self._content`, or raises `ResponseNotRead` if the body was never read.\n- `read()` (`httpx/_models.py:880-881`) sets `_content = b\"\".join(self.iter_bytes())`.\n- `iter_bytes()` (`httpx/_models.py:894-900`) gets a decoder from `_get_content_decoder()` and runs each raw chunk through `decoder.decode`.\n- `_get_content_decoder()` (`httpx/_models.py:704-720`) reads the `Content-Encoding` header and looks up each value in `SUPPORTED_DECODERS` (`httpx/_decoders.py:381`). It uses a single decoder, a `MultiDecoder` for stacked encodings, or `IdentityDecoder` when there is none.\n\n**2. Character encoding is chosen in `Response.encoding`.**\n- `encoding` (`httpx/_models.py:664-671`) first uses `charset_encoding`, which parses the `charset` parameter of `Content-Type` (`httpx/_models.py:689-697`, parser at `:85-90`).\n- If that charset is missing or `_is_known_encoding` (`httpx/_models.py:56-64`) rejects it, it falls back to `default_encoding`. That is either a string, or a callable that receives the bytes for autodetection.\n- If nothing matches, it uses `\"utf-8\"`.\n- The docstring (`httpx/_models.py:654-662`) lists an explicitly assigned `.encoding` as the highest priority.\n\n**3. Decoding.**\n- `text` (`httpx/_models.py:648-649`) builds `TextDecoder(encoding=self.encoding or \"utf-8\")`. `TextDecoder` (`httpx/_decoders.py:311-312`) wraps `codecs.getincrementaldecoder(encoding)` with `errors=\"replace\"`, so invalid bytes become U+FFFD rather than raising.\n- It calls `decode(self.content)` and then `flush()` (`httpx/_decoders.py:314-318`) to emit any buffered trailing bytes, and joins the two.\n- The result is cached in `_text`, so later accesses return the same string.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.00245526,
+  "duration_ms": 11222,
+  "tokens": {
+    "input": 8,
+    "cache_write": 6249,
+    "cache_read": 34416,
+    "output": 1721,
+    "context": 6257,
+    "total": 42394
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text",
+        "detail": "full"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Response text encoding decoder"
+      },
+      "result_chars": 3016,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.content, Response._get_content_decoder, Response.charset_encoding, TextDecoder",
+        "detail": "full"
+      },
+      "result_chars": 4696,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.read, Response.iter_bytes, _is_known_encoding, _parse_content_type_charset",
+        "detail": "full"
+      },
+      "result_chars": 5134,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": false,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.4,
+    "critical_ok": false,
+    "false_claims": [
+      "Answer says Content-Type charset is checked first and the explicit .encoding is only mentioned in a docstring as highest priority; the described flow in `encoding` implies charset first, slightly misordering priority (minor/ambiguous).",
+      "Encoding priority is described as charset_encoding first, with explicit .encoding only mentioned as highest priority in the docstring; the answer's ordering of the steps is slightly muddled but not contradictory.",
+      "The answer's encoding section implies the order is charset_encoding first, then default_encoding, and only mentions the explicit .encoding as 'highest priority' in a docstring aside; the stated flow puts Content-Type charset before fallback without clearly stating explicit-set first (minor ordering ambiguity)."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

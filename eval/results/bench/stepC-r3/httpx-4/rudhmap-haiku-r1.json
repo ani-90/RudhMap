@@ -1,0 +1,85 @@
+{
+  "answer": "**Overview:** `DigestAuth` (`httpx/_auth.py:175`) is a generator-based `Auth` subclass. It answers a server's Digest challenge by replaying the request once with an `Authorization` header.\n\n**Flow in `auth_flow` (`_auth.py:193-222`):**\n1. If a previous challenge is cached (`_last_challenge`), it signs the outgoing request up front (`:194-197`). This is how later requests to the same auth object skip the 401 round trip.\n2. It yields the request and receives the response (`:199`).\n3. If the response isn't a 401 with a `Digest` `WWW-Authenticate` header, the flow ends (`:201-212`).\n4. Otherwise it parses the challenge (`:214`, `_parse_challenge` at `:224-253`), resets `_nonce_count` to 1 (`:215`), builds the header (`:217`), copies any response cookies (`:220-221`), and yields the request again (`:222`).\n\n**Header computation (`_build_auth_header`, `_auth.py:255-301`):**\n- HA1 = hash(user:realm:password), with the `-sess` variants mixing in nonce and cnonce (`:263-276`).\n- HA2 = hash(method:uri) (`:265-268`).\n- With qop, response = hash(HA1:nonce:nc:cnonce:qop:HA2); without qop, the RFC 2069 form is used (`:278-291`).\n- The supported hashes are MD5, SHA-1, SHA-256 and SHA-512, plus their `-SESS` forms (`:176-185`).\n- `auth-int` is not implemented (`:267` TODO, `:336-337`).\n\n**How the client drives it:**\n- `Client._send_handling_auth` (`httpx/_client.py:930-962`) calls `auth.sync_auth_flow(request)` (`:937`) and advances it with `next()` (`:939`).\n- Each yielded request is sent through redirect handling (`:942`), and the response is fed back with `auth_flow.send(response)` (`:949`).\n- If the flow stops (`StopIteration`), that response is returned (`:950-951`).\n- Otherwise the response body is read (`:954`) so the auth class can inspect it, and the loop continues with the new request.\n- `auth_flow.close()` runs in a `finally` (`:961-962`).\n- The base class `Auth.sync_auth_flow` (`httpx/_auth.py:62-85`) handles `requires_request_body` and `requires_response_body`, and defers to `auth_flow()`.\n- The async path mirrors this in `_client.py:1652-1677`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.00258714,
+  "duration_ms": 9842,
+  "tokens": {
+    "input": 6,
+    "cache_write": 7748,
+    "cache_read": 24144,
+    "output": 1591,
+    "context": 7754,
+    "total": 33489
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1793,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|sync_auth_flow|async_auth_flow|requires_request_body|requires_response_body",
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "-n": true
+      },
+      "result_chars": 5555,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 170
+      },
+      "result_chars": 6986,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 35
+      },
+      "result_chars": 1199,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 13.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "answer": "**Logged-in check:** The frontend only checks whether an `access_token` exists in `localStorage`. `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`). It does not verify the token's signature or expiry. The protected route guard `_layout.tsx` calls this in `beforeLoad` and redirects to `/login` when it returns false (`frontend/src/routes/_layout.tsx:14-19`).\n\n**Login:** `login()` posts credentials and stores the returned token in `localStorage` (`useAuth.ts:41-46`). Logout removes the token and navigates to `/login` (`useAuth.ts:56-59`).\n\n**Sending the token:** `main.tsx:17-20` configures the API client with `auth: () => localStorage.getItem(\"access_token\") || \"\"`. `getAuthToken` in `frontend/src/client/core/auth.gen.ts:22-40` turns that into a `Bearer <token>` header when the scheme is bearer. Requests with no token send no header.\n\n**Expired or invalid token:** Nothing checks the token proactively. The failure is handled reactively:\n- `handleApiError` (`frontend/src/main.tsx:22-30`) is registered as the `onError` for both the `QueryCache` and `MutationCache` (`main.tsx:31-38`). When an error is an `AxiosError` with status 401 or 403, it removes `access_token` and sets `window.location.href = \"/login\"`.\n- This is a full page reload, not a router navigation, so the in-memory React Query cache is discarded.\n\n**Gaps:**\n- `useAuth.ts:26` sets `enabled: isLoggedIn()` once per render. A stale token is only detected when a request fails, not when the `currentUser` query is first evaluated.\n- The `login.tsx` and `signup.tsx` routes are not guarded, so a user with a stale token can reach them. The next API call that returns 401 clears the token again.\n- A 403 is treated the same as 401, which logs the user out even when the token is valid but lacks permission.\n\nI did not open the backend's `deps.py` to confirm what status code the server returns for an invalid token. The frontend handling above assumes 401 or 403.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.00273538,
+  "duration_ms": 10098,
+  "tokens": {
+    "input": 6,
+    "cache_write": 8289,
+    "cache_read": 25048,
+    "output": 1653,
+    "context": 8295,
+    "total": 34996
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 5469,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "token|logged|login|401|expired|localStorage|auth",
+        "-i": true,
+        "output_mode": "files_with_matches"
+      },
+      "result_chars": 2727,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\hooks\\useAuth.ts"
+      },
+      "result_chars": 1933,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\main.tsx"
+      },
+      "result_chars": 1698,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\routes\\_layout.tsx"
+      },
+      "result_chars": 1146,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\client\\core\\auth.gen.ts"
+      },
+      "result_chars": 977,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 13.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": false,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "The login.tsx and signup.tsx routes are not guarded, so a user with a stale token can reach them (key says /login route redirects to / when already logged in).",
+      "The login.tsx and signup.tsx routes are not guarded, so a user with a stale token can reach them (key says /login route redirects to / when already logged in).",
+      "The login.tsx and signup.tsx routes are not guarded, so a user with a stale token can reach them (the key says login route redirects to / when already logged in)."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

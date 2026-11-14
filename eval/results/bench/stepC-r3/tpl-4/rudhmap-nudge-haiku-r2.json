@@ -1,0 +1,121 @@
+{
+  "answer": "**Deciding \"logged in\"**\n\nThe frontend only checks whether a token is stored. `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`). It gates two things:\n\n- The protected layout route's `beforeLoad` redirects to `/login` when that check fails (`frontend/src/routes/_layout.tsx:14-19`).\n- The `currentUser` query only runs when the check passes (`frontend/src/hooks/useAuth.ts:23-27`).\n\nThe token is attached to every API request through `client.setConfig({ auth: () => localStorage.getItem(\"access_token\") })` (`frontend/src/main.tsx:17-20`). `getAuthToken` turns it into a `Bearer` header (`frontend/src/client/core/auth.gen.ts:32-33`).\n\n**Expired or invalid tokens**\n\nThe backend does the real validation. `get_current_user` decodes the JWT, and on `InvalidTokenError` (which includes expiry) or a payload validation error it returns 403 \"Could not validate credentials\" (`backend/app/api/deps.py:30-40`). It also returns 404 if the user is missing and 400 if the user is inactive (`deps.py:41-45`).\n\nThe frontend reacts to failed queries and mutations globally. Both the `QueryCache` and `MutationCache` call `handleApiError` (`frontend/src/main.tsx:31-38`). For a 401 or 403, it removes `access_token` and does a hard redirect to `/login` (`frontend/src/main.tsx:22-30`).\n\n**Gaps**\n\n- `isLoggedIn()` never checks expiry, so an expired token passes the route guard. The user only gets logged out after the first API call fails.\n- The 404 (\"User not found\") and 400 (\"Inactive user\") responses don't trigger the logout path, so those users stay on the page with a stored token.\n- Logout (`frontend/src/hooks/useAuth.ts:56-59`) only removes the token from localStorage and navigates to `/login`. It doesn't call the server.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 4,
+  "cost_usd": 0.0031520200000000006,
+  "duration_ms": 11434,
+  "tokens": {
+    "input": 8,
+    "cache_write": 9222,
+    "cache_read": 40132,
+    "output": 1811,
+    "context": 9230,
+    "total": 51173
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 5469,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "token expired invalid logout frontend auth"
+      },
+      "result_chars": 1359,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "useAuth"
+      },
+      "result_chars": 3404,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "handleApiError"
+      },
+      "result_chars": 482,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/_layout.tsx"
+      },
+      "result_chars": 1304,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/components/Common/AuthLayout.tsx"
+      },
+      "result_chars": 1057,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/deps.py"
+      },
+      "result_chars": 2028,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/main.tsx"
+      },
+      "result_chars": 1892,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "getAuthToken"
+      },
+      "result_chars": 881,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": true,
+      "backend-rejects": true,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

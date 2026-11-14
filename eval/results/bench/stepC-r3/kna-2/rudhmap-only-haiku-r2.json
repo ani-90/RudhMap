@@ -1,0 +1,95 @@
+{
+  "answer": "**Path of one article**\n\n1. **Fetch (`_fetch_all`, `app/pipeline/agents/base_agent.py:84-119`)**: Each agent generates queries via Groq, falling back to hardcoded ones (L90-95). Results come from Tavily (L99) and NewsAPI (L110). Every URL is normalised by `_normalise_url` (L19-25), which strips tracking params such as `utm_*` and `fbclid`. **Dedup step 1:** an in-memory `seen_urls` set within the run (L86, L101-102, L112-113).\n\n2. **Per-item checks (`BaseAgent.run`, `base_agent.py:51-80`)**: Items missing a URL or title are dropped (L52). `enrich_content` scrapes with trafilatura if the snippet is under 300 chars (`scraper.py:28-36`). `_is_quality` requires at least 40 words and an average of 5+ words per line (`base_agent.py:28-36`). The article is then embedded (L60) and a SHA-256 of the URL is computed (L61).\n\n3. **Semantic dedup (`aggregator_node`, `app/pipeline/aggregator.py:26-38`)**: For each article with a non-empty embedding, `search_similar` runs at threshold 0.85. A match drops the article. **Dedup step 2.**\n\n4. **Exact-URL dedup at insert (`app/pipeline/aggregator.py:40-61`, `app/db/crud.py:40-64`)**: A new UUID becomes `qdrant_id`. `bulk_insert_articles` checks each URL against SQLite (crud L43-45). Commits that lose a race with a parallel agent are rolled back and skipped (L62-63). **Dedup step 3.**\n\n5. **Vector upsert (`aggregator.py:63-82`, `app/db/qdrant.py:51-64`)**: Only rows that were actually inserted are upserted to Qdrant, keyed by `qdrant_id`. A Qdrant failure is logged and the article stays in SQLite only.\n\n6. **Bookkeeping (`aggregator.py:84-108`)**: `duplicate_count` and `persisted` are written to the `PipelineRun` row.\n\n**Caveats I found**\n\n- `embedder.embed` is a stub that always returns `[]` (`app/services/embedder.py:4-5`). Because of that, step 3 never fires, and no article reaches Qdrant (`aggregator.py:29`, `:77`). Semantic dedup is effectively disabled.\n- `content_hash` (`base_agent.py:61`) is computed but never read or stored, so it does no dedup work.\n- I did not check whether the `Article.url` column has a unique constraint in `models.py:22`. If it does not, step 4 is the only guard against duplicates across agents.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.00277976,
+  "duration_ms": 11549,
+  "tokens": {
+    "input": 6,
+    "cache_write": 8041,
+    "cache_read": 18446,
+    "output": 1973,
+    "context": 8047,
+    "total": 28466
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch article dedup store"
+      },
+      "result_chars": 1309,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run, BaseAgent._fetch_all, _normalise_url, _is_quality"
+      },
+      "result_chars": 7411,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5991,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles, upsert_articles, get_articles_by_qdrant_ids"
+      },
+      "result_chars": 3086,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "enrich_content, _fetch_and_extract"
+      },
+      "result_chars": 2244,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.833,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

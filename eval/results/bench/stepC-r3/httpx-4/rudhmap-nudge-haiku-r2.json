@@ -1,0 +1,84 @@
+{
+  "answer": "**DigestAuth** (`httpx/_auth.py:175`) is a subclass of `Auth` (`httpx/_auth.py:22`) that implements RFC 2617/7616 digest authentication as a generator-based flow.\n\n**The flow itself** (`DigestAuth.auth_flow`, `httpx/_auth.py:193-222`):\n1. If a previous challenge is cached (`_last_challenge`), it attaches an `Authorization` header up front (lines 194-197).\n2. It yields the request and receives the response (line 199).\n3. If the response isn't a 401 with a `Digest` `WWW-Authenticate` header, the flow ends (lines 201-212).\n4. Otherwise it parses the challenge, resets the nonce count, builds the header, forwards any response cookies, and yields the request again (lines 214-222).\n\n**Header construction:**\n- `_parse_challenge` (`:224-253`) extracts realm, nonce, algorithm (default MD5), opaque, and qop.\n- `_build_auth_header` (`:255-301`) computes HA1 and HA2 with the algorithm's hash, adds the `-sess` variant when needed, and forms the response digest. `nc` increments on each request.\n- `_resolve_qop` (`:329-340`) prefers `auth`. `auth-int` is not implemented; the TODO is at line 267.\n- `_get_client_nonce` (`:303-309`) builds the cnonce from a SHA-1 of the nonce count, nonce, time, and random bytes.\n\n**How the client drives it:**\n- `Client.send` calls `_send_handling_auth` (`httpx/_client.py:914`).\n- `_send_handling_auth` (`httpx/_client.py:930-962`) gets a generator from `auth.sync_auth_flow(request)` (line 937). It sends each yielded request through `_send_handling_redirects` (line 942), then feeds the response back with `auth_flow.send(response)` (line 949). A `StopIteration` means the flow is done and the response is returned.\n- `Auth.sync_auth_flow` (`httpx/_auth.py:62-85`) wraps `auth_flow`. It reads the request body if `requires_request_body` is set, and reads the response body if `requires_response_body` is set (lines 71-80).\n- The async client has a mirror of this in `AsyncClient._send_handling_auth`.\n\n**Notes:**\n- Because the cached challenge is reused, the first request on a new client usually goes out without credentials, gets a 401, and is then retried with them. Later requests can go out pre-authenticated.\n- `trace` shows no callers inside the repo. Users reach `DigestAuth` by passing it as the `auth=` argument.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.00229256,
+  "duration_ms": 10219,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5831,
+    "cache_read": 37356,
+    "output": 1504,
+    "context": 5839,
+    "total": 44699
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth",
+        "detail": "full"
+      },
+      "result_chars": 8269,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "DigestAuth",
+        "direction": "up"
+      },
+      "result_chars": 89,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_send_handling_auth, _send_handling_redirects, sync_auth_flow",
+        "detail": "full"
+      },
+      "result_chars": 2252,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_auth",
+        "detail": "full"
+      },
+      "result_chars": 2789,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 13.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "The note that the first request on a new client usually goes out without credentials is fine; no clear false claims. Minor: says the cnonce is built from SHA-1 of nc, nonce, time, random bytes (not contradicted by key)."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

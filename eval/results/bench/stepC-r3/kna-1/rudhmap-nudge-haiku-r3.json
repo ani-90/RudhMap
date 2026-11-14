@@ -1,0 +1,65 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a background pipeline run and returns immediately.\n\n**What it does**\n1. **Cooldown check (L26-42):** It loads the last successful run with `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns `status=\"skipped\"` with the remaining cooldown and minutes since the last refresh.\n2. **Start a run (L44-48):** It resolves the domains via `request.resolved_domains()` (`app/schemas/feed.py:11`), which returns all `DOMAINS` if none are given, or filters the request's list against `DOMAINS`. It then generates a UUID and calls `crud.create_pipeline_run` (`app/db/crud.py:107`) and `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`).\n3. **Schedule work (L50):** It queues `_run_pipeline_bg(run_id, user_id, domains)` with FastAPI's `BackgroundTasks`.\n4. **Respond (L52):** It returns `FeedRefreshResponse(run_id, status=\"running\", domains)`.\n\n**What happens after it returns**\n- FastAPI sends the response first, then runs `_run_pipeline_bg` (`app/api/feed.py:55-72`).\n- `_run_pipeline_bg` awaits `run_pipeline` (`app/pipeline/graph.py:69`). The graph runs `run_all_agents_node` (`app/pipeline/graph.py:28`) and then `aggregator_node` (`app/pipeline/aggregator.py:14`). The graph is built by `_build_graph` (`app/pipeline/graph.py:56`).\n- If anything raises, the handler opens a fresh `SessionLocal` session (`app/db/sqlite.py:11`) and marks the run `status=\"failed\"` with the error in `error_log` and a `finished_at` timestamp (`app/api/feed.py:59-72`).\n- The success path is not visible in this function. Completion, including setting `finished_at`, is presumably handled inside `run_pipeline` or the aggregator. I did not verify this.\n\n**Callers:** rudhmap reports no in-repo callers, so the only entry point is HTTP clients.\n\n**Caveat:** The cooldown check reads only `finished_at` of successful runs. A run that is still `running` does not block a second refresh. Concurrent POSTs during a run can therefore start parallel pipelines.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 3,
+  "cost_usd": 0.0010057,
+  "duration_ms": 11111,
+  "tokens": {
+    "input": 6,
+    "cache_write": 840,
+    "cache_read": 24910,
+    "output": 1176,
+    "context": 846,
+    "total": 26932
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_run_pipeline_bg"
+      },
+      "result_chars": 1489,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": true,
+      "status": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "Concurrent POSTs during a run can start parallel pipelines (cooldown only considers successful runs) \u2014 not contradicted by key, but unverified",
+      "The answer says a still-running run does not block a second refresh and concurrent POSTs can start parallel pipelines; this is an inference not in the key, but it does not contradict the key since the cooldown only considers success/partial runs.",
+      "The cooldown check reads only finished_at of successful runs (key says status success or partial) - minor imprecision",
+      "Success path completion is 'presumably' handled elsewhere - hedged, not false"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

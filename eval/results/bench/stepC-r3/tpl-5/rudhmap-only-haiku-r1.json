@@ -1,0 +1,95 @@
+{
+  "answer": "**Uses of `SECRET_KEY` (backend):**\n\n- **Declared:** `backend/app/core/config.py:23` (`SECRET_KEY: str` on `Settings`).\n- **JWT signing:** `backend/app/core/security.py:25` in `create_access_token`, using `jwt.encode(..., settings.SECRET_KEY, algorithm=ALGORITHM)` with `ALGORITHM = \"HS256\"` (`security.py:19`). It's called from `login_access_token` (`backend/app/api/routes/login.py:39`).\n- **JWT verification:** `backend/app/api/deps.py:33` in `get_current_user`.\n- **Password-reset tokens:** `backend/app/utils.py:112` (generate) and `utils.py:121` (verify).\n\n**What happens if it's left as `\"changethis\"`:**\n\n1. The `Settings` model runs an `after` validator, `_enforce_non_default_secrets` (`config.py:79-81`), which checks `SECRET_KEY` first, then the database password and `FIRST_SUPERUSER_PASSWORD` (`config.py:81-86`).\n2. Each check calls `_check_default_secret` (`config.py:68-77`). If the value equals `\"changethis\"`:\n   - If `FASTAPI_ENV == \"development\"`, it only emits a `warnings.warn` and startup continues (`config.py:74-75`).\n   - Otherwise it raises `ValueError` (`config.py:77`).\n3. `settings = Settings()` runs at module import (`config.py:91`), so outside development the error is raised as soon as the config module is imported. The app never starts.\n\nSo the default is only tolerated in development. In any other `FASTAPI_ENV`, startup fails with a message asking you to change the value. Note that the check is an exact string match on `\"changethis\"`. A different weak value passes the check.\n\nI did not run the app to confirm the startup behavior. This is based on reading the code.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00152308,
+  "duration_ms": 8998,
+  "tokens": {
+    "input": 8,
+    "cache_write": 3534,
+    "cache_read": 21448,
+    "output": 1202,
+    "context": 3542,
+    "total": 26192
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "SECRET_KEY"
+      },
+      "result_chars": 950,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "changethis"
+      },
+      "result_chars": 531,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Settings"
+      },
+      "result_chars": 602,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Settings._check_default_secret"
+      },
+      "result_chars": 824,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Settings._enforce_non_default_secrets"
+      },
+      "result_chars": 901,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_access_token"
+      },
+      "result_chars": 774,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-5",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 11.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "access-tokens": true,
+      "reset-tokens": true,
+      "changethis": true,
+      "other-secrets": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

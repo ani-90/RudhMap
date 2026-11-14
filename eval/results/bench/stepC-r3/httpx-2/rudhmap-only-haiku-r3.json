@@ -1,0 +1,66 @@
+{
+  "answer": "**Direct subclass overrides** (these must match the new signature):\n- `HTTPTransport.handle_request`, `httpx/_transports/default.py:230`\n- `MockTransport.handle_request`, `httpx/_transports/mock.py:19`\n- `WSGITransport.handle_request`, `httpx/_transports/wsgi.py:91`\n\n**Production call site:**\n- `Client._send_single_request`, `httpx/_client.py:1014`, is the only non-test caller that the call graph shows. It is defined at `httpx/_client.py:1001`.\n\n**Indirect callers** (they pass through `_send_single_request` and only break if they change their own signatures):\n- `Client._send_handling_redirects`, `httpx/_client.py:979`, which calls `_send_single_request` at line 979 (defined at line 964)\n- `Client._send_handling_auth`, `httpx/_client.py:942`, which calls it at line 942 (defined at line 930)\n\n**Not covered by this query:**\n- `AsyncBaseTransport` and the async transports (for example `AsyncHTTPTransport` and `ASGITransport`) are separate classes. They do not inherit from `BaseTransport`, so a change here does not touch them. They are a parallel API that you would need to keep in sync by hand if you want the two to match.\n- The call graph only follows static calls. A `transport.handle_request(...)` call made through `getattr`, a stored bound method, or user code that subclasses `BaseTransport` would not show up here. Grep for `handle_request` to check for those.\n\nIn short, changing the signature affects three transport overrides in `_transports/` and the one client method at `_client.py:1014`. The redirect and auth paths are affected only through that method.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 2,
+  "cost_usd": 0.0007019000000000001,
+  "duration_ms": 7510,
+  "tokens": {
+    "input": 4,
+    "cache_write": 0,
+    "cache_read": 10950,
+    "output": 1184,
+    "context": 4,
+    "total": 12138
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request"
+      },
+      "result_chars": 2039,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 10.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": false,
+      "httpcore": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [
+      "Client._send_handling_redirects and _send_handling_auth are said to call _send_single_request at the same line as their definitions/with odd line numbers (979 and 942), which is likely inaccurate, though minor.",
+      "Claims _send_handling_redirects and _send_handling_auth call _send_single_request at lines 979 and 942 respectively; plausible but not contradicted by key, so not clearly false.",
+      "Claims _send_handling_redirects and _send_handling_auth call _send_single_request at lines 979 and 942 respectively, possibly inaccurate but minor",
+      "Says user code subclassing BaseTransport 'would not show up' but does not state that custom user transports would need to change"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "answer": "**Application callers of `crud.get_user_by_email`** (8 total, excluding tests)\n\nDefinition: `backend/app/crud.py:34`, which takes keyword-only `session` and `email` and returns `User | None`.\n\n| Caller | Call site | What the result is used for |\n|---|---|---|\n| `authenticate` | `crud.py:46` | Returns `None` if missing. Otherwise checks the password against `hashed_password` and returns the user. |\n| `login_access_token` | via `authenticate`, `routes/login.py:30` | Indirect; uses `authenticate`'s return value. |\n| `recover_password` | `routes/login.py:58` | Existence check. Sends a reset email only if `user` is truthy, and always returns the same message to prevent enumeration. |\n| `reset_password` | `routes/login.py:85` | Rejects if `None`, rejects if `not user.is_active` (`login.py:89`), then calls `crud.update_user` with `db_user=user` (`login.py:92`). |\n| `recover_password_html_content` | `routes/login.py:109` | Raises 404 if `None`. Otherwise reads `user.email` to build the email (`login.py:118`). |\n| `create_user` | `routes/users.py:61` | Not opened in this review. The call site is in the admin create-user route, most likely a duplicate-email check. |\n| `update_user_me` | `routes/users.py:90` | Duplicate check: 409 if another user (`id != current_user.id`) owns the new email (`users.py:91-94`). |\n| `register_user` | `routes/users.py:151` | Duplicate check: 400 if `user` is truthy (`users.py:152-156`). |\n| `update_user` | `routes/users.py:204` | Duplicate check: 409 if another user (`id != user_id`) owns the new email (`users.py:205-208`). |\n\n**Implications for a signature change**\n\n- Every caller uses keyword arguments (`session=`, `email=`). Renaming either parameter breaks all 8 sites. Adding a parameter with a default is safe.\n- Most callers rely on the `None` return for existence checks. If you change it to raise on a miss, `recover_password` (`login.py:62`), `authenticate` (`crud.py:47`), and the duplicate checks would all need rewriting.\n- `reset_password`, `recover_password_html_content`, and `authenticate` also read attributes off the returned `User` (`is_active`, `email`, `hashed_password`), so the return type must stay `User`.\n\nCall-graph data came from rudhmap; I confirmed the call sites by reading `login.py` and `users.py`, except `users.py:61`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00290889,
+  "duration_ms": 11960,
+  "tokens": {
+    "input": 8,
+    "cache_write": 8048,
+    "cache_read": 28049,
+    "output": 2036,
+    "context": 8056,
+    "total": 38141
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "get_user_by_email"
+      },
+      "result_chars": 2513,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password, reset_password, recover_password_html_content"
+      },
+      "result_chars": 6279,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_user, update_user_me, register_user, update_user"
+      },
+      "result_chars": 4269,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "authenticate"
+      },
+      "result_chars": 1999,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:update_user",
+        "detail": "full"
+      },
+      "result_chars": 2290,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "Claims 8 total callers while listing 9 rows (login_access_token is indirect, not a direct caller); minor counting inconsistency",
+      "Lists login_access_token as a caller via authenticate, which is not a direct caller of get_user_by_email",
+      "Claims 8 total callers while listing 9 rows (login_access_token is indirect, not a direct caller); minor inconsistency.",
+      "Lists login_access_token as a caller of get_user_by_email via authenticate (indirect), which is not a direct caller.",
+      "Claims 8 total callers while listing 9 rows (login_access_token is indirect and not a direct caller); minor miscount.",
+      "Lists login_access_token as a caller (indirect via authenticate), which is not a direct caller of get_user_by_email."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

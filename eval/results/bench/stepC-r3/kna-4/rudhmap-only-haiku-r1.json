@@ -1,0 +1,89 @@
+{
+  "answer": "**Short answer: nothing changes in the live pipeline.** Editing `similarity_threshold` in `app/config.py` has no effect on article deduplication as the code stands.\n\n- **The setting is defined but bypassed.** `similarity_threshold: float = 0.85` is at `app/config.py:28`.\n- **The only reader is a fallback.** `search_similar` uses it only when no threshold is passed: `if threshold is None: threshold = settings.similarity_threshold` (`app/db/qdrant.py:40-41`).\n- **The one caller hardcodes its own value.** `aggregator_node` calls `search_similar(article.embedding, threshold=0.85)` at `app/pipeline/aggregator.py:31`. That is the only caller in the call graph; `trace` shows no others.\n\nSo the semantic dedup threshold is the literal `0.85` in `aggregator.py:31`. Changing `config.py` does nothing there. The current config value happens to match that literal, which hides the disconnect.\n\n**What the dedup actually does**, for reference:\n- **Pass 1, semantic:** each article with an embedding is checked against Qdrant. A match at or above the threshold counts as a duplicate and is skipped (`aggregator.py:28-38`). If the Qdrant search raises, the article is kept and dedup is skipped for it (`aggregator.py:36-37`).\n- **Pass 2, exact URL:** the duplicate-by-URL check happens in the SQLite bulk insert (`aggregator.py:59`, `crud.bulk_insert_articles`). The threshold has no bearing on it.\n\n**To make the config setting take effect**, change `aggregator.py:31` to `search_similar(article.embedding)` so the `None` fallback applies. Alternatively, pass `threshold=settings.similarity_threshold` explicitly. Either way, the `0.85` literal should go.\n\nI haven't run the pipeline or tests; this is from reading the call graph and source.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.0017321300000000001,
+  "duration_ms": 9031,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4580,
+    "cache_read": 20533,
+    "output": 1220,
+    "context": 4588,
+    "total": 26341
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "similarity_threshold"
+      },
+      "result_chars": 308,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "deduplication dedupe duplicate"
+      },
+      "result_chars": 118,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar"
+      },
+      "result_chars": 825,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "search_similar",
+        "direction": "up"
+      },
+      "result_chars": 607,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5991,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-4",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "no-effect": true,
+      "default-only": true,
+      "mechanics": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [
+      "Describes the semantic dedup as actually running (each article with an embedding is checked against Qdrant), without noting that embedder.embed() returns [] so semantic dedup does not run today.",
+      "Describes the semantic dedup as actively running on articles with embeddings, without noting embedder.embed() returns [] so semantic dedup doesn't run today"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

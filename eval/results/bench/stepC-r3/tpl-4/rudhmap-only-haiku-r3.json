@@ -1,0 +1,87 @@
+{
+  "answer": "**Short answer:** The frontend only checks whether a token string exists in `localStorage`. It never validates the token. The backend rejects expired or invalid tokens, and the frontend reacts to that rejection by clearing the token and redirecting to login.\n\n**Deciding \"logged in\"**\n- `isLoggedIn()` returns `localStorage.getItem(\"access_token\") !== null` (`frontend/src/hooks/useAuth.ts:14-16`).\n- The protected layout route calls it in `beforeLoad` and redirects to `/login` if it returns false (`frontend/src/routes/_layout.tsx:14-20`).\n- The `currentUser` query (`GET /users/me`) runs only when `isLoggedIn()` is true (`frontend/src/hooks/useAuth.ts:23-27`).\n- Login stores the token after a successful `loginAccessToken` call (`frontend/src/hooks/useAuth.ts:41-46`). Logout removes it and navigates to `/login` (`frontend/src/hooks/useAuth.ts:56-59`).\n\n**Attaching the token**\n- `client.setConfig` sets `auth` to a function that reads `access_token` from `localStorage` on every request (`frontend/src/main.tsx:17-20`).\n\n**Expired or invalid token**\n- `handleApiError` handles failures from both the query cache and the mutation cache (`frontend/src/main.tsx:22-38`). If the error is an `AxiosError` with status 401 or 403, it removes `access_token` and sets `window.location.href = \"/login\"` (`frontend/src/main.tsx:22-30`).\n- So an expired token typically shows up as a 401 from `/users/me`, which clears the token and forces a full-page redirect to login.\n\n**Limitations**\n- `beforeLoad` only checks for the token's presence. A stale token passes that check and is caught only when an API call fails.\n- Because the redirect is a hard `window.location.href` assignment, in-flight state is lost. The handler also only covers 401 and 403, so any other failure is shown as an error rather than logging the user out.\n- I didn't trace the backend dependency that produces the 401/403 (`backend/app/api/deps.py`), so I haven't confirmed which status an invalid token gets.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00102126,
+  "duration_ms": 10925,
+  "tokens": {
+    "input": 6,
+    "cache_write": 0,
+    "cache_read": 25716,
+    "output": 1527,
+    "context": 6,
+    "total": 27249
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "token expired invalid logged in auth"
+      },
+      "result_chars": 2128,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {
+        "path": ""
+      },
+      "result_chars": 5469,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "useAuth"
+      },
+      "result_chars": 3404,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/main.tsx"
+      },
+      "result_chars": 1892,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "frontend/src/routes/_layout.tsx"
+      },
+      "result_chars": 1304,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-4",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "presence-only": true,
+      "route-guards": false,
+      "backend-rejects": false,
+      "global-handler": true,
+      "login-stores": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

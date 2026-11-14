@@ -1,0 +1,76 @@
+{
+  "answer": "**No. The daily refresh is defined but never started when the API server boots.**\n\n- **The job is defined.** `start_scheduler()` registers `_daily_refresh` as a `CronTrigger` job (default 07:00) on a module-level `BackgroundScheduler`, then calls `scheduler.start()` (`app/scheduler.py:43-53`). `_daily_refresh()` creates a pipeline run and calls `run_pipeline` for `user_id=1` across `DOMAINS` (`app/scheduler.py:15-40`).\n\n- **Nothing calls it.** The FastAPI `lifespan` only runs `init_db()` and then yields (`app/main.py:18-20`). It does not call `start_scheduler()`. A repo-wide search finds no call site for `start_scheduler` or `stop_scheduler`. The only references are the definitions in `app/scheduler.py` and the README note at `README.md:146`. `run.py` doesn't reference the scheduler either.\n\n- **Consequence.** Starting the server does not schedule the 07:00 refresh. The job only runs if something outside this repo imports and calls `start_scheduler()`, or if someone adds that call. Manual refresh still works through `POST /api/feed/refresh` (`app/api/feed.py:21`), which is a separate path.\n\n- **Also unused.** `stop_scheduler()` is never called, so the scheduler is not shut down on server exit either.\n\n**Fix:** call `start_scheduler()` in `lifespan` after `init_db()`, and call `stop_scheduler()` after the `yield`. Since the app is single-user, `replace_existing=True` keeps this safe if the hook runs more than once, though multiple workers would still each start their own scheduler.\n\nI did not run the server to confirm this at runtime. The conclusion comes from the static call graph and a text search.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.00180761,
+  "duration_ms": 8755,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4509,
+    "cache_read": 35601,
+    "output": 1098,
+    "context": 4517,
+    "total": 41216
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule daily news refresh cron"
+      },
+      "result_chars": 3063,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "start_scheduler, stop_scheduler, lifespan"
+      },
+      "result_chars": 2423,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|scheduler",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 798,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 12.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "answer": "**Digest auth in httpx** is a generator-based auth flow in `httpx/_auth.py`. `DigestAuth(Auth)` is defined at `_auth.py:175`, with `__init__` at `:187` storing the credentials and a `_last_challenge` slot (`:190`).\n\n**The flow (`DigestAuth.auth_flow`, `_auth.py:193-222`):**\n1. If a challenge from an earlier response is cached, it builds an `Authorization` header from it and attaches it to the outgoing request (`:194-197`). This is how later requests reuse the same nonce.\n2. It yields the request to the client and receives the response (`:199`).\n3. If the response is not a 401 or has no `WWW-Authenticate`, the flow ends (`:201-204`).\n4. It scans the `WWW-Authenticate` headers for one starting with `digest ` (`:206-212`).\n5. It parses the challenge (`_parse_challenge`, `:224-253`, called at `:214`), resets `_nonce_count = 1` (`:215`), and builds the header (`_build_auth_header`, `:255-301`, called at `:217-219`). The header builder uses the helpers `_get_client_nonce` (`:303`), `_resolve_qop` (`:329`) and `_get_header_value` (`:311`).\n6. It copies any response cookies into the retried request (`:220-221`) and yields the request again (`:222`).\n\n**How the client drives it:** `Client.send` (`httpx/_client.py:914`) calls `_send_handling_auth` (`:930-962`). That method:\n- Obtains the generator with `auth.sync_auth_flow(request)` (`:937`) and advances it to the first request.\n- Sends each request through `_send_handling_redirects` (`:942`), so redirects are followed inside the auth loop.\n- Feeds each response back with `auth_flow.send(response)` (`:949`). A `StopIteration` means the flow is finished and the response is returned (`:950-951`).\n- Otherwise it reads the response body so the connection can be reused (`:954`), records it in history (`:953`, `:956`), and sends the next request (`:955`).\n- Closes the response on error (`:958-960`) and always closes the generator in `finally` (`:962`).\n\nThe async path mirrors this in `AsyncClient._send_handling_auth` (`httpx/_client.py:1645`).\n\nNote: rudhmap reports no callers of `auth_flow` inside the repo, since the generator is driven through `sync_auth_flow`/`async_auth_flow` on the base `Auth` class (`_auth.py:62`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0020871600000000002,
+  "duration_ms": 10186,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5427,
+    "cache_read": 23346,
+    "output": 1535,
+    "context": 5435,
+    "total": 30316
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1793,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth"
+      },
+      "result_chars": 920,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth.auth_flow",
+        "detail": "full"
+      },
+      "result_chars": 2633,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "DigestAuth.auth_flow",
+        "direction": "up"
+      },
+      "result_chars": 99,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_send_handling_auth"
+      },
+      "result_chars": 941,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_auth",
+        "detail": "full"
+      },
+      "result_chars": 2789,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 13.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": false,
+      "qop": false,
+      "reuse": true
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

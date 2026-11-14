@@ -1,0 +1,89 @@
+{
+  "answer": "**Digest auth flow in httpx**\n\n`DigestAuth` (`httpx/_auth.py:175`) is a generator-based `Auth` subclass. It sends the request first and only adds credentials after a 401 challenge.\n\n**The generator (`auth_flow`, `httpx/_auth.py:193-222`)**\n- If a challenge is cached from an earlier response (`_last_challenge`), it sets `Authorization` up front (L194-197). This is how later requests to the same auth object skip the extra round trip.\n- It yields the request (L199) and receives the response back.\n- If the response is not a 401 with a `WWW-Authenticate` header, or has no `Digest` scheme, it returns and the response passes through (L201-212).\n- Otherwise it parses the challenge (`_parse_challenge`, L214), resets `_nonce_count` to 1 (L215), builds the header (`_build_auth_header`, L217), copies any response cookies into the retry (L220-221), and yields the request again (L222).\n\n**Header construction**\n- `_build_auth_header` (L255-301) computes the digest response. `_resolve_qop` (L329-340) picks the qop, `_get_client_nonce` (L303-309) makes the cnonce, and `_get_header_value` (L311-327) serializes the fields.\n- `_parse_challenge` (L224-253) turns the `WWW-Authenticate: Digest ...` value into a `_DigestAuthChallenge` (L343).\n\n**How the client drives it**\n- `Client.send` calls `Client._send_handling_auth` (`httpx/_client.py:930`), which calls `Auth.sync_auth_flow` (L937).\n- `sync_auth_flow` (`httpx/_auth.py:62-85`) is the driver. It reads the request body if `requires_request_body` is set (L71-72), calls `auth_flow` to get the generator, and then loops:\n  - `next(flow)` gives the first request (L75).\n  - It yields that request to the transport and gets the response back (L78).\n  - It reads the response body if needed (L79-80).\n  - `flow.send(response)` returns the follow-up request, or raises `StopIteration` when the flow ends (L83-85).\n- Inside `_send_handling_auth`, each yielded request goes through `_send_handling_redirects` (`httpx/_client.py:942`), which calls `_send_single_request` (L979). Responses are read and closed as the loop runs.\n\n**Caveat:** the flow handles only a single retry after a challenge. The `_last_challenge` cache means subsequent requests reuse the nonce without a 401 first. If the server rejects the cached nonce, that failure is not retried inside this generator; I did not trace whether the caller handles it.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.0015352800000000002,
+  "duration_ms": 10346,
+  "tokens": {
+    "input": 8,
+    "cache_write": 2790,
+    "cache_read": 26348,
+    "output": 1426,
+    "context": 2798,
+    "total": 30572
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1793,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth"
+      },
+      "result_chars": 920,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth.auth_flow",
+        "detail": "full"
+      },
+      "result_chars": 2633,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "Client._send_handling_auth"
+      },
+      "result_chars": 1413,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Auth.sync_auth_flow",
+        "detail": "full"
+      },
+      "result_chars": 1513,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 13.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": false,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "answer": "**SECRET_KEY usages (backend)**\n\n- Declared as a required setting: `backend/app/core/config.py:23`\n- Startup validation: `Settings._enforce_non_default_secrets` calls `_check_default_secret(\"SECRET_KEY\", ...)` at `backend/app/core/config.py:81`\n- JWT signing: `create_access_token` at `backend/app/core/security.py:25`\n- JWT verification in the auth dependency `get_current_user`: `backend/app/api/deps.py:33`\n- Password-reset tokens: generated at `backend/app/utils.py:112`, verified at `backend/app/utils.py:121`\n\n**What happens if it is \"changethis\"**\n\nThe check is in `backend/app/core/config.py:68-77`. If the value equals `\"changethis\"`:\n- If `FASTAPI_ENV == \"development\"`, it emits a `warnings.warn` and startup continues (`config.py:74-75`).\n- Otherwise, it raises `ValueError`, so the settings fail to load (`config.py:76-77`).\n\n`settings = Settings()` runs at import time (`config.py:91`), so the error happens as soon as the app imports its config, before it serves requests.\n\n`FASTAPI_ENV` is optional and defaults to `None` (`config.py:27`). Because the check only skips the error when the value is exactly `\"development\"`, an unset `FASTAPI_ENV` is treated as non-development and the app refuses to start with the default key.\n\nThe repo's `.env` ships with `SECRET_KEY=changethis` (`.env:6`), so you must change it before running outside development. `compose.yml:57` also requires `SECRET_KEY` to be set.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.0014173100000000002,
+  "duration_ms": 8506,
+  "tokens": {
+    "input": 8,
+    "cache_write": 2804,
+    "cache_read": 33221,
+    "output": 1047,
+    "context": 2812,
+    "total": 37080
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "SECRET_KEY|changethis",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1974,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "SECRET_KEY"
+      },
+      "result_chars": 950,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Settings._enforce_non_default_secrets, Settings._check_default_secret"
+      },
+      "result_chars": 1723,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "^settings\\s*=|FASTAPI_ENV:",
+        "path": "backend/app/core/config.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 133,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-5",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 11.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "access-tokens": true,
+      "reset-tokens": true,
+      "changethis": true,
+      "other-secrets": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

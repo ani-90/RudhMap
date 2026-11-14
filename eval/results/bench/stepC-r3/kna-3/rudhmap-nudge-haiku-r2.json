@@ -1,0 +1,100 @@
+{
+  "answer": "**No. The daily refresh is defined but never started when the API server boots.**\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler()`.\n- `app/scheduler.py:15` `_daily_refresh()` creates a pipeline run for `user_id=1` and runs `run_pipeline` via `asyncio.run` (lines 24\u201340).\n- `app/scheduler.py:43` `start_scheduler(hour=7, minute=0)` registers a `CronTrigger` job `daily_refresh` and calls `scheduler.start()` (lines 44\u201351).\n- `app/scheduler.py:56` `stop_scheduler()` shuts it down.\n\n**What's missing:**\n- The FastAPI lifespan in `app/main.py:18-20` only calls `init_db()` and yields. It never calls `start_scheduler()` and has no shutdown hook for `stop_scheduler()`.\n- A search of the repo finds no call to `start_scheduler` or `stop_scheduler` outside their definitions. The only other mention is `README.md:146`, which says the scheduler runs for `user_id=1`, which is a description of intent rather than wiring.\n- `rudhmap trace` shows `start_scheduler` has no callers in this repo.\n\n**Consequence:** Starting the server (via `run.py` or uvicorn) does not schedule the 07:00 refresh. The only refresh path that runs in the server is the manual `POST /api/feed/refresh` (`app/api/feed.py:21`), which uses `BackgroundTasks`.\n\n**To fix:** call `start_scheduler()` inside `lifespan` after `init_db()`, and call `stop_scheduler()` after the `yield`. Keep in mind that `BackgroundScheduler` will run in every worker process if you use multiple workers. I haven't made this change.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0019365600000000001,
+  "duration_ms": 9154,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4643,
+    "cache_read": 35716,
+    "output": 1300,
+    "context": 4651,
+    "total": 41667
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule daily news refresh"
+      },
+      "result_chars": 3058,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "lifespan"
+      },
+      "result_chars": 759,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "start_scheduler"
+      },
+      "result_chars": 1288,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "start_scheduler",
+        "direction": "up"
+      },
+      "result_chars": 95,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|scheduler",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 798,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 13.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [
+      "`rudhmap trace` shows `start_scheduler` has no callers in this repo (unverifiable tool claim, likely fabricated)",
+      "`rudhmap trace` shows `start_scheduler` has no callers in this repo (unverifiable tool claim, likely fabricated)",
+      "`rudhmap trace` shows `start_scheduler` has no callers in this repo (unverifiable tool claim, likely fabricated)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

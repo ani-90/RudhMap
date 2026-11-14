@@ -1,0 +1,96 @@
+{
+  "answer": "**Where it's configured:** `Timeout` is defined in `httpx/_config.py:72`. Its `__init__` (`_config.py:86-130`) takes a single default or a tuple, or the four fields `connect`, `read`, `write`, `pool` set explicitly. The client-wide default is `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` (`httpx/_config.py:246`).\n\n**How it reaches the network layer:**\n\n1. **Client:** `BaseClient.__init__` stores the timeout (`httpx/_client.py:212`). Each request method takes `timeout=USE_CLIENT_DEFAULT` (e.g. `httpx/_client.py:785`, `1499`).\n2. **Request build:** `build_request` (`httpx/_client.py:340`) creates the `Request`. The per-request timeout is not stored on the request yet.\n3. **Send:** `Client.send` (`httpx/_client.py:910`) calls `_set_timeout` (`httpx/_client.py:584-591`). If `\"timeout\"` is not already in `request.extensions`, it writes `timeout.as_dict()` into `request.extensions[\"timeout\"]`.\n4. **Transport:** `HTTPTransport.handle_request` (`httpx/_transports/default.py:230-259`) copies `request.extensions` into an `httpcore.Request` and calls `self._pool.handle_request`. The timeout dict travels with it. I did not read httpcore's source, so the step where httpcore enforces these values is unverified here.\n\n**Exceptions when a timeout fires:** httpcore raises its own timeout exceptions. `map_httpcore_exceptions` (`httpx/_transports/default.py:96-118`) catches them and re-raises the most specific httpx equivalent, chaining the original with `from exc`. The mapping is in `_load_httpcore_exceptions` (`default.py:74-92`):\n\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout` (`default.py:79`)\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout` (`default.py:80`; class at `_exceptions.py:146`)\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout` (`default.py:81`)\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout` (`default.py:82`; class at `_exceptions.py:158`)\n- `httpcore.TimeoutException` \u2192 `httpx.TimeoutException` (`default.py:78`; class at `_exceptions.py:132`)\n\nAll of these subclass `TimeoutException`, which subclasses `TransportError`. The same mapping also covers body streaming in `ResponseStream.__iter__` (`default.py:126`), so a read timeout can surface while iterating the response, not only during `send`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 5,
+  "cost_usd": 0.00347363,
+  "duration_ms": 13803,
+  "tokens": {
+    "input": 10,
+    "cache_write": 9496,
+    "cache_read": 49443,
+    "output": 2158,
+    "context": 9506,
+    "total": 61107
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "request timeout configuration Timeout"
+      },
+      "result_chars": 1760,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout"
+      },
+      "result_chars": 696,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout, BaseClient.build_request, HTTPTransport.handle_request, map_httpcore_exceptions",
+        "detail": "full"
+      },
+      "result_chars": 8997,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions, Timeout.__init__",
+        "detail": "full"
+      },
+      "result_chars": 4213,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "DEFAULT_TIMEOUT_CONFIG\\s*=|timeout: TimeoutTypes \\| UseClientDefault = ",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1830,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 16.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": true,
+      "extensions": true,
+      "transport": false,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "The answer says the per-request timeout is not stored on the request at build_request time, but the key says build_request puts timeout.as_dict() into request.extensions['timeout'] (per-request overrides client's).",
+      "Says build_request does not store the per-request timeout on the request yet; in fact build_request puts timeout.as_dict() into request.extensions['timeout'], with the per-request value overriding the client's, and send() only fills it in via _set_timeout if missing.",
+      "Says build_request does not store the per-request timeout on the request; the key says build_request puts timeout.as_dict() into request.extensions['timeout'] (per-request overrides client's), with send/_set_timeout only filling it in if missing."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

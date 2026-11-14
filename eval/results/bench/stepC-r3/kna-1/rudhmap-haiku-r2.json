@@ -1,0 +1,63 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a background news-pipeline run and returns right away, without waiting for the pipeline.\n\n**What it does**\n\n1. **Cooldown check (lines 27-42):** It loads the last successful run with `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns `status=\"skipped\"` with the remaining cooldown and minutes since the last refresh. Nothing new starts.\n2. **Start a run (lines 44-48):** It resolves the requested domains via `request.resolved_domains()` (`app/schemas/feed.py:11`), which keeps only known `DOMAINS` (`app/config.py:37`). It generates a UUID, then calls `crud.create_pipeline_run` (`app/db/crud.py:107`) and `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`).\n3. **Schedule work (line 50):** It queues `_run_pipeline_bg(run_id, user_id, domains)` with `background_tasks.add_task`.\n4. **Respond (line 52):** It returns `FeedRefreshResponse(run_id, status=\"running\", domains)`.\n\n**What happens after it returns**\n\n- The HTTP response goes out with `status=\"running\"`. The client gets the `run_id` but no results.\n- FastAPI then runs `_run_pipeline_bg` (`app/api/feed.py:55`). It calls `run_pipeline` (`app/pipeline/graph.py:69`), which builds the agent graph (`app/pipeline/graph.py:56`) and runs the per-agent and aggregator nodes. The pipeline updates its own run record along the way.\n- If `run_pipeline` raises, `_run_pipeline_bg` opens a new session from `SessionLocal` (`app/db/sqlite.py:11`) and marks the run `status=\"failed\"` with the error log and `finished_at` (lines 59-72). A failure is recorded in the database, but nothing reports it to the original caller.\n- The cooldown uses `finished_at` from the last successful run, so a run that is still in progress or has failed does not start the cooldown.\n\n**Notes**\n\n- The only caller is an HTTP client; the codebase has no internal callers.\n- I did not read `run_pipeline` itself, so how it sets the final `succeeded` status is not covered here.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 3,
+  "cost_usd": 0.0014461400000000003,
+  "duration_ms": 8061,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3200,
+    "cache_read": 22304,
+    "output": 1165,
+    "context": 3206,
+    "total": 26675
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_run_pipeline_bg"
+      },
+      "result_chars": 1489,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 11.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": true,
+      "status": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "The answer says the pipeline 'updates its own run record along the way' and hedges on the final status name ('succeeded'), which is vague but not clearly contradicting the key.",
+      "Says the codebase has no internal callers / only caller is an HTTP client (not covered by key, unverifiable)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "answer": "**Short answer:** `Response.text` does no decompression itself. The bytes it decodes are already decompressed by `Response.read()`, which calls `iter_bytes()`. `text` then picks a charset from the headers and feeds the bytes through an incremental text decoder.\n\n**1. Decompression (happens before `.text`)**\n- `Response.text` reads `self.content` (`httpx/_models.py:644`), which returns the stored `_content` bytes (`httpx/_models.py:636-639`).\n- `_content` is filled by `read()` (`httpx/_models.py:881`), which calls `iter_bytes()`.\n- `iter_bytes()` uses `_get_content_decoder()` (`httpx/_models.py:894`) to decode each raw chunk (`httpx/_models.py:897-898`).\n- `_get_content_decoder()` reads every `Content-Encoding` value, splits on commas, and looks each one up in `SUPPORTED_DECODERS` (`httpx/_models.py:706-711`, `httpx/_decoders.py:381`). Those names are identity, gzip, deflate, br, and zstd. Unknown encodings are skipped silently (`httpx/_models.py:712-713`).\n- One decoder is used directly. Several are wrapped in `MultiDecoder`. None means `IdentityDecoder` (`httpx/_models.py:715-720`).\n\n**2. Charset selection**\n- `text` uses `self.encoding or \"utf-8\"` (`httpx/_models.py:648`).\n- `encoding` (`httpx/_models.py:664-671`) checks, in order:\n  1. An explicit `.encoding` assignment.\n  2. The `charset` parameter from `Content-Type` (`charset_encoding`, `httpx/_models.py:693-697`). This is parsed with the `email.message` module (`httpx/_models.py:85-90`), not `cgi`.\n  3. `default_encoding`. If it is a string, that string is used. If it is a callable, it is called with the content bytes for autodetection (`httpx/_models.py:666-670`).\n- A charset that Python doesn't recognize is rejected by `_is_known_encoding` (`httpx/_models.py:666`), which falls through to the default.\n- The result is cached in `_encoding`, and `\"utf-8\"` is the final fallback.\n\n**3. Decoding to str**\n- `text` builds a `TextDecoder` with that encoding (`httpx/_models.py:648`). It calls `decode(self.content)` and then `flush()` and joins the two results (`httpx/_models.py:649`). `TextDecoder.decode` and `flush` delegate to an underlying incremental codec (`httpx/_decoders.py:314-318`).\n- The empty-body case returns `\"\"` without creating a decoder (`httpx/_models.py:645-646`).\n- Result is cached in `_text`.\n\nI did not view the `TextDecoder` constructor (`httpx/_decoders.py:306`), so I can't confirm its error-handling mode.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.00224779,
+  "duration_ms": 10902,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5353,
+    "cache_read": 33339,
+    "output": 1686,
+    "context": 5361,
+    "total": 40386
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text",
+        "detail": "full"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Response text decoder encoding charset"
+      },
+      "result_chars": 1362,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding, Response.charset_encoding, Response._get_content_decoder, Response.content, TextDecoder",
+        "detail": "full"
+      },
+      "result_chars": 5402,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.iter_bytes, TextDecoder.decode, _parse_content_type_charset",
+        "detail": "full"
+      },
+      "result_chars": 4117,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 14.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "answer": "**No. The daily refresh is defined but never started when the API server boots.**\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:15` `_daily_refresh()` creates a pipeline run record for `user_id=1` and calls `run_pipeline` (`app/scheduler.py:26-32`).\n- `app/scheduler.py:43` `start_scheduler(hour, minute)` registers `_daily_refresh` with a `CronTrigger` (`app/scheduler.py:44-51`) and calls `scheduler.start()`.\n- `app/config.py:31-32` defaults the schedule to 07:00, and `README.md:138-139` says to set `SCHEDULE_HOUR`/`SCHEDULE_MINUTE` for Railway. Note that the code never reads these env vars; the values are hardcoded defaults.\n\n**What's missing:**\n- `app/main.py:18-20` is the FastAPI `lifespan`, and it only calls `init_db()`. It does not call `start_scheduler()`.\n- `app/main.py:41-44` includes the routers but doesn't touch the scheduler.\n- A repo-wide search finds no caller of `start_scheduler` or `stop_scheduler` outside `scheduler.py` itself (the only other hits are the `apscheduler` pin in `requirements.txt:35` and docs). `stop_scheduler` is also never called, so there is no shutdown hook either.\n\n**Result:** the server starts with no scheduler running, so no 07:00 IST refresh happens. The only refresh path that works is the manual `POST /api/feed/refresh` (`app/api/feed.py:20-52`), which has a 2-hour cooldown.\n\n**Fix:** call `start_scheduler(settings.schedule_hour, settings.schedule_minute)` in `lifespan` after `init_db()` (`app/main.py:19`), and call `stop_scheduler()` after the `yield`. Also, have the env vars feed into `settings`, which they don't today.\n\nI didn't run the server, so this is based on reading the code. Note that with multiple uvicorn workers, each worker would start its own scheduler.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 5,
+  "cost_usd": 0.0026164199999999995,
+  "duration_ms": 11392,
+  "tokens": {
+    "input": 10,
+    "cache_write": 6386,
+    "cache_read": 51822,
+    "output": 1640,
+    "context": 6396,
+    "total": 59858
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule refresh news cron"
+      },
+      "result_chars": 3057,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "schedule|cron|setInterval|node-cron|refresh",
+        "-i": true,
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 80
+      },
+      "result_chars": 6395,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|lifespan|on_event",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "*.py"
+      },
+      "result_chars": 217,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\scheduler.py",
+        "offset": 1,
+        "limit": 14
+      },
+      "result_chars": 309,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\main.py"
+      },
+      "result_chars": 1244,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|scheduler\\.py|apscheduler",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "!*.md",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e"
+      },
+      "result_chars": 274,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 15.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "Answer says 'no 07:00 IST refresh' implying IST timezone; the key doesn't mention timezone (minor, unverified).",
+      "Claims the fix should call start_scheduler(settings.schedule_hour, settings.schedule_minute) while saying 'have the env vars feed into settings, which they don't today' - possibly slightly inaccurate since pydantic settings would typically read env vars, but not contradicted by the key.",
+      "Mentions '07:00 IST' timezone, which the key does not cover.",
+      "Claims the cron fires at '07:00 IST' (timezone IST not supported by the key), minor detail."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

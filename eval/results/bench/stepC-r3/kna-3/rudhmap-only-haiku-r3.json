@@ -1,0 +1,102 @@
+{
+  "answer": "**No, the daily refresh is not started when the API server starts.** The scheduler code exists, but nothing calls it.\n\n**What exists:**\n- `app/scheduler.py:43-53`: `start_scheduler()` registers `_daily_refresh` as a cron job at 07:00 by default, then calls `scheduler.start()`.\n- `app/scheduler.py:15-40`: `_daily_refresh()` creates a pipeline run, then calls `run_pipeline` for user 1 and all `DOMAINS`.\n- `app/scheduler.py:56`: `stop_scheduler()` exists but is also never called.\n\n**What the server does on startup:**\n- `app/main.py:17-20`: the FastAPI `lifespan` hook only calls `init_db()` (creates the SQLite tables), then yields.\n- `app/main.py:27`: the app is constructed with that lifespan. Nothing else is started there.\n- `app/main.py:41-44`: only the feed, quiz, user, and debate routers are mounted.\n- `run.py:4-6`: the entry point runs `uvicorn.run(\"app.main:app\", ...)` and does not import the scheduler.\n\n**Verification:** rudhmap reports `start_scheduler` has no callers in the repo. The lookup is symbol-based, so I did not run a text search for dynamic imports (e.g. a string-based import or a call through `getattr`). Nothing I read suggests one.\n\n**Other path to a refresh:** the only way to trigger a refresh is the manual `POST /api/feed/refresh` endpoint (`app/api/feed.py:21`), which runs a pipeline in the background.\n\n**To wire it up:** call `start_scheduler()` from the `lifespan` in `app/main.py` after `init_db()`, and call `stop_scheduler()` after the `yield`. Be aware that with `uvicorn --workers > 1` each worker would start its own scheduler. `run.py` currently uses one process, so that is not an issue yet.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.00205056,
+  "duration_ms": 10094,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5218,
+    "cache_read": 27366,
+    "output": 1465,
+    "context": 5226,
+    "total": 34057
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule daily news refresh"
+      },
+      "result_chars": 3058,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "cron scheduler startup"
+      },
+      "result_chars": 1615,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "lifespan"
+      },
+      "result_chars": 759,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "start_scheduler",
+        "direction": "up"
+      },
+      "result_chars": 95,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "run.py"
+      },
+      "result_chars": 231,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/main.py"
+      },
+      "result_chars": 1386,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

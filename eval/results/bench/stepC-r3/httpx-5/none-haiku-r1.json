@@ -1,0 +1,144 @@
+{
+  "answer": "**Short answer:** `Response.text` doesn't decompress anything itself. It joins the already-decoded `content` bytes and runs them through an incremental codec. Decompression happens earlier, while the body is read.\n\n**1. Decompression (happens before `.text`)**\n- `Response.text` reads `self.content` (`httpx\\_models.py:644`), which is populated by `read()` as `b\"\".join(self.iter_bytes())` (`httpx\\_models.py:881`).\n- `iter_bytes()` picks a decoder via `_get_content_decoder()` (`httpx\\_models.py:894`).\n- `_get_content_decoder()` parses `Content-Encoding` and maps each token through `SUPPORTED_DECODERS` (`httpx\\_models.py:706-720`). One decoder is used directly; several are wrapped in `MultiDecoder`; none falls back to `IdentityDecoder`.\n- The concrete decoders are in `httpx\\_decoders.py`: zlib for deflate/gzip (`:65`, `:93`), brotli (`:126`), and zstd (`:177`).\n\n**2. Character-encoding selection**\n`Response.encoding` (`httpx\\_models.py:653-672`) resolves in this order:\n1. An explicit `.encoding = ...` assignment (`:686`).\n2. The `charset=` parameter of `Content-Type`, parsed by `_parse_content_type_charset` (`:85-90`, via `email.message`). It is used only if `_is_known_encoding` accepts it, i.e. `codecs.lookup` succeeds (`:56-64`).\n3. `default_encoding`, which defaults to `\"utf-8\"` (`httpx\\_client.py:202`, `httpx\\_models.py:529`). If it is a callable, it is called with the raw content.\n4. A final fallback to `\"utf-8\"`.\n\n**3. Decoding**\n`text` returns `\"\"` for empty content. Otherwise it creates `TextDecoder(encoding)` (`httpx\\_models.py:648`), which wraps `codecs.getincrementaldecoder(encoding)(errors=\"replace\")` (`httpx\\_decoders.py:312`). It then joins `decode(content)` and `flush()` (`httpx\\_models.py:649`). Invalid bytes become U+FFFD rather than raising.\n\n**Note on the docs:** `docs\\compatibility.md:101` says HTTPX guesses encodings with `charset_normalizer`. I found no `charset_normalizer` import in the `httpx` package. Autodetection only happens if the caller passes a callable `default_encoding`, so the docs appear to be out of date.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 6,
+  "cost_usd": 0.0035178600000000003,
+  "duration_ms": 17424,
+  "tokens": {
+    "input": 12,
+    "cache_write": 8197,
+    "cache_read": 56426,
+    "output": 2626,
+    "context": 8209,
+    "total": 67261
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def text|def content|def encoding|class Response|decompress|charset_normalizer|def _get_content_decoder|def _decode",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 3869,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 634,
+        "limit": 75
+      },
+      "result_chars": 3135,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 698,
+        "limit": 30
+      },
+      "result_chars": 1213,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_decoders.py",
+        "offset": 1,
+        "limit": 60
+      },
+      "result_chars": 1446,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "_content = |_get_content_decoder\\(\\)|class TextDecoder|def _is_known_encoding|def _parse_content_type_charset|SUPPORTED_DECODERS = |codecs\\.",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1176,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 56,
+        "limit": 40
+      },
+      "result_chars": 1416,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 876,
+        "limit": 20
+      },
+      "result_chars": 924,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_decoders.py",
+        "offset": 306,
+        "limit": 20
+      },
+      "result_chars": 597,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "default_encoding: str|default_encoding=",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 513,
+      "model_call": 5,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 18.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": true,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

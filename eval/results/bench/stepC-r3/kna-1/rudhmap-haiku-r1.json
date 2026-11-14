@@ -1,0 +1,53 @@
+{
+  "answer": "**What it does:** `refresh_feed()` is the handler for `POST /api/feed/refresh` (`app/api/feed.py:20-21`). It enforces a cooldown, then starts a background pipeline run and returns immediately. It does not fetch news itself.\n\n**Steps:**\n\n1. **Cooldown check (L26-42).** It loads the last successful pipeline run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns early with `status=\"skipped\"`, the remaining cooldown, and minutes since the last refresh. No new run is created.\n\n2. **Resolve domains (L44).** `request.resolved_domains()` (`app/schemas/feed.py:11-14`) returns all `DOMAINS` (`app/config.py:37`) if the request gives none, otherwise only the requested values that are valid.\n\n3. **Create the run (L45-48).** It generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`), which commits to the database.\n\n4. **Schedule background work (L50).** `background_tasks.add_task(_run_pipeline_bg, ...)` queues `_run_pipeline_bg` (`app/api/feed.py:55`). That function calls `run_pipeline` (`app/pipeline/graph.py:69`), which runs the agent nodes and the aggregator (`app/pipeline/aggregator.py:14`) and updates the run's status.\n\n**After it returns:** FastAPI sends the response `{run_id, status: \"running\", domains}` (L52) before the background task starts. The client gets the `run_id` and can poll for progress. The pipeline runs afterwards in the same process, and its outcome is written to the `PipelineRun` row.\n\n**Observations:**\n- Nothing checks for a run that is already `running`. Two refreshes made within the same window could both start pipelines, because the cooldown only looks at successful runs.\n- If every requested domain is invalid, `resolved_domains()` returns `[]`, and the run is still created and started.\n- The `update_pipeline_run` call on L48 looks redundant if `create_pipeline_run` already sets the status. I did not open `crud.py` to confirm.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 2,
+  "model_calls": 2,
+  "cost_usd": 0.0009200500000000001,
+  "duration_ms": 7987,
+  "tokens": {
+    "input": 4,
+    "cache_write": 825,
+    "cache_read": 15115,
+    "output": 1207,
+    "context": 829,
+    "total": 17151
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 11.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "The answer says the background task's outcome is written but never states that a pipeline failure marks the run 'failed' (omission, not a false claim)."
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

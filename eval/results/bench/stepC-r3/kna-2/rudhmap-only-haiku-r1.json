@@ -1,0 +1,115 @@
+{
+  "answer": "**Path of one article:** fetched \u2192 normalised \u2192 de-duplicated within the agent \u2192 content enriched \u2192 quality-gated \u2192 embedded \u2192 de-duplicated by aggregator \u2192 stored in SQLite \u2192 (intended) indexed in Qdrant.\n\n1. **Fetch.** `BaseAgent.run` calls `_fetch_all` (`app/pipeline/agents/base_agent.py:49`), which pulls from Tavily over LLM-generated or hardcoded queries (`:90-106`) and from NewsAPI keywords (`:108-117`).\n\n2. **URL normalisation and dedup, step 1.** Each URL goes through `_normalise_url`, which strips tracking params such as `utm_*` and `fbclid` (`base_agent.py:19-25`). A per-run `seen_urls` set drops repeats across queries and keywords (`base_agent.py:86, 100-103, 111-114`).\n\n3. **Skip empty items.** `run` drops items with no URL or title (`base_agent.py:52-53`).\n\n4. **Content enrichment.** `enrich_content` keeps the feed snippet if it is at least 300 characters; otherwise it scrapes with trafilatura and truncates to 8000 characters (`app/services/scraper.py:28-36`, `:10-25`).\n\n5. **Quality gate.** `_is_quality` requires at least 40 words and an average of at least 5 words per line (`base_agent.py:28-36`).\n\n6. **Embedding.** `embed(title + content[:500])` is called at `base_agent.py:60`, but `app/services/embedder.py:5` is a stub that always returns `[]`.\n\n7. **Dedup, step 2: semantic (Qdrant).** The aggregator runs `search_similar(threshold=0.85)` for each article with an embedding (`app/pipeline/aggregator.py:28-38`, `app/db/qdrant.py:39-48`). Because embeddings are always empty, this pass never runs.\n\n8. **Dedup, step 3: exact URL (SQLite).** `bulk_insert_articles` checks `Article.url` before each insert (`app/db/crud.py:43-45`). `url` is also `unique=True` at the schema level (`app/db/models.py:27`). A commit failure from a race with a parallel agent is rolled back and skipped (`crud.py:62-63`).\n\n9. **Store.** A UUID `qdrant_id` is assigned and the row is written with `raw_content`, `fetched_at`, and an empty summary (`aggregator.py:43-61`, `crud.py:46-57`).\n\n10. **Qdrant upsert.** Points are built only for rows with embeddings (`aggregator.py:64-76`), so none are written in the current state (`qdrant.py:51-64`).\n\n11. **Bookkeeping.** The run record gets `persisted_count` and `duplicate_count` (`aggregator.py:84-109`).\n\n**Notes**\n- `content_hash` (SHA-256 of the URL, `base_agent.py:61`) is computed but never used for dedup.\n- Cross-agent duplicates are caught only by the SQLite unique constraint, since `seen_urls` is per agent.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 5,
+  "cost_usd": 0.0044141200000000005,
+  "duration_ms": 14026,
+  "tokens": {
+    "input": 10,
+    "cache_write": 14038,
+    "cache_read": 47502,
+    "output": 2261,
+    "context": 14048,
+    "total": 63811
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch article dedup store"
+      },
+      "result_chars": 1309,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run, BaseAgent._fetch_all, _normalise_url, _is_quality"
+      },
+      "result_chars": 7411,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node, bulk_insert_articles, upsert_articles, _run_pipeline_bg"
+      },
+      "result_chars": 8042,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "enrich_content, _fetch_and_extract"
+      },
+      "result_chars": 2244,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator.py lines 74-116",
+        "detail": "full"
+      },
+      "result_chars": 5232,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar, embed, Article"
+      },
+      "result_chars": 1477,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article",
+        "detail": "full"
+      },
+      "result_chars": 1258,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 17.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.833,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) is the handler for `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a background news-pipeline run, subject to a 2-hour cooldown.\n\n**What it does, in order:**\n\n1. **Cooldown check (lines 27-42).** It loads the last successful pipeline run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns early with `status=\"skipped\"`, the remaining cooldown, and minutes since the last refresh. No new run is created.\n2. **Resolve domains (line 44).** `request.resolved_domains()` (`app/schemas/feed.py:11`) returns all `DOMAINS` (`app/config.py:37`) if the request gave none, otherwise only the requested ones that are valid.\n3. **Create the run (lines 45-48).** It generates a UUID, then calls `crud.create_pipeline_run` (`app/db/crud.py:107`) and `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`), which commits to the DB.\n4. **Schedule background work (line 50).** `background_tasks.add_task(_run_pipeline_bg, ...)` queues `_run_pipeline_bg` (`app/api/feed.py:55`).\n\n**What happens after it returns:**\n\n- The response `FeedRefreshResponse(run_id, status=\"running\", domains)` (line 52, schema at `app/schemas/feed.py:17`) is sent to the client immediately.\n- FastAPI then runs the queued background task. `_run_pipeline_bg` calls `run_pipeline` (`app/pipeline/graph.py:69`), which uses the graph from `_build_graph` (`app/pipeline/graph.py:56`). That graph runs `run_all_agents_node` (`app/pipeline/graph.py:28`) and then `aggregator_node` (`app/pipeline/aggregator.py:14`).\n- Progress and final status are written to the `PipelineRun` row via `update_pipeline_run`. Because the cooldown reads the last *successful* run, a failed run does not block the next refresh. I did not inspect `_run_pipeline_bg` or the graph in full, so the exact failure handling is unverified.\n\n**Notes:**\n- The handler is async but its DB calls are synchronous. This is a minor concern, not a bug I confirmed.\n- No code in the repo calls `refresh_feed` directly. It is only reached over HTTP.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 2,
+  "model_calls": 2,
+  "cost_usd": 0.0019332400000000001,
+  "duration_ms": 6627,
+  "tokens": {
+    "input": 4,
+    "cache_write": 6508,
+    "cache_read": 4924,
+    "output": 1164,
+    "context": 6512,
+    "total": 12600
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 10.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

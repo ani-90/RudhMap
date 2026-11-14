@@ -1,0 +1,67 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It takes a `FeedRefreshRequest`, a `BackgroundTasks` object, and a DB session from `get_db`.\n\n**What it does, in order:**\n\n1. **Cooldown check** (`:27-42`): it loads the last successful pipeline run via `crud.get_last_successful_run` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `:17`) ago, it returns early with `status=\"skipped\"`, the remaining cooldown seconds, and minutes since the last refresh. No new work starts.\n2. **Resolve domains** (`:44`): `request.resolved_domains()` (`app/schemas/feed.py:11-14`) returns all `DOMAINS` if none were requested, otherwise only the requested ones that are valid.\n3. **Create the run** (`:45-48`): it generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`), which commits.\n4. **Schedule work** (`:50`): `background_tasks.add_task(_run_pipeline_bg, ...)` queues the job.\n5. **Return** (`:52`): a `FeedRefreshResponse` with `status=\"running\"` and the new `run_id`.\n\n**What happens after it returns:**\n\n- FastAPI sends the response to the client right away. The queued task then runs `_run_pipeline_bg` (`app/api/feed.py:55`).\n- `_run_pipeline_bg` calls `run_pipeline` (`app/pipeline/graph.py:69`), which runs the agent graph (`run_all_agents_node`, then `aggregator_node`, per `_build_graph` at `graph.py:56`). The pipeline itself updates the run's status as it goes.\n- If `run_pipeline` raises, the exception is caught (`app/api/feed.py:59`). A new session from `SessionLocal` marks the run `failed`, stores the error in `error_log`, and sets `finished_at` (`:64-70`).\n\n**Notes:**\n\n- The cooldown only looks at *successful* runs. A failed run does not block a retry.\n- Nothing in the repo calls `refresh_feed` directly; it's reached only through the HTTP route.\n- I did not read `run_pipeline` itself, so how it writes the final status is unverified.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 3,
+  "cost_usd": 0.00216402,
+  "duration_ms": 7609,
+  "tokens": {
+    "input": 6,
+    "cache_write": 7353,
+    "cache_read": 11432,
+    "output": 1157,
+    "context": 7359,
+    "total": 19948
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_run_pipeline_bg",
+        "detail": "full"
+      },
+      "result_chars": 1489,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 11.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": true,
+      "status": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "The answer says the cooldown only looks at successful runs, implying failed runs don't block; the key says success or partial, which is minor and not contradictory.",
+      "The answer says the pipeline itself updates the run's status as it goes, which is loosely consistent but unverified (the aggregator writes the final status).",
+      "Says the pipeline itself updates the run's status as it goes (loosely; key says aggregator writes final status) \u2014 minor and hedged",
+      "The answer says the pipeline itself updates the run's status as it goes; the key says the aggregator writes the final status at the end (minor, and the answer flags it as unverified)."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

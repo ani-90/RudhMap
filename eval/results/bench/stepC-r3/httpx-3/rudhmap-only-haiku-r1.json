@@ -1,0 +1,88 @@
+{
+  "answer": "**Configuration.** Timeouts are set through `Timeout` (`httpx/_config.py:72`), whose `__init__` (`_config.py:86`) takes a single float/tuple/`Timeout` or the keyword args `connect`, `read`, `write`, `pool`. `BaseClient` stores it as `self._timeout`, exposed via the `timeout` property (`httpx/_client.py:254-255`).\n\n**Path to the network layer.**\n1. `Client.send` (`_client.py:910`) calls `BaseClient._set_timeout` (`_client.py:584-591`). If the request has no `timeout` extension, it uses the client's timeout (or wraps a raw number in `Timeout`) and writes `timeout.as_dict()` into `request.extensions`. A per-request `timeout=` therefore wins over the client default.\n2. The transport's `HTTPTransport.handle_request` (`httpx/_transports/default.py:230-259`) converts the request to an `httpcore.Request`, passing `request.extensions` through (line 247). The timeout dict travels with the request to httpcore's pool and connections, which apply the individual `connect`/`read`/`write`/`pool` values to socket operations.\n\n**Exceptions when it fires.** httpcore raises its own timeout types inside `with map_httpcore_exceptions():` (`default.py:249`). That context manager (`default.py:96-118`) finds the most specific match in `HTTPCORE_EXC_MAP` and re-raises it as an httpx exception with `from exc` chaining (`default.py:74-92`):\n- `httpcore.ConnectTimeout` \u2192 `httpx.ConnectTimeout`\n- `httpcore.ReadTimeout` \u2192 `httpx.ReadTimeout`\n- `httpcore.WriteTimeout` \u2192 `httpx.WriteTimeout`\n- `httpcore.PoolTimeout` \u2192 `httpx.PoolTimeout`\n- generic `httpcore.TimeoutException` \u2192 `httpx.TimeoutException`\n\nAll of these subclass `TimeoutException` (`httpx/_exceptions.py:132`), which derives from `TransportError`. `PoolTimeout`, `ReadTimeout`, `WriteTimeout`, and `ConnectTimeout` are at `_exceptions.py:146-158`. Catching `httpx.TimeoutException` covers all four.\n\nThe same mapping applies to streamed body reads via `ResponseStream.__iter__` (`default.py:126`), so a read timeout during iteration also surfaces as `httpx.ReadTimeout`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00202803,
+  "duration_ms": 9160,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5581,
+    "cache_read": 23953,
+    "output": 1343,
+    "context": 5589,
+    "total": 30885
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Timeout exception"
+      },
+      "result_chars": 1198,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout, HTTPTransport.handle_request, map_httpcore_exceptions"
+      },
+      "result_chars": 4912,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout.__init__",
+        "detail": "outline"
+      },
+      "result_chars": 871,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions, BaseClient.timeout"
+      },
+      "result_chars": 1499,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": false,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "answer": "**Direct caller:** only `Client._send_single_request`, at `httpx/_client.py:1014` (`response = transport.handle_request(request)`). Its callers chain upward through `Client._send_handling_redirects` (`_client.py:964`) and `Client._send_handling_auth` (`_client.py:930`). Any signature change must be reflected at line 1014.\n\n**Overrides that must match the new signature:**\n- `HTTPTransport.handle_request`, `httpx/_transports/default.py:230`\n- `MockTransport.handle_request`, `httpx/_transports/mock.py:19`\n- `WSGITransport.handle_request`, `httpx/_transports/wsgi.py:91`\n\n**Not affected:**\n- `default.py:250` calls `self._pool.handle_request(req)`. That is httpcore's pool API, not `BaseTransport.handle_request`, so it is unaffected.\n- `base.py:48` is only a docstring example.\n- The async path (`AsyncBaseTransport.handle_async_request`, `base.py:77`, and its implementations in `asgi.py:99`, `mock.py:29`, `default.py:374`) is a separate method and is not affected.\n\nNote that `Client` in `_client.py` is the only internal consumer. The async client calls `handle_async_request` instead, so it does not need changes.\n\nResults come from the rudhmap call graph plus a ripgrep for `handle_request(` across `httpx/`. The grep covered the package only, so user code that subclasses `BaseTransport` outside the repo would also break, but I can't see that from here.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.00130072,
+  "duration_ms": 7738,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2540,
+    "cache_read": 21862,
+    "output": 1147,
+    "context": 2546,
+    "total": 25555
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "detail": "full"
+      },
+      "result_chars": 2039,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "handle_request\\(|def handle_request|def handle_async_request",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 795,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 11.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": true,
+      "httpcore": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "Claims the call chain goes through Client._send_handling_auth at line 930 and _send_handling_redirects at 964, which is unverified but not contradicted by the key",
+      "States mock.py:29 as the async implementation of MockTransport; key doesn't contradict",
+      "Claims AsyncClient is not affected and Client is the 'only internal consumer' \u2014 consistent with key; no contradiction. Minor: mock.py:29 cited for async, unverified."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

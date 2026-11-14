@@ -1,0 +1,52 @@
+{
+  "answer": "**`refresh_feed()`** (`app/api/feed.py:21-52`) handles `POST /api/feed/refresh` (`app/api/feed.py:20`). It starts a news-pipeline run in the background and returns immediately with a run ID.\n\n**What it does, in order:**\n\n1. **Cooldown check (L26-42).** It calls `crud.get_last_successful_run(db)` (`app/db/crud.py:130`). If that run finished less than `_REFRESH_COOLDOWN_SECONDS` (2 hours, `app/api/feed.py:17`) ago, it returns early with `status=\"skipped\"`, the remaining seconds, and the minutes since the last refresh. It treats naive datetimes as UTC (L30-31).\n2. **Resolve domains (L44).** `request.resolved_domains()` (`app/schemas/feed.py:11`) returns all `DOMAINS` (`app/config.py:37`) if none were requested, otherwise only the requested ones that are valid.\n3. **Create a run record (L45-48).** It generates a UUID, calls `crud.create_pipeline_run` (`app/db/crud.py:107`), then `crud.update_pipeline_run(..., status=\"running\")` (`app/db/crud.py:121`), which commits.\n4. **Schedule the work (L50).** It registers `_run_pipeline_bg(run_id, user_id, domains)` (`app/api/feed.py:55`) with FastAPI's `BackgroundTasks`.\n5. **Return (L52).** It responds with `FeedRefreshResponse(run_id, status=\"running\", domains)`.\n\n**After it returns:**\n\n- The HTTP response goes out without waiting for the pipeline. FastAPI runs `_run_pipeline_bg` after the response is sent.\n- `_run_pipeline_bg` calls `run_pipeline` (`app/pipeline/graph.py:69`), which builds a graph (`app/pipeline/graph.py:56`) of `run_all_agents_node` (`graph.py:28`) and `aggregator_node` (`app/pipeline/aggregator.py:14`). It also updates the run's status via `update_pipeline_run`.\n- The client gets only the `run_id`. It has to poll or otherwise check that run's status to see the outcome.\n\n**Caveats:**\n\n- The cooldown checks only the last *successful* run. A refresh that is still running, or one that failed, does not block a new request. I did not check how `get_last_successful_run` defines \"successful\" (`crud.py:130`), so that's worth confirming.\n- The tool found no callers inside the repo. The only entry point is the HTTP route.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 2,
+  "model_calls": 2,
+  "cost_usd": 0.00192324,
+  "duration_ms": 6876,
+  "tokens": {
+    "input": 4,
+    "cache_write": 6508,
+    "cache_read": 4924,
+    "output": 1144,
+    "context": 6512,
+    "total": 12580
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "refresh_feed",
+        "detail": "full"
+      },
+      "result_chars": 3321,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 10.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "cooldown": true,
+      "creates-run": true,
+      "background": true,
+      "pipeline": false,
+      "status": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "answer": "**Overview:** `DigestAuth` is a two-step `httpx.Auth` subclass. It sends the request unauthenticated, and if the server replies 401 with a Digest challenge, it computes a response hash and resends. It does no I/O of its own, so the client drives the retry.\n\n**The flow** (`httpx/_auth.py:193-222`)\n- If a previous challenge is cached in `_last_challenge`, it adds an `Authorization` header up front (195-197).\n- It yields the request and receives the response (199).\n- It returns without retrying unless the response is a 401 with a `Digest` `WWW-Authenticate` header (201-212).\n- It parses the challenge (214), resets `_nonce_count` to 1 (215), builds the header (217-219), forwards any cookies (220-221), and yields the request again (222).\n\n**Hash computation** (`_build_auth_header`, 255-301)\n- `HA1 = H(user:realm:password)`, with an extra `-sess` step when the algorithm ends in `-SESS` (263-276).\n- `HA2 = H(method:path)` (265-268).\n- `response = H(HA1:nonce:nc:cnonce:qop:HA2)`, or the RFC 2069 form without qop (278-291).\n- Supported algorithms are MD5, SHA-1, SHA-256 and SHA-512 (176-185). The challenge defaults to MD5 when no algorithm is given (245).\n- `auth-int` is not implemented and raises `NotImplementedError` (336-337, TODO at 267).\n\n**Challenge parsing** (`_parse_challenge`, 224-253) extracts realm, nonce, algorithm, opaque and qop. A missing realm or nonce raises `ProtocolError`.\n\n**How the client drives it**\n- `DigestAuth` does not set `requires_request_body` or `requires_response_body`, so the base class's `sync_auth_flow` wraps `auth_flow` (`_auth.py:62-85`).\n- `Client._send_handling_auth` (`httpx/_client.py:930-962`) calls `next()` to get the first request. It then sends it through the redirect-handling path (942). It passes the response back with `auth_flow.send(response)` (949). `StopIteration` means the response is final (950-951).\n- Otherwise it reads the body (954) and loops with the new request. The `finally` block closes the generator (962).\n- The async client does the same with `__anext__`/`asend` (`httpx/_client.py:1652-1677`).\n\n**Caveat:** Because `_last_challenge` is cached on the auth instance, later requests from the same `DigestAuth` object send credentials pre-emptively. This is a design choice, not a bug, but it matters if the server rotates nonces.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0025347,
+  "duration_ms": 10364,
+  "tokens": {
+    "input": 6,
+    "cache_write": 7003,
+    "cache_read": 24950,
+    "output": 1768,
+    "context": 7009,
+    "total": 33727
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "DigestAuth"
+      },
+      "result_chars": 1793,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "class DigestAuth|auth_flow|sync_auth_flow|async_auth_flow|requires_request_body|requires_response_body",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 5555,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_auth.py",
+        "offset": 175,
+        "limit": 170
+      },
+      "result_chars": 6986,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 930,
+        "limit": 40
+      },
+      "result_chars": 1343,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

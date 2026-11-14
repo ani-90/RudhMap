@@ -1,0 +1,89 @@
+{
+  "answer": "**Short answer:** `Response.text` doesn't decompress anything itself. It decodes `self.content`, which is already decompressed. Decompression happens earlier, when the body is read. The character encoding is chosen separately, from the Content-Type header with a fallback.\n\n**1. Decompression (happens before `.text`)**\n- `Response.text` reads `self.content` (`httpx/_models.py:644`), which raises `ResponseNotRead` if the body hasn't been read (`_models.py:636-639`).\n- The content-decoder is chosen in `_get_content_decoder` (`httpx/_models.py:699-722`). It reads every `Content-Encoding` value, looks each one up in `SUPPORTED_DECODERS` (`httpx/_decoders.py:381`; gzip, deflate, br, zstd, and identity), and returns a single decoder, a `MultiDecoder` for stacked encodings, or an `IdentityDecoder` when there is no encoding (`_models.py:715-720`). Unknown encodings are skipped (`_models.py:712-713`).\n- `iter_bytes` (`_models.py:884-905`) is one of the callers of `_get_content_decoder` (`_models.py:894`). Its output is the decoded byte stream, which is what becomes `content`.\n\n**2. Encoding selection**\n`Response.encoding` (`httpx/_models.py:653-672`) uses this priority order:\n1. An explicitly set `.encoding` (cached in `_encoding`).\n2. The `charset=` parameter from Content-Type, via `charset_encoding` (`_models.py:689-697`, parsed by `_parse_content_type_charset` at `_models.py:85`).\n3. The `default_encoding` setting. This is either a string, or a callable that autodetects from the bytes.\n\nIf the charset is missing or fails `_is_known_encoding` (`_models.py:56-64`), it falls back to `default_encoding`. If that yields nothing, it uses `\"utf-8\"` (`_models.py:671`).\n\n**3. Decoding to str**\n`text` (`_models.py:642-650`) returns `\"\"` for empty content. Otherwise it creates `TextDecoder(encoding=self.encoding or \"utf-8\")` (`_models.py:648`). It then joins `decoder.decode(content)` and `decoder.flush()` (`_models.py:649`). `TextDecoder` (`httpx/_decoders.py:306-318`) is an incremental codec wrapper, so `flush()` finalizes any partial multibyte sequence. The result is cached in `_text`.\n\n**Caveat:** I didn't open `read()` to confirm it fills `_content` through `iter_bytes`. The reasoning above relies on `iter_bytes` being the decoded path and on `_get_content_decoder` being called from it.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.0018698299999999998,
+  "duration_ms": 10948,
+  "tokens": {
+    "input": 8,
+    "cache_write": 3979,
+    "cache_read": 24123,
+    "output": 1664,
+    "context": 3987,
+    "total": 29774
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.text"
+      },
+      "result_chars": 1089,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "decode encoding charset response body"
+      },
+      "result_chars": 1199,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.encoding, Response.charset_encoding, Response._get_content_decoder, Response.content"
+      },
+      "result_chars": 5402,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Response.iter_bytes",
+        "detail": "signature"
+      },
+      "result_chars": 218,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_parse_content_type_charset, _is_known_encoding",
+        "detail": "signature"
+      },
+      "result_chars": 234,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-5",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "text": true,
+      "encoding-order": true,
+      "default-encoding": false,
+      "decompress": true,
+      "setter": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

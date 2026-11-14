@@ -1,0 +1,100 @@
+{
+  "answer": "**Application callers of `crud.get_user_by_email`** (defined at `backend/app/crud.py:34`, takes keyword-only `session` and `email`, returns `User | None`):\n\n**Route handlers in `backend/app/api/routes/login.py`**\n- `recover_password`, line 58: truthiness check. If a user exists, it sends a reset email to `user.email`. It returns the same message either way, to prevent enumeration.\n- `reset_password`, line 85: needs the object. It raises 400 if the user is missing, raises 400 if `not user.is_active`, then passes `user` to `crud.update_user` (line 92) to set the new password.\n- `recover_password_html_content`, line 109: returns 404 if `None`. Otherwise it builds the reset email from `user.email` and returns it as HTML.\n\n**Route handlers in `backend/app/api/routes/users.py`**\n- `create_user`, line 61: existence check. Returns 400 if the email is taken, then calls `crud.create_user`.\n- `update_user_me`, line 90: uniqueness check. Returns 409 if the email belongs to a different user (`existing_user.id != current_user.id`).\n- `register_user`, line 151: existence check. Returns 400 if the email is taken, then creates the user.\n- `update_user`, line 204: uniqueness check. Returns 409 if the email belongs to a different user (compared against `user_id`).\n\n**Non-route caller**\n- `crud.authenticate`, `backend/app/crud.py:46`: looks up the user for login. Returns `None` if missing, after a dummy hash check to prevent timing attacks. It is called from `login_access_token` (`login.py:30`).\n\n**Impact of changing the signature**\n- All callers use keyword arguments, so adding an optional parameter with a default is safe.\n- Renaming `email` or `session` requires editing all 9 call sites above.\n- Every caller depends on the `None` return for \"not found\". Changing it to raise an exception, or to return a different type, would break the `if user` / `if not user` branches and the 404/400/409 logic.\n- `rudhmap` also listed `get_current_user` (`backend/app/api/deps.py:30`) as a text match. The caller trace did not include it, so I did not verify whether it calls this function.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00337493,
+  "duration_ms": 13277,
+  "tokens": {
+    "input": 8,
+    "cache_write": 9839,
+    "cache_read": 36533,
+    "output": 2082,
+    "context": 9847,
+    "total": 48462
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "get_user_by_email"
+      },
+      "result_chars": 2513,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "get_user_by_email",
+        "direction": "up"
+      },
+      "result_chars": 664,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "recover_password, reset_password, recover_password_html_content, authenticate",
+        "detail": "full"
+      },
+      "result_chars": 8276,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_user, update_user_me, register_user, update_user",
+        "detail": "full"
+      },
+      "result_chars": 4269,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:create_user",
+        "detail": "full"
+      },
+      "result_chars": 2462,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/api/routes/users.py:update_user",
+        "detail": "full"
+      },
+      "result_chars": 2290,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-2",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 16.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "crud": true,
+      "users-routes": true,
+      "login-routes": true,
+      "not-init-db": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

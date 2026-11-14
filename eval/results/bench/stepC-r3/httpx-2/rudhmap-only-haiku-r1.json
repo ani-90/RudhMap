@@ -1,0 +1,70 @@
+{
+  "answer": "If you change `BaseTransport.handle_request`, the affected code is one call site and three overriding subclasses.\n\n**Definition:** `httpx/_transports/base.py:26`, in `class BaseTransport` (line 14). The docstring (lines 27-56) documents the single `request: Request` argument and the `Response` return, so any signature change also needs that doc updated.\n\n**Call site (only one in httpx):**\n- `Client._send_single_request`, `httpx/_client.py:1014` (`response = transport.handle_request(request)`). This is the only place in the library that invokes the method. Its callers chain up through `Client._send_handling_redirects` (`_client.py:979`) and `Client._send_handling_auth` (`_client.py:942`).\n\n**Overrides that must match the new signature:**\n- `HTTPTransport.handle_request`, `httpx/_transports/default.py:230`\n- `MockTransport.handle_request`, `httpx/_transports/mock.py:19`\n- `WSGITransport.handle_request`, `httpx/_transports/wsgi.py:91`\n\n**Not affected:** The async path uses a separate method name (`handle_async_request`), so changing the sync signature does not touch it.\n\n**Caveats:** The call graph is static. A caller that holds a transport reference and invokes `handle_request` dynamically, such as a user's custom transport wrapping another transport, would not show up here. The search only covered httpx's own source, and tests were excluded as you asked. I did not open the bodies of the overrides, so I haven't confirmed whether any of them call `super().handle_request` or call another transport's `handle_request` internally. A quick grep of `_transports/` for `handle_request(` would settle that.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.00122065,
+  "duration_ms": 8657,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2583,
+    "cache_read": 15045,
+    "output": 1106,
+    "context": 2589,
+    "total": 18740
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request"
+      },
+      "result_chars": 2039,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "handle_request"
+      },
+      "result_chars": 1143,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": false,
+      "httpcore": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

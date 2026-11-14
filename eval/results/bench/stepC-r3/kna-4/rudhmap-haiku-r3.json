@@ -1,0 +1,81 @@
+{
+  "answer": "**Short answer: almost nothing changes.** Editing `similarity_threshold` in `app/config.py` does not affect the live deduplication path, because the only caller passes its own hardcoded value.\n\n- **The setting itself:** `app/config.py:28` defines `similarity_threshold: float = 0.85`.\n- **The fallback:** `app/db/qdrant.py:39-48`, `search_similar()`, uses `settings.similarity_threshold` only when `threshold` is `None` (lines 40-41). It then passes it to Qdrant as `score_threshold` (line 47).\n- **The actual caller:** `app/pipeline/aggregator.py:31` calls `search_similar(article.embedding, threshold=0.85)`. The `0.85` is hardcoded, so the config value is never read on this path.\n\nSo with the current code:\n- Changing `similarity_threshold` has no effect on the aggregator's semantic dedup. The 0.85 literal in `aggregator.py:31` still applies.\n- If you want the config to control dedup, change line 31 to omit `threshold` or pass `settings.similarity_threshold`. Otherwise you would be editing a value nothing reads.\n- Changing the threshold in either place only matters when embeddings exist. Pass 1 runs only if `article.embedding` is truthy (`aggregator.py:29`). The README and `decisions and tradeoffs.md:48, 52` say embeddings are disabled on Railway, so there dedup falls back to URL-exact matching (SQLite `UNIQUE` on `Article.url`, handled in Pass 2 at `aggregator.py:40-59`) and the threshold is irrelevant.\n- Qdrant errors in Pass 1 are caught and logged (`aggregator.py:36-37`), and the article is kept. A threshold change does not alter that behavior.\n\nA higher value makes Qdrant return fewer matches, so fewer articles are treated as semantic duplicates. A lower value does the opposite. Both effects only apply after the call site is changed to use the config.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0015352,
+  "duration_ms": 8163,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3510,
+    "cache_read": 23560,
+    "output": 1194,
+    "context": 3516,
+    "total": 28270
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "similarity_threshold"
+      },
+      "result_chars": 308,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "similarity_threshold|dedup",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 4205,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "search_similar"
+      },
+      "result_chars": 825,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\pipeline\\aggregator.py",
+        "limit": 60
+      },
+      "result_chars": 2379,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-4",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 11.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "no-effect": true,
+      "default-only": true,
+      "mechanics": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": true,
+    "false_claims": [
+      "Says the README and decisions doc state embeddings are disabled on Railway, with fallback to URL-exact matching, rather than embedder.embed() returning [] (unverified against the key, but not contradicting it)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

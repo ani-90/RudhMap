@@ -1,0 +1,150 @@
+{
+  "answer": "**Flow for one article**\n\n1. **Fetch, per-run URL dedup.** `BaseAgent.run` (`app/pipeline/agents/base_agent.py:44`) calls `_fetch_all` (`:84`). That queries Tavily and NewsAPI, normalises each URL with `_normalise_url` (`:19`), which strips tracking params like `utm_*` and `fbclid` (`:13`), and skips any URL already in `seen_urls` (`:86`, `:101`, `:112`).\n\n2. **Filter.** `run` drops items with no URL or title (`:52`). It then calls `enrich_content` (`app/services/scraper.py:28`) to scrape short content, and drops anything failing `_is_quality` (`:28`: at least 40 words, average 5+ words per line).\n\n3. **Embed and hash.** `embedder.embed` (`app/services/embedder.py:5`) is a stub that always returns `[]`. `run` also computes a SHA-256 `content_hash` of the URL (`base_agent.py:61`), but nothing reads it.\n\n4. **Pass 1: semantic dedup.** `aggregator_node` (`app/pipeline/aggregator.py:28-38`) calls `search_similar` at threshold 0.85 only when `article.embedding` is truthy. Because embeddings are always empty, this pass never runs.\n\n5. **Pass 2: exact-URL dedup in SQLite.** `crud.bulk_insert_articles` (`app/db/crud.py:40-64`) looks up each URL and skips existing rows (`:43-45`). It also commits per row and rolls back on error, which covers the race with parallel agents (`:58-63`). The `Article.url` column is `unique=True` (`app/db/models.py:27`), so the database enforces this as well.\n\n6. **Pass 3: Qdrant upsert.** `aggregator.py:64-82` builds points only for articles that have a vector. With the stub, `qdrant_points` is empty and `upsert_articles` (`app/db/qdrant.py:51`) is never called. Articles are stored in SQLite only.\n\n7. **Run record.** `aggregator.py:98-106` writes `duplicate_count` (the Pass 1 skips plus rows lost in Pass 2) and the status to the `PipelineRun` row.\n\n**Finding:** Only the URL-based dedup steps (1 and 5) are active. The semantic dedup (4) and Qdrant storage (6) are effectively disabled by the stub embedder. The `content_hash` (3) is computed but unused, and `bulk_insert_articles` never receives it.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 13,
+  "model_calls": 4,
+  "cost_usd": 0.00335811,
+  "duration_ms": 10894,
+  "tokens": {
+    "input": 8,
+    "cache_write": 10648,
+    "cache_read": 31571,
+    "output": 1824,
+    "context": 10656,
+    "total": 44051
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedup deduplicate article hash"
+      },
+      "result_chars": 1524,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "fetch news article store save"
+      },
+      "result_chars": 1313,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run"
+      },
+      "result_chars": 2975,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent._fetch_all"
+      },
+      "result_chars": 3044,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_normalise_url"
+      },
+      "result_chars": 795,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5991,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles"
+      },
+      "result_chars": 1358,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "upsert_articles"
+      },
+      "result_chars": 1086,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Article",
+        "detail": "full"
+      },
+      "result_chars": 1258,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "embed"
+      },
+      "result_chars": 261,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_is_quality"
+      },
+      "result_chars": 603,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": false,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.667,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

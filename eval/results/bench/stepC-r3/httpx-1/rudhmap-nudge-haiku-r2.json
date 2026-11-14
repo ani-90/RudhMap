@@ -1,0 +1,102 @@
+{
+  "answer": "**Entry point.** `Client.send()` resolves `follow_redirects` from the client default when the argument is `USE_CLIENT_DEFAULT` (`httpx/_client.py:904-908`). It then calls `_send_handling_auth`, which calls `_send_handling_redirects` with `history=[]` (`httpx/_client.py:914-919`). Redirect handling sits inside the auth flow, so `auth` runs on each hop.\n\n**The loop.** `_send_handling_redirects` (`httpx/_client.py:964-999`) runs `while True`:\n- It raises `TooManyRedirects` once `len(history) > self.max_redirects` (`:971-974`).\n- It sends one hop via `_send_single_request` (`:979`).\n- If the response has no redirect location, it returns (`:985-986`).\n- Otherwise it builds the next request with `_build_redirect_request` and appends the response to `history` (`:988-989`).\n- If `follow_redirects` is true, it reads the response body and loops (`:991-992`). If false, it sets `response.next_request` and returns the 3xx to the caller (`:993-995`).\n\n**How the new request is built.** `_build_redirect_request` (`httpx/_client.py:475-492`) assembles a fresh `Request` from four helpers:\n\n- **Method** (`_redirect_method`, `:494-515`): any non-HEAD request becomes GET on 303, and on 302. A POST on 301 becomes GET. 307 and 308 keep the method.\n- **URL** (`_redirect_url`, `:481`): not inspected here.\n- **Headers** (`_redirect_headers`, `:546-571`):\n  - Copies the original headers.\n  - If the redirect leaves the origin, drops `Authorization`, except for a direct HTTP\u2192HTTPS upgrade, and rewrites `Host`. Origin checks use `_same_origin` and `_is_https_redirect` (`:552-556`).\n  - If the method changed to GET, drops `Content-Length` and `Transfer-Encoding` (`:561-565`).\n  - Always drops `Cookie` and rebuilds it from the client cookie jar (`:569`, `:484`).\n- **Body** (`_redirect_stream`, `:573-582`): returns `None` when switching to GET. Otherwise it reuses `request.stream` (`:579-582`).\n- **Extensions** are carried over from the original request (`:491`).\n\n**Not verified.** I did not read `_redirect_url`, `_send_single_request`, or the async mirror beyond the call sites, so the URL-resolution details and whether a consumed request body can be replayed on 307/308 are unchecked.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 2,
+  "cost_usd": 0.00278354,
+  "duration_ms": 8218,
+  "tokens": {
+    "input": 4,
+    "cache_write": 9209,
+    "cache_read": 11134,
+    "output": 1660,
+    "context": 9213,
+    "total": 22007
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send",
+        "detail": "full"
+      },
+      "result_chars": 3835,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects",
+        "detail": "full"
+      },
+      "result_chars": 3043,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._build_redirect_request",
+        "detail": "full"
+      },
+      "result_chars": 2366,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_method",
+        "detail": "full"
+      },
+      "result_chars": 1336,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_headers",
+        "detail": "full"
+      },
+      "result_chars": 2286,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_stream",
+        "detail": "full"
+      },
+      "result_chars": 728,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 11.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

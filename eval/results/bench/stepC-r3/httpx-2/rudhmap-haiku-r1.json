@@ -1,0 +1,74 @@
+{
+  "answer": "Changing `BaseTransport.handle_request` affects three overrides and one production caller in httpx (tests excluded).\n\n**Overrides (must match the new signature):**\n- `HTTPTransport.handle_request`, `httpx/_transports/default.py:230`. It also calls the connection pool's `handle_request` at `default.py:250`, which is a separate API and not affected.\n- `WSGITransport.handle_request`, `httpx/_transports/wsgi.py:91`, in a class that subclasses `BaseTransport` at `wsgi.py:44`.\n- `MockTransport.handle_request`, `httpx/_transports/mock.py:19`. It inherits from both `AsyncBaseTransport` and `BaseTransport` (`mock.py:15`).\n\n**Call sites:**\n- `Client._send_single_request`, `httpx/_client.py:1014`: `response = transport.handle_request(request)`. This is the only real caller in the library. The trace shows it sits under `_send_handling_redirects` (`_client.py:964`) and `_send_handling_auth` (`_client.py:930`).\n\n**Not affected:**\n- `httpx/_transports/base.py:48` is inside the class docstring, so it is an example, not code. It would need updating only if the docs should reflect the new signature.\n- `AsyncBaseTransport` and `AsyncHTTPTransport` (`default.py:279`) use the async `handle_request` path, so they are not touched by a change to the sync base method.\n\n**Caveat:** The grep only matched direct `handle_request(` calls. Transports are passed around as the `BaseTransport` type through `Client` mounts and transport arguments. That does not add callers of the method itself, but any code that wraps or delegates a transport would need its own check.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0010766999999999999,
+  "duration_ms": 8943,
+  "tokens": {
+    "input": 6,
+    "cache_write": 1468,
+    "cache_read": 23000,
+    "output": 1105,
+    "context": 1474,
+    "total": 25579
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "detail": "full"
+      },
+      "result_chars": 2039,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseTransport.handle_request",
+        "direction": "up"
+      },
+      "result_chars": 294,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "handle_request\\(|def handle_request|class \\w+\\(.*Transport\\)",
+        "path": "httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 899,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-2",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 12.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "implementers": true,
+      "call-site": true,
+      "async-separate": true,
+      "user-transports": false,
+      "httpcore": true
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

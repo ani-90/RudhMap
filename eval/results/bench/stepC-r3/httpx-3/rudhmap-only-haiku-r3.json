@@ -1,0 +1,130 @@
+{
+  "answer": "**Configuration:** Timeouts are a `Timeout` object (`httpx/_config.py:72`). Its `__init__` (`_config.py:86-130`) accepts a single float, a 2\u20134 tuple (connect, read, write, pool), or keyword arguments for each phase. A single value becomes the default for all four phases. The client exposes it through `BaseClient.timeout()` (`httpx/_client.py:254`).\n\n**Path to the network layer:**\n1. **Client \u2192 Request.** Every verb helper (`get`, `post`, \u2026) goes through `Client.request` \u2192 `Client.send` (`_client.py:910`). `send` calls `BaseClient._set_timeout` (`_client.py:584-591`). Unless the request already has a per-call `timeout` extension, that method wraps the client's timeout in a `Timeout` if needed and stores `timeout.as_dict()` in `request.extensions[\"timeout\"]`. `AsyncClient.send` (`_client.py:1625`) does the same.\n2. **Request \u2192 transport.** `HTTPTransport.handle_request` (`httpx/_transports/default.py:230`) copies `request.extensions` into the `httpcore.Request` (line 247). It then calls the httpcore connection pool (line 250). Httpcore reads the `timeout` extension and applies it to connect, write, read and pool waits. That reading of httpcore is from its library behaviour, not from this repo.\n\n**Exceptions when a timeout fires:**\n- httpcore raises its own timeout errors. `map_httpcore_exceptions` (`default.py:96-118`) wraps the pool call wherever it runs (`default.py:249`). It walks the mapping in `_load_httpcore_exceptions` (`default.py:74-92`) and re-raises the most specific match with `raise mapped_exc(message) from exc`.\n- The result is one of the httpx exceptions, all subclasses of `TimeoutException` (`httpx/_exceptions.py:132`, which derives from `TransportError`):\n  - `ConnectTimeout` (`_exceptions.py:140`): connecting to the host.\n  - `WriteTimeout` (`_exceptions.py:152`): sending data.\n  - `ReadTimeout` (`_exceptions.py:146`): receiving data.\n  - `PoolTimeout` (`_exceptions.py:158`): waiting for a pooled connection.\n\nNon-timeout network failures go through the same mapping to `ConnectError`, `ReadError`, and so on.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 4,
+  "cost_usd": 0.0022716399999999997,
+  "duration_ms": 11112,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5702,
+    "cache_read": 26194,
+    "output": 1737,
+    "context": 5710,
+    "total": 33641
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "timeout"
+      },
+      "result_chars": 1116,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Timeout exception"
+      },
+      "result_chars": 1198,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._set_timeout"
+      },
+      "result_chars": 1090,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "BaseClient._set_timeout",
+        "direction": "up"
+      },
+      "result_chars": 1221,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "HTTPTransport handle_request"
+      },
+      "result_chars": 1285,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "map_httpcore_exceptions"
+      },
+      "result_chars": 1927,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "HTTPTransport.handle_request"
+      },
+      "result_chars": 1899,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_load_httpcore_exceptions"
+      },
+      "result_chars": 1100,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Timeout.__init__"
+      },
+      "result_chars": 3115,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-3",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "config": true,
+      "extensions": true,
+      "transport": true,
+      "exceptions": true,
+      "forms": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "The client exposes it through `BaseClient.timeout()` (`httpx/_client.py:254`) \u2014 it is a property, minor wording issue; and the answer does not state the 5 second default or that Client(timeout=...) stores Timeout(timeout).",
+      "The client exposes the timeout through `BaseClient.timeout()` (`_client.py:254`) is a property, not a method call; minor wording issue",
+      "Does not state the default is 5 seconds (not required detail)",
+      "The client exposes the timeout through `BaseClient.timeout()` at _client.py:254 (it is a property with a setter, minor detail)",
+      "Does not mention the default of 5 seconds (not a false claim, just omitted)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "answer": "**No. The daily refresh is defined but never started when the API server boots.**\n\n**What exists:**\n- `app/scheduler.py:12` creates a module-level `BackgroundScheduler`.\n- `app/scheduler.py:15-40` defines `_daily_refresh()`, which creates a pipeline run for `user_id=1` and calls `run_pipeline` over `DOMAINS`.\n- `app/scheduler.py:43-53` defines `start_scheduler(hour=7, minute=0)`. It registers a `CronTrigger` job with id `daily_refresh` and calls `scheduler.start()`.\n- `app/scheduler.py:56-58` defines `stop_scheduler()`.\n- `app/config.py:31-32` sets `schedule_hour = 7` and `schedule_minute = 0`. `README.md:138` describes `SCHEDULE_HOUR` as a UTC hour, but nothing reads these settings.\n- `requirements.txt:35` pins `apscheduler==3.10.4`.\n\n**What's missing:**\n- `app/main.py:17-20` defines the FastAPI `lifespan`, which only calls `init_db()` and then yields. It does not call `start_scheduler()`, and there is no shutdown call to `stop_scheduler()`.\n- `app/main.py:41-44` includes the feed, quiz, user, and debate routers. None of them starts the scheduler.\n- A search of all non-frontend files finds no caller of `start_scheduler` or `stop_scheduler` outside `scheduler.py` itself.\n\n**Result:** Starting the API server does not register or start the cron job, so no scheduled refresh runs at 07:00. The only way news gets refreshed is a manual `POST /api/feed/refresh` (`app/api/feed.py:20`), which is subject to a 2-hour cooldown.\n\n**To fix:** call `start_scheduler(settings.schedule_hour, settings.schedule_minute)` in `lifespan` after `init_db()` and call `stop_scheduler()` after the `yield`. Also note that `_daily_refresh` runs `asyncio.run(...)` inside a `BackgroundScheduler` thread, which is workable but should be checked when you wire it up.\n\nI did not run the server, so this conclusion comes from reading the code and searching for callers.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 5,
+  "cost_usd": 0.00234044,
+  "duration_ms": 10903,
+  "tokens": {
+    "input": 10,
+    "cache_write": 5311,
+    "cache_read": 47924,
+    "output": 1596,
+    "context": 5321,
+    "total": 54841
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "schedule daily news refresh"
+      },
+      "result_chars": 3058,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "cron|schedule|setInterval|node-cron|refresh",
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 80
+      },
+      "result_chars": 3566,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|stop_scheduler|lifespan|on_event",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "*.py"
+      },
+      "result_chars": 217,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\scheduler.py",
+        "offset": 41,
+        "limit": 18
+      },
+      "result_chars": 603,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\main.py"
+      },
+      "result_chars": 1244,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "start_scheduler|scheduler",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "!frontend/**"
+      },
+      "result_chars": 798,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-3",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 14.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "not-started": true,
+      "would-do": true,
+      "settings-unused": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

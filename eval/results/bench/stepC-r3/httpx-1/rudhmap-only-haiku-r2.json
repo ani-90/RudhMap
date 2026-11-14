@@ -1,0 +1,98 @@
+{
+  "answer": "**Path:** `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` against the client default (L904-908), then calls `_send_handling_auth` (L914), which calls `_send_handling_redirects` (L964).\n\n**Loop** (`_send_handling_redirects`, L970-999):\n- Raises `TooManyRedirects` once `len(history) > self.max_redirects` (L971-974).\n- Sends one hop with `_send_single_request` (L979), with no redirect handling.\n- If the response has no redirect `Location`, it returns (L985-986).\n- Otherwise it builds the next request (L988) and appends the response to `history` (L989).\n- If `follow_redirects` is true, it reads the response and loops (L991-992). If false, it stores the request in `response.next_request` and returns (L993-995).\n\n**Building the next request** (`_build_redirect_request`, `httpx/_client.py:475-492`) assembles a new `Request` from four helpers:\n\n- **Method** (`_redirect_method`, L494-515):\n  - 303 turns any non-HEAD method into GET (L502-503).\n  - 302 does the same, following browser behavior (L507-508).\n  - 301 turns POST into GET (L512-513).\n  - 307 and 308 keep the method unchanged.\n\n- **URL** (`_redirect_url`, L481): resolved from the `Location` header via `URL.copy_with`. I did not read this function's body.\n\n- **Headers** (`_redirect_headers`, L546-571):\n  - Copies the original headers (L550).\n  - If the target is a different origin and not an HTTP\u2192HTTPS upgrade, drops `Authorization` (L552-556).\n  - On a cross-origin redirect, sets `Host` to the new netloc (L559).\n  - When the method changed to GET, drops `Content-Length` and `Transfer-Encoding` (L561-565).\n  - Always drops `Cookie`, so cookies come from the client's cookie jar (L569). The new request gets `Cookies(self.cookies)` (L484).\n\n- **Body** (`_redirect_stream`, L579-582): returns `None` if the method was switched to GET; otherwise it reuses `request.stream` unchanged.\n\n`extensions` are carried over from the original request (L491).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 2,
+  "cost_usd": 0.00086575,
+  "duration_ms": 7463,
+  "tokens": {
+    "input": 4,
+    "cache_write": 0,
+    "cache_read": 15535,
+    "output": 1420,
+    "context": 4,
+    "total": 16959
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 3835,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3043,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._build_redirect_request"
+      },
+      "result_chars": 2366,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_method"
+      },
+      "result_chars": 1336,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_headers"
+      },
+      "result_chars": 2286,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_stream"
+      },
+      "result_chars": 728,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 10.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "Says Host is set to the new netloc only on cross-origin redirects; key says Host is updated (minor difference)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

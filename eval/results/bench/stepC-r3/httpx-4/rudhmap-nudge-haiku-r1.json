@@ -1,0 +1,82 @@
+{
+  "answer": "**DigestAuth** (`httpx/_auth.py:175`) is a generator-based `Auth` subclass. It sends the request unauthenticated first, and only answers a Digest challenge if the server issues one.\n\n**The flow in `auth_flow`** (`httpx/_auth.py:193-222`):\n1. If a challenge from an earlier response is cached (`_last_challenge`), it adds an `Authorization` header up front (195-197). This is how later requests to the same client skip the initial 401 round trip.\n2. It yields the request and receives the response (199).\n3. If the response is not a 401, or has no `WWW-Authenticate: Digest` header, the generator returns and the response passes through (201-212).\n4. Otherwise it parses the challenge (214), resets `_nonce_count` to 1 (215), builds the header (217), forwards any response cookies (220-221), and yields the request again (222).\n\n**Header construction** (`_build_auth_header`, `httpx/_auth.py:255-301`):\n- Chooses the hash from the algorithm (258). `-sess` variants mix in the nonce and cnonce (275-276).\n- HA1 = hash(user:realm:pass), HA2 = hash(method:path) (263-268). The path is `raw_path`, so the query string is included.\n- With a `qop` value, the response hash covers nonce, nc, cnonce, qop, and HA2 (278-284). Without one, it follows RFC 2069 (281).\n- Each request increments the nonce count and derives a fresh cnonce (270-272).\n- `auth-int` is not implemented (267 TODO), so only `qop=auth` is supported.\n\n**How the client drives it** (`httpx/_client.py:930-962`, called from `Client.send` at 914):\n- `Auth.sync_auth_flow` (`httpx/_auth.py:62-85`) wraps `auth_flow`. It optionally reads the request body (71-72), and it reads the response body when `requires_response_body` is set (79-80).\n- `_send_handling_auth` pulls the first request from the flow (939), sends it through `_send_handling_redirects` (942), and feeds the response back with `auth_flow.send(response)` (949).\n- If the flow yields again, the client reads and closes the previous response, records it in history, and sends the new request (953-956). If the flow stops, the last response is returned (950-951).\n- The `finally` block closes the flow (962).\n\nThe async path mirrors this. rudhmap reports no callers of `DigestAuth` inside the repo, so it is used as a public API object passed to the client's `auth=` argument.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0021021,
+  "duration_ms": 9563,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5640,
+    "cache_read": 21650,
+    "output": 1514,
+    "context": 5646,
+    "total": 28810
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth"
+      },
+      "result_chars": 920,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "DigestAuth",
+        "direction": "up"
+      },
+      "result_chars": 89,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DigestAuth.auth_flow, DigestAuth._build_auth_header"
+      },
+      "result_chars": 5503,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_auth, Auth.sync_auth_flow"
+      },
+      "result_chars": 4300,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-4",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 13.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "generator": true,
+      "challenge": true,
+      "header": true,
+      "qop": true,
+      "reuse": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "The answer says the nonce count is reset to 1 at line 215 on each challenge; this is consistent with the key's context, so not false.",
+      "The answer cites 'rudhmap' reporting no callers of DigestAuth, a tool claim the key does not cover, though it does not contradict the key."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

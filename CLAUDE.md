@@ -6,7 +6,13 @@ Every step ends with a report in `eval/reports/` (goal + pass criteria written f
 
 ## Current status (update this section whenever a phase completes or work resumes)
 
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-14
+
+**Step C (benchmark + iterate) FAILED on cost after 3 rounds (2026-11-14) -> stop rule for the token-saving claim**, branch `stepC-benchmark`. Report (incl. intended-vs-actual model behaviour): `eval/reports/stepC-benchmark.md`; per-run tables: `eval/results/bench/stepC-r{1,2,3}/runs.md`.
+- Final round (Haiku, 15 q x 3): Plain 12/15, 31.4k median tokens; RudhMap natural 13/15, 35.4k (113%); nudged 13/15 (40/45 runs, best of all incl. Sonnet 36/45), 41.7k (133%); RudhMap-only 10/15, 29.9k (95%). Cost criterion (<=70%) failed in all rounds.
+- Core finding: Haiku's number of model calls (~3.7/run) does not change with better tool results; RudhMap changed what it read, not how many rounds. Each call also carries +743 tokens of RudhMap tool definitions. Natural runs hedged with parallel Grep and re-read files RudhMap had shown (2.0-2.7 Read/Grep after RudhMap per run); the nudge fixed trust (0.4) but not calls.
+- Held-out set NOT run (kept for the next claim). Open decision for the owner: re-aim at accuracy (Haiku+RudhMap ~ Sonnet correctness at ~7% cost; needs new pre-registered criteria + held-out run), or redesign to cut rounds, or stop.
+- Harness: `run_bench.py` arms `none|rudhmap|rudhmap-nudge|rudhmap-only`, `runs` subcommand writes per-run markdown; grader retries non-JSON replies (a usage-limit outage once created a false regression).
 
 **Step B (the tools) PASSED (2026-11-12)**, branch `stepB-tools` (278 tests). Report: `eval/reports/stepB-tools.md`; suite: `python eval/tools_eval.py --label <name>` (data: `eval/ground_truth/step_b_tools.yaml`).
 - Narrowed target: RudhMap controls only **its tool results** and **its tool definitions** in the model's context; optimize those, nothing else.
@@ -17,7 +23,7 @@ Every step ends with a report in `eval/reports/` (goal + pass criteria written f
 - Smoke run (not counted): Haiku called `show` first but also grepped/read in parallel (3 calls, 26.5k vs ~17.7k baseline). Step C must check whether models trust the tools.
 - Heredoc gotcha in this environment: the Bash tool turns `\\n` inside heredocs into real newlines — write edit scripts with the Write tool.
 
-**Next up: Step C (benchmark + iterate)** — re-run plain Haiku/Sonnet baseline alongside Haiku+RudhMap on the 15 tuning questions (3 reps), RCA, max 3 rounds; held-out set only in the final run. Thresholds: `eval/THRESHOLDS.md`.
+~~Next up: Step C~~ (done 2026-11-14, failed on cost) — re-run plain Haiku/Sonnet baseline alongside Haiku+RudhMap on the 15 tuning questions (3 reps), RCA, max 3 rounds; held-out set only in the final run. Thresholds: `eval/THRESHOLDS.md`.
 
 **Plan re-ordered 2026-11-11** (`docs/plan.md`): A baseline → B tools → C benchmark + iterate (max 3 rounds, stop rule) → D release. Cut from v1: diagrams, `get_context`, step 1b, local model, cross-layer links.
 

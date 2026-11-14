@@ -1,0 +1,86 @@
+{
+  "answer": "**Path of one article** (Haiku-era repo, `knowledge-news-app`)\n\n1. **Fetch.** `BaseAgent._fetch_all` (`app/pipeline/agents/base_agent.py:84`) gets candidates from Tavily search (L99) and NewsAPI headlines (L110). Queries come from Groq, falling back to hardcoded ones (L90-95).\n\n2. **Dedup #1: URL normalisation and in-run set.** `_normalise_url` (`base_agent.py:19-25`) strips tracking params listed in `_STRIP_PARAMS` (L13). Each URL is kept only if not already in `seen_urls` (L100-102, L111-113). This only deduplicates within one run.\n\n3. **Prepare.** In `BaseAgent.run` (`base_agent.py:44`), items missing a URL or title are dropped (L52). `enrich_content` (`app/services/scraper.py:28-36`) re-scrapes with trafilatura when content is under 300 chars and caps the result at 8000 chars. `_is_quality` (`base_agent.py:28-36`) requires at least 40 words and an average of 5+ words per line. The embedding comes from `embedder.embed`, which is a stub that always returns `[]` (`app/services/embedder.py:4-5`). `content_hash` (sha256 of the URL, L61) is computed but never read anywhere downstream.\n\n4. **Dedup #2: semantic (Qdrant), in `aggregator_node`** (`app/pipeline/aggregator.py:26-38`). Articles with a non-empty embedding are checked with `search_similar` at threshold 0.85 (L31) and skipped on a match. If the search fails, the article is kept. Because embeddings are always `[]`, this pass never runs.\n\n5. **Dedup #3: exact URL, in SQLite.** `aggregator_node` builds records with a fresh UUID as `qdrant_id` (L44-57). `crud.bulk_insert_articles` (`app/db/crud.py:40-64`) runs a SELECT by URL before each insert (L43). If a parallel agent wins the race and the commit fails, it rolls back and skips (L62-63).\n\n6. **Vector upsert.** Only inserted articles that have an embedding become Qdrant points (`aggregator.py:64-76`), sent through `upsert_articles` (`app/db/qdrant.py:51-64`). With stub embeddings, no points are written.\n\n7. **Bookkeeping.** `duplicate_count` sums semantic and SQL skips (L60). The counts and status are written to the `PipelineRun` row (L98-106).\n\n**Takeaway:** the only deduplication that works end to end is URL-based: once in-run, then against SQLite. The semantic (Qdrant) layer is wired up but inactive, because `embed` is a stub.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00356803,
+  "duration_ms": 13735,
+  "tokens": {
+    "input": 6,
+    "cache_write": 10461,
+    "cache_read": 22973,
+    "output": 2491,
+    "context": 10467,
+    "total": 35931
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__repo_map",
+      "input": {},
+      "result_chars": 2378,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "dedupe deduplicate article hash"
+      },
+      "result_chars": 1525,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseAgent.run, BaseAgent._fetch_all, _normalise_url, _is_quality"
+      },
+      "result_chars": 7411,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "aggregator_node"
+      },
+      "result_chars": 5991,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "bulk_insert_articles, upsert_articles, enrich_content, _fetch_and_extract"
+      },
+      "result_chars": 4684,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-2",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 17.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "fetch": true,
+      "url-norm": true,
+      "enrich": true,
+      "semantic": true,
+      "url-exact": true,
+      "parallel": false
+    },
+    "fact_score": 0.833,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

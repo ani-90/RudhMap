@@ -1,0 +1,87 @@
+{
+  "answer": "**Password login: `POST /login/access-token` to token**\n\n1. **Route handler.** `login_access_token` (`backend/app/api/routes/login.py:24`) takes an OAuth2 form (`username`, `password`) via `OAuth2PasswordRequestForm`, plus a DB session from `SessionDep`. The `username` field carries the email.\n\n2. **Authentication.** It calls `crud.authenticate(...)` (`login.py:30`), which:\n   - Looks up the user by email with `get_user_by_email` (`backend/app/crud.py:34-37`, called at `crud.py:46`).\n   - Verifies the password with `verify_password` (`backend/app/core/security.py:29-32`), which uses `PasswordHash` configured with Argon2 and Bcrypt (`security.py:11`).\n   - If the password verifies and the hash needs upgrading, it stores the new hash and commits (`crud.py:55-59`).\n\n3. **Checks in the route.** If `authenticate` returns `None`, the route raises HTTP 400 \"Incorrect email or password\" (`login.py:33-34`). If the user is inactive, it raises HTTP 400 \"Inactive user\" (`login.py:35-36`).\n\n4. **Token.** The route computes the expiry from `settings.ACCESS_TOKEN_EXPIRE_MINUTES` (`login.py:37`) and calls `create_access_token(user.id, ...)` (`login.py:39-41`). That function (`backend/app/core/security.py:22-26`) sets `exp` and `sub` (the user ID as a string) and signs a JWT with `settings.SECRET_KEY` using HS256 (`security.py:19`). The response is a `Token` model (`backend/app/models.py:114`).\n\n**When the email doesn't exist.** `authenticate` returns `None` at `crud.py:46-51`, but before that it runs `verify_password(password, DUMMY_HASH)` (`crud.py:50`) against a fixed Argon2 hash (`crud.py:42`). This is a timing-attack mitigation, so a missing account takes about as long to reject as a wrong password. The client then gets the same generic 400 \"Incorrect email or password\" as a wrong password, so the response doesn't reveal whether the email exists.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0020193000000000003,
+  "duration_ms": 7344,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6567,
+    "cache_read": 12480,
+    "output": 1161,
+    "context": 6573,
+    "total": 20214
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "login access token"
+      },
+      "result_chars": 1233,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "authenticate user password"
+      },
+      "result_chars": 878,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "login_access_token"
+      },
+      "result_chars": 1851,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "authenticate"
+      },
+      "result_chars": 1999,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "create_access_token"
+      },
+      "result_chars": 774,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 10.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "unknown-email": true,
+      "verify": true,
+      "inactive": true,
+      "token": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

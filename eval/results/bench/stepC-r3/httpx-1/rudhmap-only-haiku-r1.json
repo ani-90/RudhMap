@@ -1,0 +1,100 @@
+{
+  "answer": "**Short answer:** `Client.send()` delegates to a loop in `_send_handling_redirects`, which builds each follow-up `Request` with `_build_redirect_request`. Method, headers and body are each decided by a separate helper.\n\n**Code path**\n\n1. `Client.send()` (`httpx/_client.py:879`) resolves `follow_redirects` against the client default (L904-908), builds auth (L912), and calls `_send_handling_auth` (L914). Auth wraps the redirect loop, which runs from L942.\n2. `_send_handling_redirects` (`httpx/_client.py:964`) loops. It raises `TooManyRedirects` once `len(history) > max_redirects` (L971-974), sends one hop via `_send_single_request` (L979), and stops if `response.has_redirect_location` is false (L985-986).\n3. If there is a redirect, it calls `_build_redirect_request(request, response)` (L988) and appends to `history` (L989). With `follow_redirects` off, it sets `response.next_request` and returns without following (L991-995). Otherwise it reads the response body and loops (L992).\n\n**How the new request is built** (`_build_redirect_request`, `httpx/_client.py:475-492`)\n\n- **Method**: `_redirect_method` (L494-515). A 303 becomes GET unless the method is HEAD (L502-503). A 302 becomes GET unless HEAD (L507-508). A 301 becomes GET only for POST (L512-513). 307 and 308 keep the method.\n- **URL**: `_redirect_url` (L517), which uses `URL.copy_with`.\n- **Headers**: `_redirect_headers` (L546-571).\n  - `Authorization` is dropped on cross-origin redirects, except for an HTTP\u2192HTTPS upgrade (L552-556).\n  - `Host` is rewritten to the new netloc (L559).\n  - `Content-Length` and `Transfer-Encoding` are dropped when switching to GET (L561-565).\n  - `Cookie` is always dropped (L569). The new request gets cookies from the client jar instead (L484, `Cookies(self.cookies)`).\n- **Body**: `_redirect_stream` (L573-582) returns `None` when the method changed to GET, and otherwise reuses `request.stream` (L579-582). So a 307/308 resends the original body.\n\nThe new `Request` is constructed at L485-491, reusing `request.extensions`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 2,
+  "cost_usd": 0.00262672,
+  "duration_ms": 8234,
+  "tokens": {
+    "input": 4,
+    "cache_write": 9013,
+    "cache_read": 6522,
+    "output": 1517,
+    "context": 9017,
+    "total": 17056
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send"
+      },
+      "result_chars": 3835,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3043,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._build_redirect_request"
+      },
+      "result_chars": 2366,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_method"
+      },
+      "result_chars": 1336,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_headers"
+      },
+      "result_chars": 2286,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_stream"
+      },
+      "result_chars": 728,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 11.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "Says 'Otherwise it reads the response body and loops (L992)' placement is slightly muddled, but no clear contradiction",
+      "Describes the Authorization exception as any HTTP\u2192HTTPS upgrade rather than same-host upgrade (minor)",
+      "Says 'With follow_redirects off, it sets response.next_request and returns' - fine; but the order described (build request, append to history, then check follow_redirects) is slightly muddled, minor."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

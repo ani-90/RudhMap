@@ -1,0 +1,102 @@
+{
+  "answer": "**Short answer:** `Client.send()` doesn't loop over redirects itself. It resolves the `follow_redirects` setting, then hands off to `_send_handling_redirects`, which runs the loop.\n\n**Path**\n\n1. `Client.send()` (`httpx/_client.py:904-908`) resolves `follow_redirects` against the client default, then calls `_send_handling_auth` (`:914`).\n2. `_send_handling_auth` (`:942`) calls `_send_handling_redirects`.\n3. `_send_handling_redirects` (`:970-999`) loops. It enforces `max_redirects` (`:971`), sends one hop via `_send_single_request` (`:979`), and checks `response.has_redirect_location` (`:985`). If there is no redirect it returns. Otherwise it builds the next request (`:988`) and appends to `history` (`:989`). With `follow_redirects` false, it sets `response.next_request` and returns (`:991-995`).\n\n**How the next request is built** (`_build_redirect_request`, `:475-492`)\n\n- **Method** (`_redirect_method`, `:494-515`): 303 turns any non-HEAD method into GET (`:502-503`). 302 does the same (`:507-508`), matching browser behavior. 301 turns POST into GET (`:512-513`). 307 and 308 keep the method.\n- **URL** (`_redirect_url`, `:517`): the `Location` target, resolved against the current URL.\n- **Headers** (`_redirect_headers`, `:546-571`):\n  - Copies the original headers (`:550`).\n  - If the origin changes, drops `Authorization` unless the hop is a plain HTTP\u2192HTTPS upgrade (`:552-556`), and rewrites `Host` (`:559`).\n  - If the method was switched to GET, drops `Content-Length` and `Transfer-Encoding` (`:561-565`).\n  - Always drops `Cookie` (`:569`). The new request gets cookies from the client jar (`:484`, `:489`).\n- **Body** (`_redirect_stream`, `:573-582`): if the method changed to GET, the body is `None` (`:579-580`). Otherwise the original `request.stream` is reused as-is (`:582`). The body is therefore not re-encoded. A non-replayable stream would be re-sent unchanged on a 307/308.\n\n**Caveat:** `_redirect_stream` only checks for a switch to GET. Only `Content-Length` and `Transfer-Encoding` are stripped in that case (`:564-565`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.00231577,
+  "duration_ms": 10801,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5905,
+    "cache_read": 24617,
+    "output": 1776,
+    "context": 5911,
+    "total": 32304
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.send",
+        "detail": "full"
+      },
+      "result_chars": 3835,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._build_redirect_request",
+        "detail": "full"
+      },
+      "result_chars": 2366,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._redirect_stream",
+        "detail": "full"
+      },
+      "result_chars": 728,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects",
+        "detail": "full"
+      },
+      "result_chars": 3043,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_method",
+        "detail": "full"
+      },
+      "result_chars": 1336,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_headers",
+        "detail": "full"
+      },
+      "result_chars": 2286,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-1",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 13.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "default-off": true,
+      "path": true,
+      "method": true,
+      "headers-body": true,
+      "max": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}
