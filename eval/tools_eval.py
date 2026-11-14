@@ -39,7 +39,7 @@ from run_bench import export_repo, load_questions  # noqa: E402
 from rudhmap.tools import views  # noqa: E402
 from rudhmap.tools.index import RepoIndex  # noqa: E402
 
-BUDGETS = {"show": views.SHOW_BUDGET, "repo_map": views.MAP_BUDGET, "find_symbol": views.FIND_BUDGET,
+BUDGETS = {"show": views.SHOW_BUDGET, "repo_map": views.MAP_BUDGET, "find_symbol": views.FIND_BUDGET + views.SHOW_BUDGET,
            "trace": views.TRACE_BUDGET}
 DATA = HERE / "ground_truth" / "step_b_tools.yaml"
 RICH = {"source": "D:/ani_codes/AGENTICAI/rich", "commit": "3a109ccd"}

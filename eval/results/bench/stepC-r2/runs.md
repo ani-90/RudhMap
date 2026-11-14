@@ -96,18 +96,18 @@ One row per run. **Correct** = every required fact stated and no major false cla
 | tpl-3 | RudhMap (natural) | haiku | 3 | yes | 5/5 | 87,182 | 18,277 | 5 | 2 | 11 | 2 | 0 | rm:repo_map+rm:find_symbol | 13 | 0.0064 | 30s |
 | tpl-3 | RudhMap-only | haiku | 1 | yes | 5/5 | 57,322 | 12,611 | 5 | 13 | 0 | 0 | 0 | rm:find_symbol+rm:repo_map | 0 | 0.0041 | 24s |
 | tpl-3 | RudhMap-only | haiku | 2 | no | 3/5 | 101,987 | 17,265 | 7 | 18 | 0 | 0 | 0 | rm:find_symbol+rm:repo_map | 0 | 0.0058 | 31s |
-| tpl-3 | RudhMap-only | haiku | 3 | ? | 0/? | 124,366 | 11,218 | 8 | 20 | 0 | 0 | 0 | rm:find_symbol+rm:repo_map | 0 | 0.0052 | 36s |
+| tpl-3 | RudhMap-only | haiku | 3 | yes | 4/5 | 124,366 | 11,218 | 8 | 20 | 0 | 0 | 0 | rm:find_symbol+rm:repo_map | 0 | 0.0052 | 36s |
 | tpl-3 | Plain | sonnet | 1 | yes | 4/5 | 23,221 | 4,296 | 3 | 0 | 3 | 3 | 0 | Grep | - | 0.0353 | 13s |
 | tpl-3 | Plain | sonnet | 2 | yes | 5/5 | 46,363 | 5,839 | 5 | 0 | 3 | 7 | 0 | Grep | - | 0.0529 | 19s |
 | tpl-3 | Plain | sonnet | 3 | yes | 4/5 | 38,592 | 5,892 | 4 | 0 | 3 | 3 | 0 | Grep | - | 0.0456 | 15s |
 | tpl-4 | Plain | haiku | 1 | no | 3/5 | 45,603 | 8,162 | 4 | 0 | 4 | 2 | 1 | Grep+Glob | - | 0.0029 | 14s |
 | tpl-4 | Plain | haiku | 2 | no | 3/5 | 28,690 | 5,268 | 3 | 0 | 3 | 1 | 1 | Grep+Glob | - | 0.0020 | 10s |
 | tpl-4 | Plain | haiku | 3 | no | 3/5 | 26,150 | 4,168 | 3 | 0 | 4 | 1 | 0 | Grep | - | 0.0019 | 12s |
-| tpl-4 | RudhMap (natural) | haiku | 1 | ? | 0/? | 34,242 | 8,035 | 3 | 1 | 4 | 1 | 0 | Grep+rm:repo_map | 4 | 0.0026 | 17s |
-| tpl-4 | RudhMap (natural) | haiku | 2 | ? | 0/? | 31,637 | 5,614 | 3 | 0 | 3 | 1 | 1 | Grep+Glob | - | 0.0022 | 17s |
-| tpl-4 | RudhMap (natural) | haiku | 3 | ? | 0/? | 34,315 | 7,202 | 3 | 1 | 4 | 1 | 0 | Grep+rm:repo_map | 4 | 0.0025 | 18s |
-| tpl-4 | RudhMap-only | haiku | 1 | ? | 0/? | 26,639 | 7,833 | 3 | 6 | 0 | 0 | 0 | rm:find_symbol+rm:repo_map | 0 | 0.0024 | 17s |
-| tpl-4 | RudhMap-only | haiku | 2 | ? | 0/? | 26,916 | 3,448 | 3 | 6 | 0 | 0 | 0 | rm:find_symbol+rm:repo_map | 0 | 0.0017 | 17s |
+| tpl-4 | RudhMap (natural) | haiku | 1 | no | 3/5 | 34,242 | 8,035 | 3 | 1 | 4 | 1 | 0 | Grep+rm:repo_map | 4 | 0.0026 | 17s |
+| tpl-4 | RudhMap (natural) | haiku | 2 | no | 3/5 | 31,637 | 5,614 | 3 | 0 | 3 | 1 | 1 | Grep+Glob | - | 0.0022 | 17s |
+| tpl-4 | RudhMap (natural) | haiku | 3 | no | 2/5 | 34,315 | 7,202 | 3 | 1 | 4 | 1 | 0 | Grep+rm:repo_map | 4 | 0.0025 | 18s |
+| tpl-4 | RudhMap-only | haiku | 1 | no | 3/5 | 26,639 | 7,833 | 3 | 6 | 0 | 0 | 0 | rm:find_symbol+rm:repo_map | 0 | 0.0024 | 17s |
+| tpl-4 | RudhMap-only | haiku | 2 | no | 3/5 | 26,916 | 3,448 | 3 | 6 | 0 | 0 | 0 | rm:find_symbol+rm:repo_map | 0 | 0.0017 | 17s |
 | tpl-4 | RudhMap-only | haiku | 3 | no | 2/5 | 27,254 | 7,235 | 3 | 6 | 0 | 0 | 0 | rm:find_symbol+rm:repo_map | 0 | 0.0024 | 21s |
 | tpl-4 | Plain | sonnet | 1 | no | 4/5 | 20,894 | 2,577 | 3 | 0 | 2 | 1 | 0 | Grep | - | 0.0234 | 10s |
 | tpl-4 | Plain | sonnet | 2 | no | 3/5 | 21,058 | 2,042 | 3 | 0 | 2 | 1 | 0 | Grep | - | 0.0214 | 11s |
@@ -115,12 +115,12 @@ One row per run. **Correct** = every required fact stated and no major false cla
 | tpl-5 | Plain | haiku | 1 | yes | 4/4 | 34,365 | 4,228 | 4 | 0 | 1 | 2 | 0 | Grep | - | 0.0017 | 11s |
 | tpl-5 | Plain | haiku | 2 | yes | 4/4 | 24,542 | 3,487 | 3 | 0 | 1 | 1 | 0 | Grep | - | 0.0015 | 10s |
 | tpl-5 | Plain | haiku | 3 | yes | 4/4 | 32,254 | 2,340 | 4 | 0 | 1 | 2 | 0 | Grep | - | 0.0013 | 11s |
-| tpl-5 | RudhMap (natural) | haiku | 1 | ? | 0/? | 37,207 | 4,324 | 4 | 0 | 1 | 2 | 0 | Grep | - | 0.0018 | 26s |
-| tpl-5 | RudhMap (natural) | haiku | 2 | ? | 0/? | 36,951 | 3,465 | 4 | 0 | 1 | 2 | 0 | Grep | - | 0.0016 | 27s |
-| tpl-5 | RudhMap (natural) | haiku | 3 | ? | 0/? | 37,294 | 3,600 | 4 | 0 | 1 | 2 | 0 | Grep | - | 0.0017 | 19s |
-| tpl-5 | RudhMap-only | haiku | 1 | ? | 0/? | 25,699 | 3,249 | 4 | 5 | 0 | 0 | 0 | rm:find_symbol+rm:find_symbol | 0 | 0.0014 | 18s |
-| tpl-5 | RudhMap-only | haiku | 2 | ? | 0/? | 25,701 | 1,541 | 4 | 5 | 0 | 0 | 0 | rm:find_symbol+rm:find_symbol | 0 | 0.0011 | 20s |
-| tpl-5 | RudhMap-only | haiku | 3 | ? | 0/? | 25,610 | 597 | 4 | 5 | 0 | 0 | 0 | rm:find_symbol+rm:find_symbol | 0 | 0.0009 | 18s |
+| tpl-5 | RudhMap (natural) | haiku | 1 | yes | 4/4 | 37,207 | 4,324 | 4 | 0 | 1 | 2 | 0 | Grep | - | 0.0018 | 26s |
+| tpl-5 | RudhMap (natural) | haiku | 2 | yes | 4/4 | 36,951 | 3,465 | 4 | 0 | 1 | 2 | 0 | Grep | - | 0.0016 | 27s |
+| tpl-5 | RudhMap (natural) | haiku | 3 | yes | 4/4 | 37,294 | 3,600 | 4 | 0 | 1 | 2 | 0 | Grep | - | 0.0017 | 19s |
+| tpl-5 | RudhMap-only | haiku | 1 | yes | 4/4 | 25,699 | 3,249 | 4 | 5 | 0 | 0 | 0 | rm:find_symbol+rm:find_symbol | 0 | 0.0014 | 18s |
+| tpl-5 | RudhMap-only | haiku | 2 | yes | 4/4 | 25,701 | 1,541 | 4 | 5 | 0 | 0 | 0 | rm:find_symbol+rm:find_symbol | 0 | 0.0011 | 20s |
+| tpl-5 | RudhMap-only | haiku | 3 | yes | 4/4 | 25,610 | 597 | 4 | 5 | 0 | 0 | 0 | rm:find_symbol+rm:find_symbol | 0 | 0.0009 | 18s |
 | tpl-5 | Plain | sonnet | 1 | yes | 4/4 | 20,133 | 2,649 | 3 | 0 | 1 | 1 | 0 | Grep | - | 0.0207 | 9s |
 | tpl-5 | Plain | sonnet | 2 | yes | 4/4 | 19,330 | 726 | 3 | 0 | 1 | 1 | 0 | Grep | - | 0.0124 | 8s |
 | tpl-5 | Plain | sonnet | 3 | yes | 4/4 | 20,168 | 1,953 | 3 | 0 | 1 | 1 | 0 | Grep | - | 0.0183 | 9s |
@@ -192,17 +192,17 @@ Per question the median of its 3 runs is taken, then the median across questions
 | Setup | Model | Correct questions | Correct runs | Median tokens / question | Median model calls | Median new content | Runs using RudhMap | RudhMap first | Built-in calls after RudhMap (mean) | Total $ |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Plain | haiku | 12/15 | 37/45 | 31,430 | 3 | 5,458 | - | - | - | 0.12 |
-| RudhMap (natural) | haiku | 11/15 | 31/45 | 35,428 | 4 | 6,207 | 38/45 | 38/45 | 2.5 | 0.11 |
-| RudhMap-only | haiku | 10/15 | 29/45 | 30,106 | 4 | 6,417 | 45/45 | 45/45 | 0.0 | 0.11 |
+| RudhMap (natural) | haiku | 12/15 | 34/45 | 35,428 | 4 | 6,207 | 38/45 | 38/45 | 2.5 | 0.11 |
+| RudhMap-only | haiku | 12/15 | 33/45 | 30,106 | 4 | 6,417 | 45/45 | 45/45 | 0.0 | 0.11 |
 | Plain | sonnet | 12/15 | 36/45 | 23,507 | 3 | 4,204 | - | - | - | 1.50 |
 
 ## Step C pass criteria (eval/THRESHOLDS.md), Haiku
 
 | Criterion | Target | Result | Pass |
 |---|---|---|---|
-| 1. Quality: correct questions >= plain Haiku | >= 12 | 11 | no |
+| 1. Quality: correct questions >= plain Haiku | >= 12 | 12 | yes |
 | 2. Cost: median tokens <= 0.7 x plain Haiku | <= 22,001 | 35,428 (113% of plain) | no |
-| 3. No question plain gets right and RudhMap gets wrong in all 3 runs | none | tpl-5 | no (RCA needed) |
+| 3. No question plain gets right and RudhMap gets wrong in all 3 runs | none | none | yes |
 
 ## Tokens per question (median of 3 runs)
 
@@ -215,9 +215,9 @@ Per question the median of its 3 runs is taken, then the median across questions
 | kna-5 | 36,588 (3/3) | 37,249 (3/3) | 28,298 (3/3) | 31,503 (3/3) |
 | tpl-1 | 31,430 (3/3) | 29,308 (3/3) | 21,446 (3/3) | 21,242 (2/3) |
 | tpl-2 | 26,916 (3/3) | 29,533 (3/3) | 39,248 (3/3) | 23,173 (3/3) |
-| tpl-3 | 92,925 (3/3) | 87,182 (3/3) | 101,987 (1/3) | 38,592 (3/3) |
+| tpl-3 | 92,925 (3/3) | 87,182 (3/3) | 101,987 (2/3) | 38,592 (3/3) |
 | tpl-4 | 28,690 (0/3) | 34,242 (0/3) | 26,916 (0/3) | 21,058 (0/3) |
-| tpl-5 | 32,254 (3/3) | 37,207 (0/3) | 25,699 (0/3) | 20,133 (3/3) |
+| tpl-5 | 32,254 (3/3) | 37,207 (3/3) | 25,699 (3/3) | 20,133 (3/3) |
 | httpx-1 | 26,270 (3/3) | 21,664 (2/3) | 38,236 (3/3) | 22,562 (3/3) |
 | httpx-2 | 24,411 (3/3) | 35,428 (3/3) | 12,707 (3/3) | 14,828 (3/3) |
 | httpx-3 | 58,573 (3/3) | 48,738 (2/3) | 33,759 (0/3) | 38,241 (3/3) |

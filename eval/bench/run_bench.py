@@ -48,6 +48,9 @@ PROMPT = (
     "Cite file:line for the key claims. Keep the answer under 300 words."
 )
 BASE_TOOLS = "Read,Grep,Glob"
+# The line a README would ask users to put in CLAUDE.md (arm "rudhmap-nudge").
+NUDGE = ("For questions about this codebase, get code with the rudhmap tools (show, find_symbol, trace). "
+         "Their output is the actual source with line numbers, so don't re-read the same code with Read or Grep.")
 
 GRADER_PROMPT = """You are grading an answer to a question about a codebase against an answer key.
 
@@ -122,6 +125,10 @@ def claude_cmd(prompt: str, model: str, arm: str) -> list[str]:
     """Arms: none = Read/Grep/Glob; rudhmap = those + RudhMap's MCP tools, the
     model chooses; rudhmap-only = RudhMap's tools and nothing else."""
     builtin = "" if arm == "rudhmap-only" else BASE_TOOLS
+    if arm == "rudhmap-nudge":
+        cmd_extra = ["--append-system-prompt", NUDGE]
+    else:
+        cmd_extra = []
     cmd = [
         "claude", "-p", prompt,
         "--output-format", "stream-json", "--verbose",
@@ -131,9 +138,9 @@ def claude_cmd(prompt: str, model: str, arm: str) -> list[str]:
         "--no-session-persistence",
         "--setting-sources", "",
     ]
-    if arm in ("rudhmap", "rudhmap-only"):
+    if arm in ("rudhmap", "rudhmap-only", "rudhmap-nudge"):
         allowed = ",".join(x for x in (builtin, "mcp__rudhmap") if x)
-        cmd += ["--mcp-config", str(mcp_config_path()), "--allowedTools", allowed]
+        cmd += ["--mcp-config", str(mcp_config_path()), "--allowedTools", allowed] + cmd_extra
     elif arm == "none":
         cmd += ["--allowedTools", BASE_TOOLS]
     else:
@@ -255,14 +262,25 @@ def cmd_run(args) -> int:
 
 # ------------------------------------------------------------------ grading
 
-def _grade_once(prompt: str, model: str) -> dict:
-    proc = subprocess.run(
-        ["claude", "-p", prompt, "--output-format", "json", "--model", model, "--tools", "",
-         "--strict-mcp-config", "--no-session-persistence", "--setting-sources", ""],
-        capture_output=True, text=True, encoding="utf-8", timeout=600, cwd=tempfile.gettempdir(),
-    )
-    raw = json.loads(proc.stdout)["result"].strip()
-    return json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
+def _grade_once(prompt: str, model: str, attempts: int = 4) -> dict:
+    """One grader verdict. A reply without JSON (seen when the account hit its
+    usage limit mid-grading: the result was a limit message) is retried with
+    backoff instead of failing, so an outage can't turn into a missing grade."""
+    last = ""
+    for attempt in range(attempts):
+        proc = subprocess.run(
+            ["claude", "-p", prompt, "--output-format", "json", "--model", model, "--tools", "",
+             "--strict-mcp-config", "--no-session-persistence", "--setting-sources", ""],
+            capture_output=True, text=True, encoding="utf-8", timeout=600, cwd=tempfile.gettempdir(),
+            stdin=subprocess.DEVNULL,
+        )
+        try:
+            raw = json.loads(proc.stdout)["result"].strip()
+            return json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
+        except (ValueError, KeyError) as exc:
+            last = f"{exc}: {(proc.stdout or proc.stderr)[:200]}"
+            time.sleep(30 * (attempt + 1))
+    raise RuntimeError(f"grader gave no JSON after {attempts} attempts: {last}")
 
 
 def grade_one(q: dict, path: Path, model: str, votes: int = 3) -> dict:
@@ -387,7 +405,8 @@ def cmd_report(args) -> int:
     return 0
 
 
-SETUP_NAMES = {"none": "Plain", "rudhmap": "RudhMap (natural)", "rudhmap-only": "RudhMap-only"}
+SETUP_NAMES = {"none": "Plain", "rudhmap": "RudhMap (natural)", "rudhmap-nudge": "RudhMap (nudged)",
+               "rudhmap-only": "RudhMap-only"}
 
 
 def _tool_counts(record: dict) -> dict:

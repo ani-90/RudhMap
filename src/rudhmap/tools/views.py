@@ -179,6 +179,7 @@ def find_symbol(index: RepoIndex, query: str, kind: str | None = None, limit: in
             if tokens(text) > FIND_BUDGET and similar:
                 text = "\n".join(head + hits + note)
             return text
+    scored_all = list(results)
     phrase = _phrase_matches(index, query) if len(_split_words(query)) >= 2 or not results else []
     if phrase:
         results = results[:4]  # leave room for the text matches
@@ -196,7 +197,20 @@ def find_symbol(index: RepoIndex, query: str, kind: str | None = None, limit: in
     while tokens(text) > FIND_BUDGET and len(lines) > 2:
         lines.pop()
         text = "\n".join(lines) + "\n  (more matches cut; refine the query)"
+    best = _clear_winner(scored_all)
+    if best is not None:
+        # Looking a symbol up and then opening it took two model calls (each
+        # re-sending the whole context); a clear winner is opened right here.
+        text += "\n\nbest match, in full:\n" + show(index, best.id)
     return text
+
+
+def _clear_winner(scored: list[tuple[float, Symbol]]) -> Symbol | None:
+    if not scored or scored[0][1].kind not in ("function", "class"):
+        return None
+    if len(scored) == 1 or scored[0][0] >= 1.5 * scored[1][0]:
+        return scored[0][1]
+    return None
 
 
 MAX_PHRASE_HITS = 5
@@ -606,11 +620,11 @@ def _member_lines(index: RepoIndex, symbol: Symbol) -> list[str]:
 SMALL_FILE_LINES = 120
 
 
-def _show_module_source(index: RepoIndex, module: Symbol) -> str:
+def _show_module_source(index: RepoIndex, module: Symbol, budget: int = SHOW_BUDGET) -> str:
     """The file's source with line numbers (replaces reading the file), cut
     at the budget with a pointer to the rest."""
     lines = [f"{module.file}  ({module.end_line} lines)"]
-    budget_chars = SHOW_BUDGET * 4 - 200
+    budget_chars = budget * 4 - 200
     used = 0
     source = index.lines(module.file)
     width = len(str(len(source)))
@@ -625,9 +639,9 @@ def _show_module_source(index: RepoIndex, module: Symbol) -> str:
     return "\n".join(lines)
 
 
-def _show_module(index: RepoIndex, module: Symbol, detail: str) -> str:
+def _show_module(index: RepoIndex, module: Symbol, detail: str, budget: int = SHOW_BUDGET) -> str:
     if detail == "full" or (detail == "auto" and module.end_line <= SMALL_FILE_LINES):
-        return _show_module_source(index, module)
+        return _show_module_source(index, module, budget)
     lines = [f"{module.file}  ({module.end_line} lines; detail=full for its source)"]
     if module.doc:
         lines.append(f'  "{module.doc}"')
@@ -649,10 +663,10 @@ def _show_module(index: RepoIndex, module: Symbol, detail: str) -> str:
         lines.append("top-level code calls: " + ", ".join(
             f"{index.symbols[l.other].label} (L{l.line})" for l in module_level[:8]))
     text = "\n".join(lines)
-    if tokens(text) > SHOW_BUDGET:
+    if tokens(text) > budget:
         keep = []
         for line in lines:
-            if tokens("\n".join(keep + [line])) > SHOW_BUDGET - 30:
+            if tokens("\n".join(keep + [line])) > budget - 30:
                 keep.append(f"(cut: {len(lines) - len(keep)} more lines; show a class or function for detail)")
                 break
             keep.append(line)
@@ -660,13 +674,28 @@ def _show_module(index: RepoIndex, module: Symbol, detail: str) -> str:
     return text
 
 
-def show(index: RepoIndex, ref: str, detail: str | None = None) -> str:
+MULTI_SHOW_BUDGET = 4000
+MAX_MULTI_SHOW = 4
+
+
+def show(index: RepoIndex, ref: str, detail: str | None = None, budget: int = SHOW_BUDGET) -> str:
+    """One symbol, or several separated by commas (`"login_access_token, authenticate"`)
+    sharing one budget, so a model can open what it needs in a single call."""
+    parts = [r.strip() for r in ref.split(",") if r.strip()]
+    if len(parts) > 1:
+        parts = parts[:MAX_MULTI_SHOW]
+        each = max(700, MULTI_SHOW_BUDGET // len(parts))
+        return "\n\n=====\n".join(show(index, part, detail, each) for part in parts)
+    return _show_one(index, ref, detail, budget)
+
+
+def _show_one(index: RepoIndex, ref: str, detail: str | None, budget: int) -> str:
     symbol, candidates = resolve(index, ref)
     if symbol is None:
         return _ambiguous(ref, candidates)
     detail = (detail or "").lower() or None
     if symbol.kind == "module":
-        return _show_module(index, symbol, detail or "auto")
+        return _show_module(index, symbol, detail or "auto", budget)
     if detail is None:
         detail = "outline" if symbol.kind == "class" else "full"
     if detail not in ("signature", "outline", "full"):
@@ -691,7 +720,7 @@ def show(index: RepoIndex, ref: str, detail: str | None = None) -> str:
     if detail == "signature":
         return "\n".join(lines)
 
-    budget_chars = SHOW_BUDGET * 4
+    budget_chars = budget * 4
     tail: list[str] = []
     if symbol.kind == "class":
         bases = [l for l in index.out.get(symbol.node, []) if l.relation == "inherits"]

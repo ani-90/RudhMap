@@ -53,5 +53,24 @@
   "model": "haiku",
   "rep": 2,
   "wall_s": 27.1,
-  "returncode": 0
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "access-tokens": true,
+      "reset-tokens": true,
+      "changethis": true,
+      "other-secrets": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "Describes utils.py:112 and :121 as 'Verifying JWTs' when they are password-reset token generation and verification (minor labeling imprecision).",
+      "Describes utils.py:112 and :121 (reset token generation and verification) and deps.py as 'Verifying JWTs' \u2014 minor labeling imprecision, generation is signing",
+      "Describes utils.py:112 and :121 (reset token generation and verification) under 'Verifying JWTs' heading, slightly mislabeling generation as verifying; minor."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
 }

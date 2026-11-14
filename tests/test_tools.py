@@ -180,3 +180,17 @@ def test_mcp_server_exposes_the_four_tools_and_answers(tmp_path, monkeypatch):
     assert tools == {"find_symbol", "show", "trace", "repo_map"}
     text = "".join(getattr(c, "text", "") for c in result.content)
     assert "HTTP route: POST /api/items/refresh" in text
+
+
+def test_show_several_symbols_in_one_call(tmp_path):
+    index = _repo(tmp_path)
+    out = views.show(index, "refresh, build_pipeline")
+    assert out.count("=====") == 1
+    assert "def refresh(" in out and "def build_pipeline(" in out
+
+
+def test_find_symbol_opens_a_clear_best_match(tmp_path):
+    index = _repo(tmp_path)
+    out = views.find_symbol(index, "build pipeline")
+    assert "best match, in full:" in out
+    assert "def build_pipeline():" in out

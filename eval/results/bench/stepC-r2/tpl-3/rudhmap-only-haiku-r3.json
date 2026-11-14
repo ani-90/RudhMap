@@ -217,5 +217,21 @@
   "model": "haiku",
   "rep": 3,
   "wall_s": 35.5,
-  "returncode": 0
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "component": true,
+      "http": true,
+      "backend": true,
+      "refresh": true,
+      "auth-error": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
 }

@@ -315,15 +315,16 @@ async def _run(fn, *args):
 
 @mcp.tool()
 async def find_symbol(query: str) -> str:
-    """Find functions, classes, files, routes by name or keywords (file:line + signature); for a
-    non-symbol name or phrase, the lines where it appears. Use instead of Grep."""
+    """Search by name, keywords or phrase (use instead of Grep): matching symbols with file:line,
+    lines where a phrase appears, and the best match's full source when it is clear."""
     return await _run(_views.find_symbol, query)
 
 
 @mcp.tool()
 async def show(symbol: str, detail: str = "") -> str:
-    """Source of a function/class/file with line numbers, what it calls, who calls it, module values
-    it uses. Use instead of Read. detail: full | outline | signature."""
+    """Actual source (with line numbers) of functions/classes/files, plus what they call, who calls
+    them, module values used. Use instead of Read; no need to search first (names or keywords work);
+    several at once: "a, b". detail: full | outline | signature."""
     return await _run(_views.show, symbol, detail or None)
 
 
