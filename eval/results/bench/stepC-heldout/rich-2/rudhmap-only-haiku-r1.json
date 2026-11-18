@@ -1,0 +1,126 @@
+{
+  "answer": "**Whether to output colour**\n\n- `Console.__init__` (`rich/console.py:701-706`) sets the colour system. `color_system=None` disables colour. `\"auto\"` (the default) calls `_detect_color_system()`. Any other value is looked up in `COLOR_SYSTEMS`.\n- `_detect_color_system` (`rich/console.py:783-805`) returns `None` (no colour) if the output is not a terminal or `TERM` is `dumb`/`unknown` (`:787-788`). Jupyter always gets TRUECOLOR (`:785-786`).\n- \"Is a terminal\" (`is_terminal`, `rich/console.py:925-970`) is checked in this order: the `force_terminal` argument, then `TTY_COMPATIBLE` (`0`/`1`), then `FORCE_COLOR` (any non-empty value forces true), and finally `file.isatty()`.\n- `NO_COLOR` (`rich/console.py:719-723`) sets `self.no_color` when the `no_color` argument is not given. A non-empty value strips colour at render time in `_render_buffer` (`rich/console.py:2133-2134`), via `Segment.remove_color`.\n\n**Which colour system to use**\n\n- Windows (`rich/console.py:789-797`): `ColorSystem.WINDOWS` for legacy consoles, otherwise TRUECOLOR or EIGHT_BIT depending on `get_windows_console_features().truecolor`.\n- Elsewhere (`rich/console.py:799-805`):\n  - `COLORTERM` set to `truecolor` or `24bit` gives TRUECOLOR.\n  - Otherwise the suffix of `TERM` (the part after the last hyphen) is looked up in `_TERM_COLORS` (`rich/console.py:90`): `kitty` and `256color` give EIGHT_BIT, `16color` gives STANDARD.\n  - Anything else falls back to STANDARD.\n\n**Environment variables that matter**\n\n| Variable | Effect |\n|---|---|\n| `NO_COLOR` | Non-empty disables colour (`:722`) |\n| `FORCE_COLOR` | Non-empty forces terminal mode (`:958-960`) |\n| `TTY_COMPATIBLE` | `0`/`1` overrides terminal detection (`:949-955`) |\n| `TERM` | `dumb`/`unknown` disables colour; suffix selects the colour system (`:802-804`) |\n| `COLORTERM` | `truecolor`/`24bit` selects TRUECOLOR (`:799-801`) |\n| `TTY_INTERACTIVE` | `0`/`1` overrides interactivity (`:725-730`) |\n| `COLUMNS`, `LINES` | Default width and height (`:679-685`) |\n| `JUPYTER_COLUMNS`, `JUPYTER_LINES` | Jupyter size (`:654-664`) |\n\nThe constructor also accepts `color_system`, `force_terminal` and `no_color`, which take precedence over these variables.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 5,
+  "cost_usd": 0.0035223800000000003,
+  "duration_ms": 15111,
+  "tokens": {
+    "input": 10,
+    "cache_write": 10410,
+    "cache_read": 40838,
+    "output": 2062,
+    "context": 10420,
+    "total": 53320
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "color system detection environment variables"
+      },
+      "result_chars": 1136,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_environ NO_COLOR FORCE_COLOR"
+      },
+      "result_chars": 1228,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "detect_color_system"
+      },
+      "result_chars": 2744,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.__init__"
+      },
+      "result_chars": 7630,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "NO_COLOR environment variable check"
+      },
+      "result_chars": 1115,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.is_terminal"
+      },
+      "result_chars": 2353,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.is_dumb_terminal"
+      },
+      "result_chars": 677,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "FORCE_COLOR force_terminal environment"
+      },
+      "result_chars": 3014,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console._render_buffer"
+      },
+      "result_chars": 1670,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 22.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "_detect_color_system returns None if TERM is dumb/unknown or not a terminal, checked before Jupyter's truecolor; the answer lists Jupyter at :785-786 after the terminal check, ordering slightly differs but not clearly wrong",
+      "_detect_color_system returns None if output is not a terminal or TERM is dumb/unknown, and Jupyter check ordering is described as 'Jupyter always gets TRUECOLOR' \u2014 minor ordering nuance, largely consistent with key",
+      "_detect_color_system returns None if TERM is dumb/unknown or not a terminal, then says Jupyter always gets TRUECOLOR at :785-786 \u2014 ordering is minor; key says Jupyter -> truecolor on terminal, which is roughly consistent"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

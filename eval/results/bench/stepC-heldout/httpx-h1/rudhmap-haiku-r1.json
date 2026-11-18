@@ -1,0 +1,84 @@
+{
+  "answer": "A `Client` owns one `Cookies` jar. It stores response cookies and attaches them to each outgoing request, and redirects reuse that jar.\n\n**Storage**\n- `Client.__init__` wraps the constructor argument in a `Cookies` object (`httpx/_client.py:211`). The `cookies` property returns it (`httpx/_client.py:319-323`), and the setter replaces it (`httpx/_client.py:325-327`).\n- `Cookies` is a mapping over a `http.cookiejar` jar (`httpx/_models.py:1079-1099`).\n\n**Sending**\n- `build_request` merges per-request cookies with the client's jar via `_merge_cookies`, which copies the client jar and layers the call's cookies on top (`httpx/_client.py:368`, `httpx/_client.py:413-422`).\n- `Request.__init__` writes those cookies into a `Cookie` header with `set_cookie_header` (`httpx/_models.py:403-404`).\n\n**Receiving**\n- After each transport call, `_send_single_request` runs `self.cookies.extract_cookies(response)`, which feeds the response's `Set-Cookie` headers into the jar (`httpx/_client.py:1022`; `httpx/_models.py:1101-1108`).\n\n**Redirects**\n- `_send_handling_redirects` loops: it sends a request, and if the response has a redirect location it calls `_build_redirect_request` and sends again, up to `max_redirects` (`httpx/_client.py:964-995`). Because each hop goes through `_send_single_request`, every redirect response's `Set-Cookie` lands in the client jar before the next hop is built.\n- `_build_redirect_request` creates the new `Request` with `cookies=Cookies(self.cookies)`, a fresh copy of the client jar (`httpx/_client.py:484-489`).\n- `_redirect_headers` drops the original `Cookie` header, with the comment that the client cookie store should decide the cookie header (`httpx/_client.py:567-569`). It also strips `Authorization` on cross-origin redirects unless the redirect is an HTTP\u2192HTTPS upgrade (`httpx/_client.py:552-556`).\n\n**Net effect:** cookies set by any hop, including redirect responses, are available to later hops. Cookies the caller passed per request are not reapplied on redirects, because the redirect is built from the client jar and not from the original request's cookie arguments.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.00344811,
+  "duration_ms": 12105,
+  "tokens": {
+    "input": 8,
+    "cache_write": 11832,
+    "cache_read": 37241,
+    "output": 1417,
+    "context": 11840,
+    "total": 50498
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Client cookies redirect"
+      },
+      "result_chars": 1601,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "cookies",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 8114,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._build_redirect_request, Client._send_handling_redirects, Client._send_single_request",
+        "detail": "full"
+      },
+      "result_chars": 8077,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_headers",
+        "detail": "full"
+      },
+      "result_chars": 2286,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 19.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": true,
+      "redirect": true,
+      "deprecated": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [
+      "Claims that cookies passed per request are not reapplied on redirects; the key says redirect request cookies come from the client's jar, so this is arguably consistent, but the explicit statement is not covered by the key."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

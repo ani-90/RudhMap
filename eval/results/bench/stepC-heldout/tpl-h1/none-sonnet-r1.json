@@ -1,0 +1,96 @@
+{
+  "answer": "The first superuser is created by a setup script that you run before the app starts. It isn't created when the API server boots.\n\n- **Script:** `backend/scripts/prestart.sh:7-10` runs `alembic upgrade head` to apply migrations, then runs `python app/initial_data.py`.\n- **Entry point:** `backend/app/initial_data.py:13` opens a DB session and calls `init_db(session)`, which is imported from `app.core.db` (`initial_data.py:5`).\n- **Creation logic:** `init_db` in `backend/app/core/db.py:15-33` looks up a user whose email is `settings.FIRST_SUPERUSER` (`db.py:24-26`). If none exists, it builds a `UserCreate` with that email, `FIRST_SUPERUSER_PASSWORD`, and `is_superuser=True` (`db.py:27-32`). It then saves the user with `crud.create_user` (`db.py:33`). If the user already exists, nothing happens, so re-running the script is safe.\n- **Config:** `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` are required settings in `backend/app/core/config.py:65-66`. They come from `.env` (`.env:7-8`, defaulting to `admin@example.com` / `changethis`) and are passed through in `compose.yml:58-59`.\n- **When it runs:**\n  - In local development, you run it yourself: `uv run bash scripts/prestart.sh` (`development.md:17`) or `docker compose run --rm backend bash scripts/prestart.sh` (`development.md:60`).\n  - In deployment, the GitHub workflows run it, as `uv run bash scripts/prestart.sh` in `.github/workflows/deploy.yml:42` and via docker compose in `.github/workflows/deploy-docker-compose.yml:39`. `deployment.md:74` describes the same step.\n  - The tests call `init_db` directly in `backend/tests/conftest.py:18`.\n\nTable creation is left to Alembic. The `create_all` call in `db.py:22` is commented out.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.0429823,
+  "duration_ms": 19600,
+  "tokens": {
+    "input": 8,
+    "cache_write": 6450,
+    "cache_read": 25563,
+    "output": 1461,
+    "context": 6458,
+    "total": 33482
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "FIRST_SUPERUSER|init_db",
+        "output_mode": "content",
+        "glob": "!**/node_modules/**",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901"
+      },
+      "result_chars": 4175,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "initial_data|prestart",
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "glob": "{compose*.yml,backend/scripts/*,backend/Dockerfile}"
+      },
+      "result_chars": 57,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "prestart",
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "glob": "*.{yml,yaml,md,Dockerfile}",
+        "head_limit": 8
+      },
+      "result_chars": 1070,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 21.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

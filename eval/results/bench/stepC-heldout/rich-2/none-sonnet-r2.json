@@ -1,0 +1,93 @@
+{
+  "answer": "Rich makes two separate decisions: whether the output is a terminal (which gates colour), and which colour system to use. Both are in `rich/console.py`.\n\n**1. Is it a terminal? (`is_terminal`, `console.py:925-970`)**\nThe checks run in this order:\n- An explicit `force_terminal` argument wins (933).\n- IDLE returns False (937-941), and Jupyter returns False (943).\n- `TTY_COMPATIBLE=0` returns False and `TTY_COMPATIBLE=1` returns True (949-955).\n- If `FORCE_COLOR` is set, the result is True unless it is the empty string (958-960).\n- Otherwise it uses `file.isatty()` (963-970).\n\n`is_dumb_terminal` (973-982) is true when `TERM` is `dumb` or `unknown` and the console is a terminal.\n\n**2. Which colour system? (`_detect_color_system`, `console.py:783-805`)**\nThis only runs when `color_system=\"auto\"` (703-704). Passing `None` disables colour, and passing an explicit name uses that system (701-706).\n- Jupyter gets TRUECOLOR (785).\n- A non-terminal or a dumb terminal gets `None`, meaning no colour (787).\n- On Windows (789-797):\n  - A legacy console gets the WINDOWS system.\n  - Otherwise it is TRUECOLOR if the console reports truecolor support, else EIGHT_BIT.\n- Elsewhere (798-805):\n  - `COLORTERM` set to `truecolor` or `24bit` gives TRUECOLOR.\n  - Otherwise the suffix of `TERM` after the last hyphen (for example `xterm-256color`) is looked up in `_TERM_COLORS`.\n  - If nothing matches, the result is STANDARD.\n\n**3. `NO_COLOR` (`console.py:719-723`)**\n`no_color` defaults to true when `NO_COLOR` is non-empty. This is separate from the colour system. It stops colour styling from being emitted, but bold and other non-colour styles are still output.\n\n**4. Interactivity (`console.py:724-736`)**\n`TTY_INTERACTIVE=0` or `1` forces `is_interactive`. Otherwise it is true when the console is a terminal and not a dumb terminal.\n\n**Environment variables that affect this**\n- `FORCE_COLOR`\n- `NO_COLOR`\n- `TTY_COMPATIBLE`\n- `TTY_INTERACTIVE`\n- `COLORTERM`\n- `TERM`\n\n`TERM_PROGRAM` also appears in the list in `rich/diagnose.py:19-29`, but only for diagnostics. I didn't see it used in colour detection.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 4,
+  "cost_usd": 0.0377122,
+  "duration_ms": 19586,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4839,
+    "cache_read": 24702,
+    "output": 1587,
+    "context": 4847,
+    "total": 31136
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "NO_COLOR|FORCE_COLOR|COLORTERM|TERM_PROGRAM|TTY_COMPATIBLE|TTY_INTERACTIVE|\"TERM\"|def is_terminal|def color_system|_detect_color_system",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich",
+        "output_mode": "content",
+        "glob": "*.py"
+      },
+      "result_chars": 1185,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 690,
+        "start": "690",
+        "limit": 130
+      },
+      "result_chars": 139,
+      "model_call": 2,
+      "is_error": true
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 920,
+        "limit": 70
+      },
+      "result_chars": 2664,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 690,
+        "limit": 130
+      },
+      "result_chars": 5085,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 21.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "Jupyter is said to return False from is_terminal; this matches the key's context so it is true, but the answer says Windows non-legacy falls back to EIGHT_BIT, which is consistent with the key's 'truecolor/256'.",
+      "Jupyter is said to return False from is_terminal; consistent with key, fine.",
+      "Windows non-legacy case says EIGHT_BIT when not truecolor; key says truecolor/256, consistent.",
+      "Jupyter returns False from is_terminal is correct per key, but answer says on Windows non-legacy gives EIGHT_BIT when not truecolor, which is plausible; no clear contradiction",
+      "Answer omits Windows 'windows' vs truecolor/256 detail only partially, not a false claim"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": false
+  }
+}

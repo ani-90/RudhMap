@@ -1,0 +1,113 @@
+{
+  "answer": "The client keeps cookies in a `Cookies` jar on the instance, stores new `Set-Cookie` values after each response, and rebuilds the `Cookie` header from that jar for every request, including redirects.\n\n**Storage.** `BaseClient.cookies` (`httpx/_client.py:319`) exposes the client's `Cookies` object. `Cookies` (`httpx/_models.py:1079`) is a mutable mapping backed by a `CookieJar`.\n\n**Sending.** `BaseClient.build_request` (`httpx/_client.py:368`) calls `_merge_cookies` (`httpx/_client.py:413-422`). That method copies the client's jar and layers any per-request `cookies=` argument on top, so per-request values win on name collisions. The merged cookies go into the `Request`.\n\n**Receiving.** `Client._send_single_request` (`httpx/_client.py:1022`) calls `self.cookies.extract_cookies(response)` on every response. `Cookies.extract_cookies` (`httpx/_models.py:1101-1108`) wraps the response and request in urllib-compatible shims and hands them to the stdlib `CookieJar`, which applies the usual domain/path/expiry rules.\n\n**Redirects.** `Client._send_handling_redirects` (`httpx/_client.py:964-999`) loops: it sends a single request, and if the response has a redirect location it calls `_build_redirect_request` (`httpx/_client.py:988`). That function:\n- builds the next request with `cookies=Cookies(self.cookies)` (`httpx/_client.py:484-489`), so the cookie header is taken from the client's jar, not the original request;\n- calls `_redirect_headers` (`httpx/_client.py:546-571`), which removes the old `Cookie` header (line 569). It also strips `Authorization` when the redirect leaves the origin (line 556), except for a direct HTTP-to-HTTPS upgrade.\n\nBecause each hop's `_send_single_request` extracts cookies before the next request is built, cookies set by a redirect response are available to the follow-up request.\n\nI did not open the `Request` constructor to confirm exactly where the jar is serialized into the `Cookie` header, so that step is inferred from the call sites above.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 4,
+  "cost_usd": 0.00244686,
+  "duration_ms": 12088,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7051,
+    "cache_read": 27986,
+    "output": 1512,
+    "context": 7059,
+    "total": 36557
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Client cookies redirect"
+      },
+      "result_chars": 1601,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Cookies class"
+      },
+      "result_chars": 637,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_redirect_headers"
+      },
+      "result_chars": 3275,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._merge_cookies"
+      },
+      "result_chars": 1378,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3043,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Cookies.extract_cookies"
+      },
+      "result_chars": 1136,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._build_redirect_request"
+      },
+      "result_chars": 2366,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_single_request"
+      },
+      "result_chars": 2672,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 18.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": true,
+      "redirect": true,
+      "deprecated": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

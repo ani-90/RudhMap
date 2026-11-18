@@ -1,0 +1,76 @@
+{
+  "answer": "The first superuser is created by `init_db`, which the `prestart.sh` script runs each time the backend starts.\n\n- **Credentials:** `FIRST_SUPERUSER` (an email) and `FIRST_SUPERUSER_PASSWORD` are required settings in `backend/app/core/config.py:65-66`. They come from the environment. `compose.yml:58-59` fails if they aren't set, and `compose.override.yml:88-89` does the same.\n- **Creation logic:** `init_db(session)` is in `backend/app/core/db.py:15`.\n  - It looks up a `User` whose email matches `FIRST_SUPERUSER` (`db.py:24-26`).\n  - If none exists, it builds a `UserCreate` with `is_superuser=True` (`db.py:28-32`) and calls `crud.create_user` (`db.py:33`).\n  - Because of the lookup, running it again does nothing. It won't duplicate the user or overwrite an existing one.\n- **Tables:** `init_db` doesn't create the tables. A comment (`db.py:16-22`) says Alembic migrations do that, and the `create_all` line is commented out.\n- **When it runs:** `backend/app/initial_data.py:13` opens a session and calls `init_db(session)`. `backend/scripts/prestart.sh:10` runs that script with `python app/initial_data.py`. I didn't open `prestart.sh` itself, so I haven't confirmed it runs migrations first or that a container starts it before the server.\n- **Tests:** `backend/tests/conftest.py:18` also calls `init_db`, so the test database gets the same superuser.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0208051,
+  "duration_ms": 11277,
+  "tokens": {
+    "input": 6,
+    "cache_write": 2470,
+    "cache_read": 18531,
+    "output": 906,
+    "context": 2476,
+    "total": 21913
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "FIRST_SUPERUSER|init_db",
+        "output_mode": "content",
+        "glob": "**/*.{py,sh,yml,yaml}"
+      },
+      "result_chars": 3044,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "initial_data",
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend"
+      },
+      "result_chars": 57,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 2,
+  "wall_s": 13.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": false,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.25,
+    "critical_ok": false,
+    "false_claims": [
+      "prestart.sh runs init_db each time the backend starts (implies runs at app startup; key says not at app startup but via prestart before app)",
+      "prestart.sh runs init_db each time the backend starts (implies at app startup/each start rather than as a pre-start step; mild)",
+      "prestart.sh runs each time the backend starts (not verified; the key says it runs before the app starts, e.g. via docker compose/CI/deploy, not at app startup)"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

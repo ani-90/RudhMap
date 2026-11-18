@@ -1,0 +1,97 @@
+{
+  "answer": "The first superuser is created by an idempotent seed step, `init_db`, that runs after migrations in the backend startup script.\n\n**How**\n\n- `init_db(session)` in `backend/app/core/db.py:15` looks up a `User` whose email equals `settings.FIRST_SUPERUSER` (`db.py:24-26`). If none exists, it calls `crud.create_user` with that email, `settings.FIRST_SUPERUSER_PASSWORD`, and `is_superuser=True` (`db.py:27-33`).\n- The values come from required settings `FIRST_SUPERUSER: EmailStr` and `FIRST_SUPERUSER_PASSWORD: str` in `backend/app/core/config.py:65-66`.\n- The superuser flag is a plain `is_superuser` boolean on the `User` model (`backend/app/models.py:16`).\n\n**When**\n\n- `backend/scripts/prestart.sh:7` runs `alembic upgrade head` first, then line 10 runs `python app/initial_data.py`.\n- `backend/app/initial_data.py:11-13` opens a session on the engine and calls `init_db`.\n- Locally, `prestart.sh` is run by hand (`backend/README.md:22`). In Docker it is run via `docker compose run --rm backend bash scripts/prestart.sh` (`backend/README.md:45`).\n- The deploy workflows pass `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` from repository vars and secrets (`.github/workflows/deploy.yml:48-49`, `deploy-docker-compose.yml:23-24`). `deployment.md:74` says the deploy step runs `prestart.sh` to create the superuser.\n\n**Key behavior**\n\n- The seed runs on every startup, but it only creates the user when no user with that email exists. Changing `FIRST_SUPERUSER_PASSWORD` later does not update the existing account.\n- Table creation is not done here. The `SQLModel.metadata.create_all` call is commented out (`db.py:19-22`), so the schema must come from Alembic migrations.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00361239,
+  "duration_ms": 16320,
+  "tokens": {
+    "input": 8,
+    "cache_write": 12610,
+    "cache_read": 38359,
+    "output": 1412,
+    "context": 12618,
+    "total": 52389
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "superuser|is_superuser|first_superuser|FIRST_SUPERUSER",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901"
+      },
+      "result_chars": 15488,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "init_db|prestart|alembic",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend",
+        "glob": "!**/tests/**"
+      },
+      "result_chars": 2353,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\initial_data.py"
+      },
+      "result_chars": 465,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 19.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": true,
+    "false_claims": [
+      "The answer says the seed 'runs on every startup' and in the intro says it runs 'in the backend startup script', which slightly blurs that it runs in prestart before the app, not at app startup; minor.",
+      "The answer says the seed step 'runs on every startup' / in the 'backend startup script', which is loose; prestart runs before the app, not at app startup, though it does clarify prestart.sh is run separately.",
+      "Title/intro says it runs 'in the backend startup script' and 'The seed runs on every startup' \u2014 it runs in prestart before the app, not at app startup (minor wording imprecision)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

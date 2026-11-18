@@ -1,0 +1,79 @@
+{
+  "answer": "Colour is decided in `rich/console.py` in two steps. First rich decides whether the output is a terminal. Then it picks a colour system.\n\n**Colour system selection** (`Console.__init__`, `rich/console.py:701-706`)\n- `color_system=None` turns colour off.\n- An explicit name is looked up directly in `COLOR_SYSTEMS`.\n- `\"auto\"` calls `_detect_color_system()` (`:783-805`).\n\n**Auto-detection order** (`:783-805`)\n1. In Jupyter, it uses TRUECOLOR.\n2. If the console isn't a terminal, or is a dumb terminal, it returns `None`, so there is no colour.\n3. On Windows, legacy consoles get `WINDOWS`. Otherwise it uses TRUECOLOR if the console features report truecolor, else EIGHT_BIT.\n4. On other platforms:\n   - `COLORTERM=truecolor` or `24bit` gives TRUECOLOR (`:799-801`).\n   - Otherwise it takes the suffix of `TERM`, such as `xterm-256color`, and looks it up in `_TERM_COLORS` (`:802-804`).\n   - If the suffix isn't recognised, it falls back to STANDARD.\n\n**Terminal detection** (`is_terminal`, `:925-970`), in priority order:\n1. The `force_terminal` argument.\n2. IDLE and Jupyter both return False.\n3. `TTY_COMPATIBLE`: `0` means not a terminal and `1` means a terminal (`:949-955`).\n4. `FORCE_COLOR`: if it is set, any non-empty value means a terminal (`:958-960`).\n5. Otherwise, `file.isatty()`.\n\n**Other environment variables**\n- `NO_COLOR`: if non-empty, it sets `no_color` (`:719-723`). That strips colour from the rendered styles even when a colour system is set (`:2133`), but bold and other attributes remain.\n- `TTY_INTERACTIVE`: `0` or `1` overrides `is_interactive` (`:724-736`). This affects interactive features like live displays, not colour itself.\n- `TERM`: a dumb terminal is detected from it in `is_dumb_terminal` (`:973`). I didn't read that body, but it is what makes detection return `None` at `:787`.\n\nThe `Console` constructor reads these from `self._environ`, which lets tests inject a custom environment.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 4,
+  "model_calls": 3,
+  "cost_usd": 0.0317494,
+  "duration_ms": 12998,
+  "tokens": {
+    "input": 6,
+    "cache_write": 4243,
+    "cache_read": 16954,
+    "output": 1307,
+    "context": 4249,
+    "total": 22510
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "NO_COLOR|FORCE_COLOR|COLORTERM|TERM_PROGRAM|TTY_COMPATIBLE|TTY_INTERACTIVE|def is_terminal|def _detect_color_system|color_system",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "output_mode": "content"
+      },
+      "result_chars": 1495,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 695,
+        "limit": 115
+      },
+      "result_chars": 4586,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 922,
+        "limit": 55
+      },
+      "result_chars": 2127,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 14.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "On Windows non-legacy it uses TRUECOLOR if features report truecolor, else EIGHT_BIT (roughly consistent with key; minor)",
+      "On Windows non-legacy, it uses TRUECOLOR if features report truecolor, else EIGHT_BIT (roughly consistent with key; no clear contradiction)",
+      "On Windows non-legacy it says EIGHT_BIT if not truecolor; key says truecolor/256 depending on features, which is consistent",
+      "Says the dumb-terminal/non-terminal check precedes Windows handling; key lists Windows after terminal check too, consistent"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

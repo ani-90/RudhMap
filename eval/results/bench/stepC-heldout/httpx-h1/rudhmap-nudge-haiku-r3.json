@@ -1,0 +1,97 @@
+{
+  "answer": "**Storage.** A `Client` holds one `Cookies` object, exposed through the `BaseClient.cookies` property (`httpx/_client.py:319-323`). `Cookies` is a `MutableMapping` wrapping a `CookieJar` (`httpx/_models.py:1079`). I didn't confirm the exact line where `Client.__init__` (`httpx/_client.py:639-716`) fills it from the `cookies=` argument.\n\n**Sending.** Per-request cookies are built by `_merge_cookies` (`httpx/_client.py:413-422`). It copies the client's jar, then applies the call-level cookies on top via `Cookies.update` (`httpx/_models.py:1205-1208`). `build_request` calls this (`httpx/_client.py:368`). The `Request` constructor then serializes the jar into the `Cookie` header. I didn't inspect that step.\n\n**Receiving.** After each transport round trip, `_send_single_request` calls `self.cookies.extract_cookies(response)` (`httpx/_client.py:1022`). `Cookies.extract_cookies` feeds the response to the stdlib `http.cookiejar` machinery, which parses `Set-Cookie` and stores the results in the client's jar (`httpx/_models.py:1101-1108`). The jar follows cookie rules such as domain and path matching.\n\n**Redirects.** `_send_handling_redirects` runs a loop (`httpx/_client.py:964-999`):\n1. Each hop goes through `_send_single_request`, so `Set-Cookie` from the 3xx response is stored in the jar first (line 979 \u2192 1022).\n2. `_build_redirect_request` is called (line 988). It creates the next request with `cookies = Cookies(self.cookies)` (`httpx/_client.py:484-489`). Because the jar is already updated, the redirect carries the cookies the redirect response just set.\n3. Hops repeat until a non-redirect response arrives or `max_redirects` is exceeded (line 971).\n\nCookies are not stored per redirect. Each new request is rebuilt from the client-level jar. Only the `Cookie` header is copied over, and `_redirect_headers` (`httpx/_client.py:546`) decides which other headers survive, including whether auth is stripped across origins.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00275287,
+  "duration_ms": 13852,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7367,
+    "cache_read": 37467,
+    "output": 1808,
+    "context": 7375,
+    "total": 46650
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client",
+        "detail": "outline"
+      },
+      "result_chars": 3166,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "cookies redirect"
+      },
+      "result_chars": 1522,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._merge_cookies, BaseClient._build_redirect_request, Client._send_single_request, Client._send_handling_redirects, Cookies.extract_cookies, Cookies.__init__"
+      },
+      "result_chars": 9453,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client.__init__",
+        "detail": "signature"
+      },
+      "result_chars": 377,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient.cookies"
+      },
+      "result_chars": 608,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "extract_cookies"
+      },
+      "result_chars": 1136,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 20.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": false,
+      "redirect": true,
+      "deprecated": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "answer": "**Short answer:** `advance()` never touches the screen. It only updates the task's numbers. A separate background thread redraws the display about `refresh_per_second` times a second.\n\n**1. `advance()` only updates state.** `Progress.advance` (`rich/progress.py:1510-1538`) takes the lock, increments `task.completed`, records a timing sample, and sets `finished_time` once the total is reached. It makes no console calls.\n\n**2. `with Progress()` starts a Live display.** `Progress.__enter__` calls `start()` (`rich/progress.py:1173-1175`), which calls `Live.start()` (`rich/progress.py:1164`). `Progress.__init__` builds a `Live` object (`rich/progress.py:1093`). `Live.start()` (`rich/live.py:111-143`) hides the cursor, redirects stdout/stderr, pushes itself as a render hook, and, if `auto_refresh` is on, starts a `_RefreshThread` (`rich/live.py:141-143`).\n\n**3. The thread redraws on a timer.** `_RefreshThread.run` (`rich/live.py:34-38`) loops every `1 / refresh_per_second` seconds. Each pass takes `live._lock` and calls `live.refresh()`.\n\n**4. `Live.refresh()` does the drawing.** It sets the current renderable on the `LiveRender` (`rich/live.py:247`). When the output is a terminal, it prints a `Control()` (`rich/live.py:269-271`). That control code moves the cursor back over the previous frame. The progress table is then rendered again from current task state (`Progress.make_tasks_table`, `rich/progress.py:1555`, via `Progress.refresh` at `rich/progress.py:1540-1543`).\n\n**Implications:**\n- Calling `advance()` in a tight loop is cheap. Redraws happen at the refresh rate, not per call.\n- The lock in `advance()` and in the refresh thread keeps a redraw from reading half-updated task state.\n- Passing `auto_refresh=False` removes the thread, so the screen only updates when you call `progress.refresh()` yourself.\n\nI did not run the code. The above comes from reading the source through the call graph.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.00231355,
+  "duration_ms": 10610,
+  "tokens": {
+    "input": 8,
+    "cache_write": 6404,
+    "cache_read": 29295,
+    "output": 1478,
+    "context": 6412,
+    "total": 37185
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress"
+      },
+      "result_chars": 3766,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress.advance"
+      },
+      "result_chars": 2130,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Live"
+      },
+      "result_chars": 2125,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Live.refresh"
+      },
+      "result_chars": 2508,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_RefreshThread"
+      },
+      "result_chars": 375,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Live.start"
+      },
+      "result_chars": 2565,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_RefreshThread.run"
+      },
+      "result_chars": 515,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 18.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": true,
+      "in-place": false,
+      "redirect": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

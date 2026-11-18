@@ -1,0 +1,110 @@
+{
+  "answer": "Short answer: `advance()` never draws anything. It only updates the task's numbers. A separate refresh path, either a background thread or an explicit `refresh()`, re-renders the whole display.\n\n1. **`advance()` only updates state.** It takes the lock, bumps `task.completed`, records a speed sample, and records `finished_time` when the task completes. It never touches the terminal. (`rich/progress.py:1510-1538`)\n\n2. **Redraws come from `Live`.** `Progress.__init__` creates a `Live` and passes `get_renderable=self.get_renderable` (`rich/progress.py:1093-1101`). `get_renderable` builds a fresh `Group` from the columns and tasks on each call (`rich/progress.py:1545-1548`).\n\n3. **Who triggers the redraw.** Two paths:\n   - **Auto-refresh (default):** `Live.start()` pushes itself as a render hook and, when auto-refresh is on, starts a daemon `_RefreshThread` (`rich/live.py:130`, `rich/live.py:142`). That thread calls `live.refresh()` every `1 / refresh_per_second` seconds, which is 10 Hz by default (`rich/live.py:34-38`, `rich/progress.py:1075`).\n   - **Manual:** `Progress.refresh()` calls `live.refresh()` only if the display is enabled and started (`rich/progress.py:1540-1543`).\n\n4. **What `Live.refresh()` does.** It sets the renderable on `_live_render` (`rich/live.py:247`). In a terminal that is not a dumb terminal, it prints a `Control()` inside `console` (`rich/live.py:269-271`). That print runs through the render hook, `process_renderables`, which prepends a cursor reset (`Control.home()` in alt-screen mode, otherwise `position_cursor()`) and appends the live render (`rich/live.py:283-291`). The cursor move back to the top of the block is what makes the new frame overwrite the old one in place.\n\nSo in your loop, each `advance()` changes the numbers, and the bar on screen is repainted by the background thread about 10 times per second. Passing `auto_refresh=False` removes the thread, so you must call `progress.refresh()` yourself or the screen will not update.\n\nI did not open the body of `Live.start()` beyond the lines above, so the exact condition guarding the thread start (line 142) is inferred from the grep, not read.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00282094,
+  "duration_ms": 13121,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7959,
+    "cache_read": 38584,
+    "output": 1685,
+    "context": 7967,
+    "total": 48236
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress",
+        "detail": "full"
+      },
+      "result_chars": 8137,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Progress.advance refresh live"
+      },
+      "result_chars": 1201,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "offset": 1510,
+        "limit": 40
+      },
+      "result_chars": 1726,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 20,
+        "limit": 40
+      },
+      "result_chars": 2087,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 240,
+        "limit": 70
+      },
+      "result_chars": 3001,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "_RefreshThread\\(|def start\\(|self\\.console\\.push_render_hook|process_renderables",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 262,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 21.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": true,
+      "in-place": true,
+      "redirect": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "get_renderable builds a fresh Group from the columns and tasks (key says a Table grid via make_tasks_table; in rich, get_renderable returns a Group wrapping the tasks table, so this is minor)",
+      "get_renderable builds a fresh Group from columns and tasks (key says it builds a Table grid via make_tasks_table with one row per task; Group wrapping is roughly accurate but imprecise)",
+      "get_renderable builds a fresh Group from the columns and tasks (key says it builds a Table grid via make_tasks_table; Group wrapping is plausibly true but detail differs)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

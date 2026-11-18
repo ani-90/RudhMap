@@ -1,0 +1,95 @@
+{
+  "answer": "**Short answer:** `advance()` never redraws anything. It only updates the task's numbers. A background thread redraws the screen on a timer.\n\n**1. `advance()` only mutates state.** `Progress.advance` (`rich/progress.py:1510-1538`) takes the lock, increments `task.completed`, records a speed sample, and sets `finished_time` when the task completes. It never calls `refresh()` or touches the console.\n\n**2. The timer thread does the redraw.** `Progress.__init__` creates a `Live` with `get_renderable=self.get_renderable` (`rich/progress.py:1093-1100`). `Live.start` spawns a `_RefreshThread` (`rich/live.py:142`), a daemon thread whose `run()` loops every `1 / refresh_per_second` seconds (default 10 Hz). Each tick takes the Live lock and calls `self.live.refresh()` (`rich/live.py:34-38`).\n\n**3. `Live.refresh()` renders the current state.** It calls `self._live_render.set_renderable(self.renderable)` (`rich/live.py:247`), which rebuilds the table from the latest task values. On a terminal it then prints a `Control()` (`rich/live.py:269-271`). That control sequence is what moves the cursor back over the previous frame so the new one overwrites it.\n\n**Consequences for your loop:**\n- Calling `advance()` thousands of times per second costs very little. Only the latest state is drawn, at most about 10 times per second.\n- If you pass `auto_refresh=False`, the thread never starts and nothing redraws until you call `progress.refresh()` yourself (`rich/progress.py:1540-1543`).\n- Prints inside the `with` block are routed through the console so they appear above the bar, because `redirect_stdout` defaults to True.\n\nI did not read `LiveRender` or `Console` internals, so the exact escape sequences used to erase the previous frame are unverified.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0022802200000000003,
+  "duration_ms": 8846,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6838,
+    "cache_read": 24302,
+    "output": 1338,
+    "context": 6844,
+    "total": 32484
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress",
+        "detail": "full"
+      },
+      "result_chars": 8137,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "Progress.advance",
+        "direction": "down"
+      },
+      "result_chars": 180,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress.advance",
+        "detail": "full"
+      },
+      "result_chars": 2130,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Live.refresh",
+        "detail": "full"
+      },
+      "result_chars": 2508,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_RefreshThread",
+        "detail": "full"
+      },
+      "result_chars": 1035,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 17.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": true,
+      "in-place": false,
+      "redirect": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "Prints inside the with block are routed through the console so they appear above the bar, because redirect_stdout defaults to True (partially vague, not clearly false)",
+      "Prints inside the with block are routed through the console so they appear above the bar, because redirect_stdout defaults to True (this is roughly true, but vague on FileProxy; not clearly false)"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

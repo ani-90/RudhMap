@@ -1,0 +1,97 @@
+{
+  "answer": "**Short answer:** `advance()` never touches the terminal. It only updates the task's numbers. A background thread owned by `Live` redraws the screen about `refresh_per_second` times a second (10 by default).\n\n**The steps:**\n\n1. **`with Progress()` starts the display.** `__enter__` calls `start()` (`rich/progress.py:1173-1174`), which calls `self.live.start(refresh=True)` (`rich/progress.py:1164`).\n\n2. **`Live.start()` sets up the terminal and the thread.** It hides the cursor, redirects stdout/stderr, and pushes itself as a render hook (`rich/live.py:128-130`). It does one immediate `refresh()` (`rich/live.py:133`). If `auto_refresh` is on, it starts a `_RefreshThread` (`rich/live.py:141-143`).\n\n3. **The thread redraws on a timer.** `_RefreshThread` is \"a thread that calls refresh() at regular intervals\" (`rich/live.py:22-38`).\n\n4. **`Live.refresh()` produces the new frame.** It asks for the current renderable via `set_renderable(self.renderable)` (`rich/live.py:247`). Its `renderable` is `Progress.get_renderable` (`rich/progress.py:1545-1548`), which builds the table of tasks (`make_tasks_table`, `rich/progress.py:1555-1586`). It then writes a control code to the console (`rich/live.py:269-271`), which repaints the live region in place.\n\n5. **`advance()` only changes state.** `Progress.advance` (`rich/progress.py:1510-1538`) takes the lock, increments `task.completed` (line 1521), records a speed sample (line 1531), and sets `finished_time` when the task reaches its total (lines 1532-1538). It does not call `refresh()`.\n\nSo in your loop, each `advance()` changes the numbers, and the next timer tick draws them. Many advances between ticks are collapsed into one redraw. If you pass `auto_refresh=False`, nothing redraws on a timer; you must call `progress.refresh()` yourself.\n\nI read the `_RefreshThread.run` body only through its docstring, so the exact loop is inferred from that and from `Live.start`'s use of it.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00269547,
+  "duration_ms": 12648,
+  "tokens": {
+    "input": 8,
+    "cache_write": 8234,
+    "cache_read": 29837,
+    "output": 1499,
+    "context": 8242,
+    "total": 39578
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress",
+        "detail": "full"
+      },
+      "result_chars": 8137,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Progress.advance"
+      },
+      "result_chars": 3121,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Live.refresh"
+      },
+      "result_chars": 2508,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_RefreshThread"
+      },
+      "result_chars": 375,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress.start"
+      },
+      "result_chars": 555,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Live.start"
+      },
+      "result_chars": 2565,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 22.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": true,
+      "in-place": false,
+      "redirect": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

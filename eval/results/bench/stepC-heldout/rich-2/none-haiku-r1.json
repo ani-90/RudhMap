@@ -1,0 +1,120 @@
+{
+  "answer": "**Short answer:** Colour is decided in `Console.__init__` and `_detect_color_system`. `is_terminal` decides whether a TTY is present, and `NO_COLOR` can strip colour at render time.\n\n**1. Whether to output colour**\n\n- `color_system` defaults to `\"auto\"` (`rich/console.py:617`). `None` disables colour entirely (`console.py:701-702`).\n- `_detect_color_system` returns `None` when the output is not a terminal or the terminal is dumb (`console.py:787-788`). `is_dumb_terminal` is true for `TERM=dumb` or `unknown` (`console.py:980-981`).\n- `is_terminal` is checked in this order (`console.py:932-970`):\n  1. An explicit `force_terminal` argument.\n  2. `TTY_COMPATIBLE`: `\"0\"` means not a TTY, `\"1\"` means a TTY.\n  3. `FORCE_COLOR`: any non-empty value forces a TTY (force-color.org).\n  4. Otherwise `file.isatty()`.\n- `NO_COLOR` (any non-empty value) sets `no_color` (`console.py:719-723`). At render time, colour is stripped from the buffer when `no_color` is set (`console.py:2133-2134`). The `no_color` constructor argument overrides the environment variable.\n\n**2. Which colour system**\n\nDetection happens in `_detect_color_system` (`console.py:783-805`):\n\n- Jupyter: `TRUECOLOR` (`console.py:785-786`).\n- Windows: `WINDOWS` if legacy mode is on; otherwise `TRUECOLOR` or `EIGHT_BIT` depending on the console's truecolor support (`console.py:789-797`).\n- Elsewhere:\n  - `COLORTERM=truecolor` or `24bit` gives `TRUECOLOR` (`console.py:799-801`).\n  - Otherwise the suffix of `TERM` after the last hyphen is looked up in `_TERM_COLORS` (`console.py:802-805`). `kitty` and `256color` map to `EIGHT_BIT`, `16color` maps to `STANDARD`, and anything else defaults to `STANDARD`. Plain `xterm` therefore gets `STANDARD`.\n\n**Environment variables that affect output**\n\n| Variable | Effect |\n|---|---|\n| `NO_COLOR` | Strips colour (`console.py:722`, `2133`) |\n| `FORCE_COLOR` | Treats output as a terminal (`console.py:958-960`) |\n| `TTY_COMPATIBLE` | Overrides TTY detection (`console.py:949-955`) |\n| `TTY_INTERACTIVE` | Overrides interactivity only, not colour (`console.py:725-730`) |\n| `COLORTERM` | `truecolor`/`24bit` selects truecolor (`console.py:799-801`) |\n| `TERM` | Selects 256/16/standard colour, and `dumb` disables colour (`console.py:802-805`, `980-981`) |\n| `JUPYTER_COLUMNS`, `JUPYTER_LINES` | Size only (`console.py:654-664`) |",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 5,
+  "cost_usd": 0.0037962600000000005,
+  "duration_ms": 15907,
+  "tokens": {
+    "input": 10,
+    "cache_write": 9578,
+    "cache_read": 52466,
+    "output": 2710,
+    "context": 9588,
+    "total": 64764
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "NO_COLOR|FORCE_COLOR|TERM|COLORTERM|TTY_COMPATIBLE|JUPYTER|isatty|color_system|_windows",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 8942,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def _detect_color_system|def is_terminal|def __init__|color_system",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1518,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 700,
+        "limit": 110
+      },
+      "result_chars": 4433,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 920,
+        "limit": 70
+      },
+      "result_chars": 2664,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 88,
+        "limit": 10
+      },
+      "result_chars": 201,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 2128,
+        "limit": 14
+      },
+      "result_chars": 615,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 614,
+        "limit": 8
+      },
+      "result_chars": 312,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 19.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

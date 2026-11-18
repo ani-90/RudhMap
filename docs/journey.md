@@ -25,6 +25,7 @@ diagrams added little value. The diagram code is frozen, not removed.
 | **A. Baseline** (Nov 11) | Measure plain Claude before building anything | Haiku and Sonnet both 12/15 correct; Haiku 35k tokens per question | **Cost = model calls × ~6.4k fixed tokens.** 79% of tokens are cache reads; file content only ~16%. 16 of 17 wrong answers stopped one file short | `eval/reports/stepA-baseline.md` |
 | **B. Tools** (Nov 12) | `find_symbol`, `show`, `trace`, `repo_map`: compact, complete, cited | All criteria passed: 0/1,161 outputs over budget, 97% find accuracy, 12/15 coverage, 42 ms warm | Most of the React frontend had been invisible (arrow components, `@/` aliases, default exports); libraries used relative imports the resolver skipped | `eval/reports/stepB-tools.md` |
 | **C. Benchmark** (Nov 12-14) | Haiku + RudhMap: >= as correct, <= 70% of tokens | **Failed on cost in all 3 rounds** (107-133% of plain). Accuracy improved: 13/15, nudged 40/45 runs (Sonnet 36/45) | **Haiku's round count (~3.7) doesn't change with better tool results.** It adopted the tools but hedged with Grep and re-read files it had been shown, and every round carries ~700 tokens of tool definitions | `eval/reports/stepC-benchmark.md` |
+| Held-out run (Nov 18) | Test the current tools on the 8 untouched questions | Plain Haiku 6/8; RudhMap natural 5/8, only 3/8; tokens 75-107% | **The tuning-set accuracy gain didn't hold.** An incomplete caller list (string type hints unresolved) was trusted by the model, which then stopped looking | `eval/reports/stepC-benchmark.md` §10 |
 | Option 2 (planned) | Test multi-question sessions, where compact results should compound | Not run; plan and pass criteria pre-registered | Prediction recorded in advance: natural probably won't pass | `docs/session-benchmark-plan.md` |
 
 ## What exists now
@@ -47,7 +48,8 @@ diagrams added little value. The diagram code is frozen, not removed.
 2. **In agent harnesses, rounds are the cost.** A tool that makes each round richer but doesn't remove
    rounds costs more, because its own definitions ride along on every round.
 3. **Pre-register criteria and keep a held-out set.** It stopped three rounds of "almost passing" from
-   turning into a claim.
+   turning into a claim, and the held-out run showed the tuning-set accuracy gain was overfit.
+5. **Confident-but-incomplete tool output is worse than none:** the model stops verifying.
 4. **Check the checker.** The grader was too strict at first (fixed with one-line `must` facts), the
    answer key was wrong once, and a usage-limit outage produced a fake regression. Each was caught only
    by reading the raw runs.

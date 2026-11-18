@@ -1,0 +1,93 @@
+{
+  "answer": "The first superuser is created by a prestart script that runs after the database migrations and before the app is used.\n\n**When:**\n- `backend/scripts/prestart.sh:7` runs `alembic upgrade head`. That creates the tables.\n- `backend/scripts/prestart.sh:10` then runs `python app/initial_data.py`.\n- `backend/app/initial_data.py:13` opens a session and calls `init_db(session)`.\n- The CI deploy workflows run this script: `.github/workflows/deploy.yml:42` and `.github/workflows/deploy-docker-compose.yml:39`. The test and Playwright workflows run it too.\n- The tests also call `init_db` directly in `backend/tests/conftest.py:18`.\n- I didn't find where `compose.yml` runs the script, so I can't confirm it runs automatically on `docker compose up`.\n\n**How:** `init_db` is in `backend/app/core/db.py:15`.\n- It queries for a user whose email equals `settings.FIRST_SUPERUSER` (`db.py:24-26`).\n- If none exists (`db.py:27`), it builds a `UserCreate` with that email, `settings.FIRST_SUPERUSER_PASSWORD` and `is_superuser=True` (`db.py:28-32`).\n- It saves the user with `crud.create_user` (`db.py:33`).\n- If the user already exists, nothing happens, so running the script again is safe.\n\n**Configuration:**\n- The two settings are required fields in `backend/app/core/config.py:65-66`.\n- Their values come from `.env:7-8` (default `admin@example.com` / `changethis`).\n- `compose.yml:58-59` passes them to the backend container.\n- The password is also checked in `config.py:85`. It looks like a check for the insecure default `changethis`, but I didn't read that code.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.027840300000000002,
+  "duration_ms": 16815,
+  "tokens": {
+    "input": 8,
+    "cache_write": 3236,
+    "cache_read": 26903,
+    "output": 1219,
+    "context": 3244,
+    "total": 31366
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "FIRST_SUPERUSER|init_db",
+        "output_mode": "content",
+        "glob": "!**/*.md"
+      },
+      "result_chars": 3319,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "initial_data|prestart",
+        "output_mode": "content",
+        "glob": "{compose*.yml,backend/**/*.sh,backend/Dockerfile}"
+      },
+      "result_chars": 57,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "prestart",
+        "output_mode": "content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "glob": "*.{yml,yaml,Dockerfile}"
+      },
+      "result_chars": 532,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 18.7,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": true
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

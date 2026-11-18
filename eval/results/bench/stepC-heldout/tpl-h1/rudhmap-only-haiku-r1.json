@@ -1,0 +1,119 @@
+{
+  "answer": "**Short answer:** the first superuser is created by an idempotent `init_db()` function, which a separate script calls at startup. It is not created by a migration or by the app's request handling.\n\n**How it works**\n\n1. **Entry point:** `backend/app/initial_data.py:11-13` defines `init()`, which opens a session on the engine and calls `init_db(session)`. `main()` at `:16-19` wraps it, and `:22-23` runs `main()` when the file is executed directly (`python -m app.initial_data`).\n\n2. **The creation logic:** `backend/app/core/db.py:24-33` in `init_db()`:\n   - Looks up a `User` whose email equals `settings.FIRST_SUPERUSER` (`:24-26`).\n   - If none exists, builds a `UserCreate` with that email, `settings.FIRST_SUPERUSER_PASSWORD`, and `is_superuser=True` (`:27-32`).\n   - Calls `crud.create_user(...)` (`:33`), which hashes the password via `get_password_hash` (`backend/app/core/security.py:35`).\n\n3. **When it runs:** The check-then-create makes it safe to run on every startup. It runs once the schema exists. The comment at `db.py:16-18` says tables come from Alembic migrations, so the sequence is migrations first, then `initial_data`. The Alembic `upgrade()` in `backend/app/alembic/versions/e2412789c190_initialize_models.py:19-46` only creates the `user` and `item` tables and does not seed any user.\n\n**Not verified:** I could not read `backend/scripts/prestart.sh` with these tools, so I have not confirmed that it runs `alembic upgrade head` followed by `initial_data`. That is the usual pattern in this template, but check the script to confirm. The credentials come from `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` in `Settings` (`backend/app/core/config.py:15-88`); I did not check their default values.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 5,
+  "cost_usd": 0.00286015,
+  "duration_ms": 16210,
+  "tokens": {
+    "input": 10,
+    "cache_write": 8660,
+    "cache_read": 29415,
+    "output": 1666,
+    "context": 8670,
+    "total": 39751
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "first superuser create"
+      },
+      "result_chars": 1541,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "init db superuser"
+      },
+      "result_chars": 2913,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/initial_data.py"
+      },
+      "result_chars": 557,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "prestart initial_data"
+      },
+      "result_chars": 1086,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/scripts/prestart.sh"
+      },
+      "result_chars": 1159,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "FIRST_SUPERUSER",
+        "detail": "signature"
+      },
+      "result_chars": 111,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "alembic upgrade head then python app/initial_data.py"
+      },
+      "result_chars": 2916,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/core/config.py",
+        "detail": "outline"
+      },
+      "result_chars": 497,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 42.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": false,
+      "init-db": true,
+      "hash": true,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [
+      "Says initial_data is called 'at startup' by a separate script; the key says it's not at app startup but via prestart.sh before the app starts (mild)",
+      "Says initial_data is called 'at startup' by a separate script; the key says it's not at app startup but via prestart.sh before the app starts (minor framing).",
+      "Says the script is called 'at startup' / safe to run on every startup, implying app startup rather than a pre-start script run before the app"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

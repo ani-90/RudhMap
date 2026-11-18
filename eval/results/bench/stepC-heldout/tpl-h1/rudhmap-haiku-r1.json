@@ -1,0 +1,104 @@
+{
+  "answer": "The first superuser is created by an idempotent startup step, not by a migration or an API call.\n\n**How:** `init_db()` in `backend/app/core/db.py:15` queries for a `User` whose email equals `settings.FIRST_SUPERUSER` (lines 24-26). If none exists, it builds a `UserCreate` from `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` with `is_superuser=True` (lines 27-33) and saves it through `crud.create_user`. The two values are declared as required settings in `backend/app/core/config.py:65-66`.\n\n**When:**\n- **Local dev and Docker:** `backend/scripts/prestart.sh` runs `alembic upgrade head` (line 7), then `python app/initial_data.py` (line 10). `initial_data.py:11-13` opens a session and calls `init_db`.\n- **Test suite:** `backend/tests/conftest.py:18` calls `init_db(session)` directly.\n- **Deployment:** the CI workflows run `prestart.sh` before deploying. `deployment.md:58-74` documents this, and `.github/workflows/deploy.yml:42` and `deploy-docker-compose.yml:39` invoke it.\n\n**Notes:**\n- The step is idempotent. If a user with that email already exists, nothing happens, so changing `FIRST_SUPERUSER_PASSWORD` in `.env` later does not update the stored password.\n- `init_db` does not create tables. The comment at `db.py:16-22` says tables come from Alembic migrations, and the `create_all` call is commented out.\n- The `is_superuser` column itself is defined in the initial Alembic migration, `backend/app/alembic/versions/e2412789c190_initialize_models.py:25`.\n\nI answered from reading the code and did not run the script.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0037326800000000004,
+  "duration_ms": 10128,
+  "tokens": {
+    "input": 8,
+    "cache_write": 13299,
+    "cache_read": 42408,
+    "output": 1296,
+    "context": 13307,
+    "total": 57011
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "create superuser first"
+      },
+      "result_chars": 1541,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "superuser|is_superuser|FIRST_SUPERUSER",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 15488,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "init_db|prestart|alembic upgrade",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "!frontend/**"
+      },
+      "result_chars": 2362,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\initial_data.py"
+      },
+      "result_chars": 465,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 22.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": true,
+    "false_claims": [
+      "Described as an 'idempotent startup step'; key says explicitly not at app startup but in prestart before app starts (minor framing).",
+      "Described as 'an idempotent startup step' \u2014 the key says it is not at app startup but in prestart before the app, though the answer later clarifies prestart.sh so this is a minor wording issue.",
+      "Described as an 'idempotent startup step'; key says it's not at app startup but in the prestart script (though the answer later clarifies prestart.sh), minor framing issue."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

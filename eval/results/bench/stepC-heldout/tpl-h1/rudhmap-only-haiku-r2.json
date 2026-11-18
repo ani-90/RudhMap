@@ -1,0 +1,115 @@
+{
+  "answer": "The first superuser is created by an idempotent startup script, not by a migration or an API call. I could not verify the trigger that runs that script, though, because the call-graph index doesn't parse `backend/scripts/prestart.sh`.\n\n**How it's created**\n\n- `backend/app/core/config.py:65-66` declares `FIRST_SUPERUSER` (email) and `FIRST_SUPERUSER_PASSWORD` as required settings, loaded from the environment or `../.env`.\n- `backend/app/core/config.py:84-86` rejects the placeholder value `changethis` for the password outside development.\n- `backend/app/core/db.py:15-33` (`init_db`) looks up a `User` with that email. If none exists, it builds a `UserCreate` with `is_superuser=True` and calls `crud.create_user` (`backend/app/crud.py:10`), which hashes the password.\n- `backend/app/initial_data.py:11-13` opens a session on the engine and calls `init_db`. Its `main()` (lines 16-19) is the `__main__` entry point (lines 22-23).\n\n**When it runs**\n\n- The creation is idempotent: a second run finds the existing user and does nothing.\n- `init_db` has a comment saying tables should come from Alembic migrations, and the `create_all` line is commented out (`db.py:16-22`). So the superuser is not created by a migration.\n- `initial_data.py` is run as a script. The file name and the `prestart` search suggest `backend/scripts/prestart.sh` runs it before the server starts, but I could not confirm that from the index. Check that script directly to confirm the trigger.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 5,
+  "cost_usd": 0.00173637,
+  "duration_ms": 14155,
+  "tokens": {
+    "input": 10,
+    "cache_write": 3167,
+    "cache_read": 35597,
+    "output": 1492,
+    "context": 3177,
+    "total": 40266
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "first superuser create"
+      },
+      "result_chars": 1541,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "init db superuser"
+      },
+      "result_chars": 2913,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/initial_data.py"
+      },
+      "result_chars": 557,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "prestart initial_data"
+      },
+      "result_chars": 1086,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/scripts/prestart.sh"
+      },
+      "result_chars": 1159,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/core/config.py",
+        "detail": "outline"
+      },
+      "result_chars": 497,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/core/config.py",
+        "detail": "full"
+      },
+      "result_chars": 3453,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "FIRST_SUPERUSER"
+      },
+      "result_chars": 417,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 40.5,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": false,
+      "init-db": true,
+      "hash": true,
+      "secrets": true
+    },
+    "fact_score": 0.75,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "answer": "Rich makes two separate decisions: whether to emit colour at all, and which colour system to use. Both are made in `Console`, using an injectable `_environ` mapping (defaults to `os.environ`).\n\n**Whether to output colour**\n\n- `Console.__init__` sets `self.no_color` from the `no_color` argument, or else from `NO_COLOR` being non-empty (`rich/console.py:719-723`).\n- `is_terminal` decides whether the output stream is a TTY (`rich/console.py:~926-969`):\n  - `TTY_COMPATIBLE=0` forces false and `TTY_COMPATIBLE=1` forces true (`:949-955`).\n  - `FORCE_COLOR` forces true when set to a non-empty value (`:958-960`).\n  - Otherwise it falls back to `file.isatty()` (`:963-965`).\n  - Jupyter and Idle always return false (`:937-945`).\n- A dumb terminal is one where `TERM` is `dumb` or `unknown` (`rich/console.py:980-982`).\n\n**Which colour system**\n\nThe `color_system` argument selects it (`rich/console.py:701-706`).\n- `None` disables colour.\n- `\"auto\"` calls `_detect_color_system()` (`rich/console.py:783-805`), which:\n  - returns truecolor in Jupyter;\n  - returns `None` if the output is not a terminal or is a dumb terminal;\n  - on Windows, returns `WINDOWS` for legacy consoles, otherwise truecolor or 8-bit depending on `get_windows_console_features()`;\n  - elsewhere, returns truecolor if `COLORTERM` is `truecolor` or `24bit`, otherwise maps the suffix of `TERM` through `_TERM_COLORS` (`rich/console.py:90`: `kitty` and `256color` give 8-bit, `16color` gives standard), defaulting to standard.\n- Any other explicit name is looked up in `COLOR_SYSTEMS`.\n\n**Environment variables**\n\n| Variable | Effect |\n|---|---|\n| `NO_COLOR` | Disables colour when non-empty (`:722`) |\n| `FORCE_COLOR` | Treats the stream as a terminal when non-empty (`:958`) |\n| `TTY_COMPATIBLE` | `0` or `1` overrides TTY detection (`:949`) |\n| `TERM` | Dumb check (`:980`) and colour depth (`:802-804`) |\n| `COLORTERM` | `truecolor` or `24bit` selects truecolor (`:799-801`) |\n| `COLUMNS`, `JUPYTER_COLUMNS`, `JUPYTER_LINES` | Size only, not colour (`:654-679`, `:1024`) |",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00367854,
+  "duration_ms": 14909,
+  "tokens": {
+    "input": 8,
+    "cache_write": 11489,
+    "cache_read": 47094,
+    "output": 1818,
+    "context": 11497,
+    "total": 60409
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "color system detect env variables"
+      },
+      "result_chars": 3118,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "COLUMNS|FORCE_COLOR|NO_COLOR|TERM|COLORTERM|color_system|JUPYTER|TTY_COMPATIBLE",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "*.py"
+      },
+      "result_chars": 17593,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 698,
+        "limit": 28
+      },
+      "result_chars": 1106,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 936,
+        "limit": 30
+      },
+      "result_chars": 1163,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 976,
+        "limit": 8
+      },
+      "result_chars": 278,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 23.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

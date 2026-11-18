@@ -228,3 +228,62 @@ What the data does support, as decision options for the project owner:
    "context for this question" call that returns everything in round 1, or measuring a harness with a
    smaller fixed prompt. That would be a new design, not a 4th round of the current one.
 3. **Stop here** and keep the engine, tools and evaluation as a documented negative result.
+
+---
+
+## 10. Held-out run (2026-11-18, at the project owner's request)
+
+After step C failed, the 8 held-out questions (4 on `rich`, ~38k lines; 4 new questions on the tuning
+repos) were run once with all setups, 3 runs each. Plain Haiku and Sonnet were re-run the same day. This
+**spends the held-out set** (recorded in `eval/THRESHOLDS.md`). Raw runs and the per-run table:
+`eval/results/bench/stepC-heldout/`.
+
+| Setup | Correct questions (of 8) | Correct runs (of 24) | Median tokens / question | Mean tokens / run | Model calls / run | Cost |
+|---|---|---|---|---|---|---|
+| Plain Haiku | 6 | **20** | 50,454 | 53,856 | 4.58 | $0.079 |
+| RudhMap (natural) | 5 | 15 | 53,754 (107%) | 49,106 | 4.04 | $0.069 |
+| RudhMap (nudged) | 4 | 12 | 51,315 (102%) | 53,118 | 4.50 | $0.065 |
+| RudhMap-only | 3 | 8 | 37,776 (75%) | 40,797 | 4.29 | $0.065 |
+| Plain Sonnet | **7** | 18 | **29,296** | **27,938** | **3.50** | $0.851 |
+
+**Out of sample, the accuracy gain seen on the tuning set does not hold.** Every RudhMap setup answered
+fewer questions correctly than plain Haiku, and token cost was again no lower, except RudhMap-only, which
+was cheaper but far less accurate. Criteria: quality ❌ (5 < 6), cost ❌ (107%), no regressions ❌ (rich-4).
+
+### RCA
+
+**H1. Incomplete caller list, trusted by the model (rich-4: plain Haiku 3/3, every RudhMap setup 0/3).**
+- **Question:** what is affected if `Console.render_lines` changes.
+- **What RudhMap returned:** `trace … up` listed 7 of its 13 callers. It missed Panel, Padding, Table,
+  Tree, Screen and Layout.
+- **Why the engine missed them:** rich annotates parameters with **string type hints**
+  (`console: "Console"`, a common pattern to avoid circular imports). RudhMap's stated-type tracking
+  deliberately skips string annotations, so `console.render_lines(...)` in those classes was never
+  connected.
+- **What Claude did:** it **treated the incomplete list as complete**. One RudhMap-only answer stated that
+  Panel and Table "are not in the call graph" (graded a major false claim). Plain Haiku grepped
+  `render_lines` and found every caller.
+- **The lesson:** a tool that looks authoritative but is incomplete is worse than no tool, because it
+  stops the model from looking further. The fix direction is two-sided:
+  - resolve string annotations;
+  - have caller lists also report unresolved textual call sites (`.render_lines(` lines not in the graph)
+    instead of implying completeness.
+
+**H2. Non-code files are invisible (tpl-h1, RudhMap-only 0/3).** The answer lives in
+`backend/scripts/prestart.sh`. RudhMap indexes only Python/TypeScript, so without Read the model can't
+see it. This is a known limitation, and the natural and nudged setups (which keep Read) got 3/3.
+
+**H3. Scattered misses (kna-h1, rich-2, tpl-h2, httpx-h1).** Facts one step deeper, such as the retry
+logic inside `_call_messages` and the `NO_COLOR` environment check in `Console.__init__`, were missed in
+some RudhMap runs. Plain Haiku also misses several of them. No single cause.
+
+### What this changes
+
+- **The "Haiku + RudhMap is more accurate" result (§6.1) was specific to the tuning questions we
+  iterated on.** It is not a claim that can be made.
+- **The token result is consistent:** in-sample and out of sample, RudhMap doesn't reduce tokens in
+  realistic setups. The step C decision (stop rule on the token claim) stands, now confirmed out of
+  sample.
+- **New, generalisable finding:** **incomplete-but-confident tool output reduces accuracy,** because the
+  model stops verifying. Any future design must state what it could *not* resolve as prominently as what
+  it found.

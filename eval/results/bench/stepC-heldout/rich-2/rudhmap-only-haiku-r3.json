@@ -1,0 +1,110 @@
+{
+  "answer": "**Short answer:** Colour is enabled only if a color system is detected, and `NO_COLOR` strips colour from already-rendered output. Detection happens once, in `Console.__init__`.\n\n**1. Is the output a terminal? (`Console.is_terminal`, `rich/console.py:925-970`)**\nChecked in this order:\n- An explicit `force_terminal` argument wins.\n- Idle and Jupyter return False.\n- `TTY_COMPATIBLE=0` or `1` forces the answer.\n- A non-empty `FORCE_COLOR` forces True. An empty one falls through to auto-detection.\n- Otherwise it uses `file.isatty()`.\n\n**2. Which colour system? (`Console._detect_color_system`, `rich/console.py:783-805`)**\n- Jupyter gets `TRUECOLOR`.\n- If not a terminal, or `TERM` is `dumb`/`unknown` (`is_dumb_terminal`, `rich/console.py:973-982`), it returns `None`, meaning no colour.\n- On Windows, it uses `legacy_windows` (returns `WINDOWS`) or the console's truecolor feature check (`TRUECOLOR` or `EIGHT_BIT`). `COLORTERM` and `TERM` are ignored here.\n- Elsewhere, `COLORTERM=truecolor` or `24bit` gives `TRUECOLOR`. Otherwise the suffix of `TERM` is looked up in `_TERM_COLORS` (`rich/console.py:90`): `kitty` and `256color` map to `EIGHT_BIT`, `16color` to `STANDARD`, and anything else defaults to `STANDARD`.\n\n**3. Overrides (`Console.__init__`, `rich/console.py:613-745`)**\n- `color_system=` accepts `\"auto\"`, `\"standard\"`, `\"256\"`, `\"truecolor\"`, `\"windows\"`, or `None` (no colour). Anything other than `\"auto\"` or `None` bypasses detection (line 706).\n- `no_color=` argument, else `NO_COLOR` set to a non-empty value (line 719-723).\n\n**4. Applying the decision (`Console._render_buffer`, `rich/console.py:2126-2148`)**\nIf `no_color` is set and a colour system exists, colour is removed from the segments (line 2133-2134). Each style is then rendered against `self._color_system`.\n\n**Environment variables that affect this**\n- `FORCE_COLOR`: forces terminal mode, so colour is detected even when piped.\n- `TTY_COMPATIBLE`: `0` or `1` overrides terminal detection.\n- `NO_COLOR`: disables colour when non-empty.\n- `COLORTERM`: `truecolor` or `24bit` (non-Windows only).\n- `TERM`: `dumb`/`unknown` disables colour; the suffix (`256color`, `kitty`, `16color`) selects the level (non-Windows only).\n- `TTY_INTERACTIVE`: `0` or `1` sets interactivity, not colour.\n- `COLUMNS` and `LINES`: set width and height, not colour.\n- `JUPYTER_COLUMNS` and `JUPYTER_LINES`: Jupyter sizing only.\n\nI did not open `Style.render` to confirm how it handles `color_system=None`, so I haven't verified that step.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.0028492500000000002,
+  "duration_ms": 16775,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7570,
+    "cache_read": 28695,
+    "output": 2095,
+    "context": 7578,
+    "total": 38368
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "color system detection environment variables"
+      },
+      "result_chars": 1136,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "detect_color_system"
+      },
+      "result_chars": 2744,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "is_terminal NO_COLOR FORCE_COLOR"
+      },
+      "result_chars": 1220,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.__init__"
+      },
+      "result_chars": 7630,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.is_terminal"
+      },
+      "result_chars": 2353,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.is_dumb_terminal"
+      },
+      "result_chars": 677,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console._render_buffer"
+      },
+      "result_chars": 1670,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 23.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "Says Idle and Jupyter return False before TTY_COMPATIBLE check and that on Windows COLORTERM/TERM are ignored, which is plausible but not contradicted by key; no clear false claims.",
+      "Says Idle and Jupyter return False before TTY_COMPATIBLE/FORCE_COLOR, listed after force_terminal; consistent with key context, so not false.",
+      "Claims that on Windows COLORTERM and TERM are ignored; key says Windows -> windows or truecolor/256 depending on console features, consistent.",
+      "Says Idle and Jupyter checks come before TTY_COMPATIBLE, with force_terminal first; this ordering is consistent with the key's context, so not clearly false.",
+      "States that a non-terminal or dumb terminal check occurs inside _detect_color_system, whereas the key places it in the is_terminal/color-system setup; minor placement difference."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

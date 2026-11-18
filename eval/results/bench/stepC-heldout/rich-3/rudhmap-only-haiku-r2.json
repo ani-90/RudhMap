@@ -1,0 +1,101 @@
+{
+  "answer": "**Short answer:** `advance()` never draws anything. It only updates the task's numbers. A separate refresh loop, running on a background thread, redraws the bar about 10 times a second.\n\n**1. `advance()` only mutates state.** `Progress.advance` increments `task.completed`, records a speed sample, and sets `finished_time` once the total is reached (`rich/progress.py:1510-1538`). It never calls `refresh()` or touches the console.\n\n**2. A background thread does the redrawing.** `Progress.__init__` creates a `Live` display, passing `auto_refresh` through (`rich/progress.py:1093`). `Live.start()` launches a `_RefreshThread` when auto-refresh is on (`rich/live.py:142`). That thread's `run()` calls `live.refresh()` at a fixed rate (`rich/live.py:22-38`).\n\n**3. Each refresh renders the current state.** `Live.refresh()` takes the lock, sets the renderable, and prints a `Control()` code to the terminal (`rich/live.py:244-271`). The renderable is the `Progress` object itself. `Progress.__rich__` builds a table from the tasks' current `completed` values (`rich/progress.py:1555-1591`), so whatever `advance()` wrote last is what appears on the next frame.\n\n**4. Manual refresh is optional.** `Progress.refresh()` just delegates to `self.live.refresh()` (`rich/progress.py:1540-1543`). It is called from `update`, `reset`, and `add_task` (`rich/progress.py:1469`, `1508`, `1633`), not from `advance`. You only need it if `auto_refresh=False` or you want an immediate redraw.\n\n**Caveat:** I read the thread's `run()` body only from the summary, not the full source, so the exact sleep logic is unverified.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 3,
+  "cost_usd": 0.0019548,
+  "duration_ms": 9330,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5390,
+    "cache_read": 18420,
+    "output": 1384,
+    "context": 5396,
+    "total": 25200
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress"
+      },
+      "result_chars": 3766,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress.advance"
+      },
+      "result_chars": 2130,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Live"
+      },
+      "result_chars": 2125,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Live.refresh"
+      },
+      "result_chars": 2508,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_RefreshThread"
+      },
+      "result_chars": 375,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress.refresh"
+      },
+      "result_chars": 726,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 17.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": true,
+      "in-place": false,
+      "redirect": false
+    },
+    "fact_score": 0.6,
+    "critical_ok": false,
+    "false_claims": [
+      "Live.refresh() 'sets the renderable' and the renderable is the Progress object itself with Progress.__rich__ building the table; the key says Live is created with get_renderable=self.get_renderable (minor discrepancy)",
+      "Live.refresh() 'sets the renderable' and the renderable is the Progress object itself with Progress.__rich__ building the table; the key says Live is created with get_renderable=self.get_renderable (minor discrepancy)",
+      "The renderable is the Progress object itself, built via Progress.__rich__ (key says Live is created with get_renderable=self.get_renderable)",
+      "Live.refresh() sets the renderable (not clearly matching the key's get_renderable re-read)"
+    ],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

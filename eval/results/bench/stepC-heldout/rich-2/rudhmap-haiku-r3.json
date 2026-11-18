@@ -1,0 +1,121 @@
+{
+  "answer": "**Short answer:** Rich first decides whether the output is a terminal. If it isn't, colour is off. If it is, Rich picks a colour system from the environment, and `NO_COLOR` can strip colour afterwards.\n\n**1. Is it a terminal?** (`rich/console.py:925`, `is_terminal`)\n- An explicit `force_terminal` argument wins.\n- Jupyter always returns False (line 943).\n- `TTY_COMPATIBLE` = `0` forces False, `1` forces True (lines 949-955).\n- `FORCE_COLOR` set to any non-empty value forces True (lines 958-960).\n- Otherwise it calls `file.isatty()`, returning False on `ValueError` (lines 963-970).\n\n**2. Is it a dumb terminal?** (`is_dumb_terminal`, line 973) True when `TERM` is `dumb` or `unknown`.\n\n**3. Which colour system?** (`_detect_color_system`, `rich/console.py:783`)\n- Jupyter: TRUECOLOR.\n- Not a terminal, or dumb: `None` (no colour).\n- Windows: uses `legacy_windows` or console features to choose WINDOWS, TRUECOLOR or EIGHT_BIT (lines 789-797).\n- Elsewhere:\n  - `COLORTERM` = `truecolor` or `24bit` gives TRUECOLOR (lines 799-801).\n  - Otherwise the last hyphen-separated part of `TERM` is looked up in `_TERM_COLORS` (`rich/console.py:90`): `kitty` and `256color` give EIGHT_BIT, `16color` gives STANDARD. Anything else falls back to STANDARD (lines 802-805).\n\nThe `color_system` argument can override this. `\"auto\"` triggers detection, and `None` disables colour entirely (lines 700-706).\n\n**4. `NO_COLOR`** (line 719-723) sets `self.no_color` when it is non-empty, unless `no_color=` is passed. At render time, `Segment.remove_color` strips colour when `no_color` is set (lines 2133-2134).\n\n**Environment variables that matter:**\n- `FORCE_COLOR`: forces terminal mode.\n- `NO_COLOR`: strips colour.\n- `TTY_COMPATIBLE`: overrides TTY detection.\n- `TTY_INTERACTIVE`: overrides `is_interactive` (lines 724-736).\n- `COLORTERM`: selects truecolor.\n- `TERM`: selects 256/16-colour or dumb handling.\n- `JUPYTER_COLUMNS` / `JUPYTER_LINES`: size overrides in Jupyter (lines 654-664).\n\n`rich/diagnose.py:19-28` lists the variables Rich reports for debugging.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 5,
+  "cost_usd": 0.00373751,
+  "duration_ms": 16229,
+  "tokens": {
+    "input": 10,
+    "cache_write": 10131,
+    "cache_read": 60381,
+    "output": 2213,
+    "context": 10141,
+    "total": 72735
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "color system detection environment variable"
+      },
+      "result_chars": 1135,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "COLORTERM|FORCE_COLOR|NO_COLOR|TERM|TTY_COMPATIBLE|JUPYTER|TRUECOLOR|detect_color_system|is_terminal|isatty",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "*.py"
+      },
+      "result_chars": 11583,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 700,
+        "limit": 110
+      },
+      "result_chars": 4433,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 925,
+        "limit": 60
+      },
+      "result_chars": 2300,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "no_color|_TERM_COLORS = |COLOR_SYSTEMS",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 624,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 88,
+        "limit": 12
+      },
+      "result_chars": 240,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 2128,
+        "limit": 10
+      },
+      "result_chars": 425,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 23.3,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "Windows branch listed as choosing among WINDOWS, TRUECOLOR or EIGHT_BIT; key says windows (legacy) or truecolor/256 \u2014 consistent, not false.",
+      "Order stated as 'Not a terminal, or dumb: None' within detection, minor ordering difference but not contradictory."
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

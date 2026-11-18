@@ -1,0 +1,116 @@
+{
+  "answer": "The first superuser is created by an idempotent `init_db` step that runs after database migrations, at container startup or when `prestart.sh` is run.\n\n**When it runs**\n- `backend/scripts/prestart.sh:7` runs `alembic upgrade head` to apply migrations.\n- `backend/scripts/prestart.sh:10` then runs `python app/initial_data.py`.\n- `backend/README.md:22` and `:45` show this script being run manually or through Docker Compose.\n- `deployment.md:74` says the prestart script applies migrations and creates the first superuser.\n\n**How it's created**\n- `backend/app/initial_data.py:11-13` opens a session and calls `init_db`.\n- `backend/app/core/db.py:24-26` looks up a user whose email equals `settings.FIRST_SUPERUSER`.\n- `backend/app/core/db.py:27-33` creates that user only if none exists. It uses `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` with `is_superuser=True`, then calls `crud.create_user`.\n- Both values come from settings, declared at `backend/app/core/config.py:65-66` and read from the environment.\n\n**Behavior**\n- The lookup-before-insert makes repeated runs safe. Changing the password in `.env` does not update an existing superuser.\n- The tests use the same `init_db` path in `backend/tests/conftest.py:18`.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 5,
+  "cost_usd": 0.0036770100000000005,
+  "duration_ms": 20425,
+  "tokens": {
+    "input": 10,
+    "cache_write": 12009,
+    "cache_read": 49871,
+    "output": 1551,
+    "context": 12019,
+    "total": 63441
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "first_superuser|superuser|is_superuser",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901"
+      },
+      "result_chars": 11980,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "init_db|prestart|create_user",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend"
+      },
+      "result_chars": 3938,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\initial_data.py"
+      },
+      "result_chars": 465,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "initial_data",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts"
+      },
+      "result_chars": 57,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "FIRST_SUPERUSER",
+        "output_mode": "content",
+        "-n": true,
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\config.py"
+      },
+      "result_chars": 142,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 23.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "answer": "**Add-user flow, from the Admin page to the database**\n\n1. **Admin page.** `frontend/src/routes/_layout/admin.tsx:69` renders the `<AddUser />` component. It's a dialog with a react-hook-form and a zod resolver (`frontend/src/components/Admin/AddUser.tsx:60-72`). The form fields are email, full name, password, confirm password, `is_superuser` and `is_active`.\n\n2. **Submit.** `onSubmit` calls `mutation.mutate(data)` (`AddUser.tsx:87-89`). The mutation function is `UsersService.createUser({ body: data })` (`AddUser.tsx:75`).\n\n3. **Generated client.** `UsersService.createUser` is at `frontend/src/client/sdk.gen.ts:119`. It sends a POST to `/api/v1/users/`. The URL at `sdk.gen.ts:123` is in the grep output, but I didn't open the file to confirm that line is the POST.\n\n4. **On success or error.** `onSuccess` shows a toast, resets the form and closes the dialog. `onSettled` invalidates the `[\"users\"]` query so the user table refetches (`AddUser.tsx:76-84`).\n\n5. **API route.** `backend/app/api/routes/users.py:54-57` defines `POST /`. It's guarded by `Depends(get_current_active_superuser)`, so only superusers can call it.\n   - It checks for an existing user with `crud.get_user_by_email` and returns a 400 if the email is taken (`users.py:61-66`).\n   - It then calls `crud.create_user` (`users.py:68`).\n   - If emails are enabled, it sends a \"new account\" email (`users.py:69-77`).\n   - It returns the user, serialized as `UserPublic`.\n\n6. **Database write.** `backend/app/crud.py:10-17` does the following:\n   - It builds a `User` with `User.model_validate`, adding `hashed_password` from `get_password_hash(user_create.password)`.\n   - It runs `session.add`, `session.commit` and `session.refresh`.\n\n   The plaintext password is hashed before it's stored. The `session` comes from the `SessionDep` dependency.\n\nI didn't open the `User` model or the session setup, so I haven't confirmed the table definition or the database engine.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.037669,
+  "duration_ms": 12610,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5219,
+    "cache_read": 18510,
+    "output": 1493,
+    "context": 5225,
+    "total": 25228
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "AddUser|createUser|create_user",
+        "output_mode": "content",
+        "glob": "!**/openapi.json",
+        "head_limit": 60
+      },
+      "result_chars": 5268,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\api\\routes\\users.py",
+        "offset": 48,
+        "limit": 35
+      },
+      "result_chars": 1220,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\crud.py",
+        "limit": 25
+      },
+      "result_chars": 852,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\components\\Admin\\AddUser.tsx",
+        "offset": 55,
+        "limit": 40
+      },
+      "result_chars": 1162,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "users/|url:",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\frontend\\src\\client\\sdk.gen.ts",
+        "output_mode": "content",
+        "head_limit": 8
+      },
+      "result_chars": 436,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h2",
+  "repo": "fastapi-template",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 14.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "component": true,
+      "http": true,
+      "superuser-only": true,
+      "create": true,
+      "after": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

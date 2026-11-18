@@ -1,0 +1,132 @@
+{
+  "answer": "The first superuser is created by an idempotent startup script, not by the API or a migration.\n\n**When:** It runs as a separate step after the database is up, not at app startup. `backend/scripts/prestart.sh:7` runs `alembic upgrade head` to apply migrations, then `:10` runs `python app/initial_data.py`. The docs and CI call this script before starting the server (e.g. `development.md:17`, `deployment.md:74`, `.github/workflows/deploy.yml:42`).\n\n**How:**\n1. `backend/app/initial_data.py:16-19` (`main`) calls `init()`.\n2. `backend/app/initial_data.py:11-13` (`init`) opens a `Session(engine)` and calls `init_db(session)`.\n3. `backend/app/core/db.py:24-33` (`init_db`) looks up a `User` whose email equals `settings.FIRST_SUPERUSER`. If none exists, it builds a `UserCreate` with `is_superuser=True` and the password from `settings.FIRST_SUPERUSER_PASSWORD`, then calls `crud.create_user` (`backend/app/crud.py:10`), which hashes the password via `get_password_hash` (`backend/app/core/security.py:35`).\n\n**Source of credentials:** `backend/app/core/config.py:65-66` declares `FIRST_SUPERUSER: EmailStr` and `FIRST_SUPERUSER_PASSWORD: str`, which are loaded from the environment/`.env`.\n\n**Idempotency:** The existence check at `db.py:27` means re-running prestart does not create a duplicate. It also does not update an existing user's password or flags if the env values change.\n\n**Note:** `db.py:16-22` says tables are meant to come from Alembic. The `SQLModel.metadata.create_all` line is commented out, so the superuser step assumes migrations have already created the schema.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 10,
+  "model_calls": 6,
+  "cost_usd": 0.00201686,
+  "duration_ms": 16650,
+  "tokens": {
+    "input": 12,
+    "cache_write": 2951,
+    "cache_read": 57046,
+    "output": 1710,
+    "context": 2963,
+    "total": 61719
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "create first superuser"
+      },
+      "result_chars": 1541,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "init_db"
+      },
+      "result_chars": 2302,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "init",
+        "detail": "full"
+      },
+      "result_chars": 537,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "prestart"
+      },
+      "result_chars": 96,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "initial_data|prestart",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "!**/node_modules/**"
+      },
+      "result_chars": 2072,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "main",
+        "detail": "full"
+      },
+      "result_chars": 242,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/initial_data.py:main",
+        "detail": "full"
+      },
+      "result_chars": 729,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "FIRST_SUPERUSER",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\config.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 142,
+      "model_call": 5,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-nudge",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 33.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": true,
+      "secrets": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

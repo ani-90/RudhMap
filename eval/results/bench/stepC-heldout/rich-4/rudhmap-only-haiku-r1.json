@@ -1,0 +1,65 @@
+{
+  "answer": "**Direct callers in rich (non-test):**\n\n- **`Console.update_screen`**, `rich/console.py:1844`. Used by `Live` screen mode. Changing the return shape or the padding/cropping behaviour affects the screen buffer.\n- **`LiveRender.__rich_console__`**, `rich/live_render.py:91`. Live display rendering depends on this, so it is the main path through Live, Progress, and Status.\n- **`BlockQuote.__rich_console__`**, `rich/markdown.py:208`. Markdown block quotes draw their border from the returned lines.\n- **`ListItem.render_bullet`**, `rich/markdown.py:386`, and **`ListItem.render_number`**, `rich/markdown.py:402`. Markdown list bullets and numbers are rendered this way.\n- **`Syntax._get_syntax`**, `rich/syntax.py:683`. This feeds `Syntax.__rich_console__` (`rich/syntax.py:633`), so code blocks are affected.\n\n**Indirect:** `Panel`, `Table`, and other border-drawing renderables are not in the call-graph output as direct callers. The docstring at `rich/console.py:1350-1351` names Panel as a consumer of this output, so check those classes too.\n\n**Parameters to watch:**\n- `style` is applied through `Segment.apply_style` (`rich/segment.py:174`).\n- `pad`, `new_lines`, and `render_options.max_width` go into `Segment.split_and_crop_lines` (`rich/segment.py:294`).\n- `render_options.height` controls cropping and padding (`rich/console.py:1369-1399`).\n- The method holds `self._lock` (`rich/console.py:1363`), so changes that re-enter the console could deadlock.\n\n**Caveats:** This comes from the static call graph. It will miss dynamic dispatch, calls through `getattr`, and user-defined renderables that call `render_lines` from outside the package. Confirm with a grep for `render_lines(` before relying on the list. Also, the trace tool reports the `live_render.py` call at line 86 while `show` reports it at line 91. I did not open the file to check which is correct.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 3,
+  "model_calls": 2,
+  "cost_usd": 0.0012437800000000003,
+  "duration_ms": 7906,
+  "tokens": {
+    "input": 4,
+    "cache_write": 2979,
+    "cache_read": 9008,
+    "output": 1115,
+    "context": 2983,
+    "total": 13106
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.render_lines",
+        "detail": "full"
+      },
+      "result_chars": 4737,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__trace",
+      "input": {
+        "symbol": "Console.render_lines",
+        "direction": "up"
+      },
+      "result_chars": 498,
+      "model_call": 1,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-4",
+  "repo": "rich",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 15.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "what": true,
+      "containers": false,
+      "screen-live": false,
+      "print-not": false
+    },
+    "fact_score": 0.25,
+    "critical_ok": false,
+    "false_claims": [
+      "Panel, Table and other border-drawing renderables are not direct callers of render_lines (they are: panel.py:229, table.py:828, padding.py:97, tree.py:138)",
+      "Panel, Table and other border-drawing renderables are not direct callers of render_lines (they are: panel.py:229, table.py:828, padding.py:97, tree.py:138)",
+      "Panel, Table and other border-drawing renderables are not direct callers of render_lines (they are: panel.py:229, table.py:828, padding.py:97, tree.py:138)"
+    ],
+    "major_false_claim": true,
+    "correct": false,
+    "unanimous": true
+  }
+}

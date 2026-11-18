@@ -1,0 +1,86 @@
+{
+  "answer": "A `Client` keeps cookies in one jar on the client, copies them into each outgoing request, and absorbs `Set-Cookie` from every response, including redirect responses.\n\n**Storage.** `BaseClient.cookies` (`httpx/_client.py:319`) is the client-level cookie store. Each `Cookies` object wraps a `http.cookiejar` jar (`httpx/_models.py:1079`), and `Cookies.update` writes into that jar (`httpx/_models.py:1205-1208`).\n\n**Sending.** `BaseClient._merge_cookies` (`httpx/_client.py:413-422`) combines the client's jar with any per-request `cookies=` argument into a new `Cookies` object. It is called from `build_request` (`httpx/_client.py:368`), so the outgoing request carries the merged cookies.\n\n**Receiving.** `Client._send_single_request` calls `self.cookies.extract_cookies(response)` (`httpx/_client.py:1022`). That delegates to `Cookies.extract_cookies` (`httpx/_models.py:1101-1108`), which wraps the response and request in urllib-compatible shims and feeds them to the jar's `extract_cookies`. The async client does the same at `httpx/_client.py:1737`.\n\n**Redirects.** `Client._send_handling_redirects` (`httpx/_client.py:964-999`) loops:\n1. Sends one request via `_send_single_request` (`:979`). This stores any `Set-Cookie` from the redirect response into the client jar first.\n2. If the response has a `Location`, it calls `_build_redirect_request` (`:988`).\n3. `_build_redirect_request` (`httpx/_client.py:475-492`) builds the next request with `cookies=Cookies(self.cookies)` (`:484`). Because this reads the client jar after step 1, cookies from the redirect response are sent on the next hop.\n4. If `follow_redirects` is false, the redirect response is returned with `next_request` set (`:994-995`). Otherwise the loop continues, capped by `max_redirects` (`:971-974`).\n\n**Not verified:** I did not read `_redirect_headers` (`httpx/_client.py:546`), so I can't confirm how it treats a `Cookie` header that was set per request. The redirect path above shows that cookies come from the client jar, not from the original request's `cookies=` argument.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.00195419,
+  "duration_ms": 9982,
+  "tokens": {
+    "input": 6,
+    "cache_write": 5116,
+    "cache_read": 17889,
+    "output": 1503,
+    "context": 5122,
+    "total": 24514
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Client cookies redirect"
+      },
+      "result_chars": 1601,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "extract_cookies"
+      },
+      "result_chars": 2215,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_build_redirect_request"
+      },
+      "result_chars": 3537,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3043,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._merge_cookies"
+      },
+      "result_chars": 1378,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 16.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": false,
+      "redirect": true,
+      "deprecated": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

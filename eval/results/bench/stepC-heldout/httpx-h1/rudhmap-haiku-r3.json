@@ -1,0 +1,106 @@
+{
+  "answer": "A `Client` keeps cookies in a single jar on the client, stores new `Set-Cookie` values from every response, and attaches them to each outgoing request, including redirect hops.\n\n**Storage**\n- `Client.__init__` wraps the `cookies` argument in a `Cookies` object and stores it as `self._cookies` (`httpx/_client.py:211`). The `cookies` property exposes it (`httpx/_client.py:319-327`).\n- `Cookies` is a wrapper around a `http.cookiejar.CookieJar` (`httpx/_models.py:1084-1099`).\n\n**Sending**\n- Per-request cookies are merged with the client's jar by `_merge_cookies`, which copies the client's cookies and layers the request's on top (`httpx/_client.py:413-422`).\n- When a `Request` is built with cookies, they are written into its `Cookie` header (`httpx/_models.py:403-404`).\n\n**Receiving**\n- After each single request is sent, `_send_single_request` calls `self.cookies.extract_cookies(response)` (`httpx/_client.py:1022`). That passes the response to the jar, which applies its `Set-Cookie` headers using the request's URL for domain and path matching (`httpx/_models.py:1101-1108`).\n\n**Redirects**\n- `_send_handling_redirects` loops: it sends a request, and if the response has a `Location`, it builds the next request with `_build_redirect_request` and sends that (`httpx/_client.py:964-995`). Each hop goes through `_send_single_request`, so cookies set by a redirect response are stored before the next hop is built.\n- `_build_redirect_request` seeds the new request with `Cookies(self.cookies)`, a fresh copy of the client jar (`httpx/_client.py:484-489`). So the jar's current contents, including cookies from the redirect response, are what the next request carries.\n- `_redirect_headers` removes any incoming `Cookie` header and drops `Authorization` on cross-origin redirects (except direct HTTP\u2192HTTPS upgrades) (`httpx/_client.py:550-569`). The cookie header is therefore always rebuilt from the client's jar, not copied from the original request.\n\n**Caveat:** Cookie domain/path rules are enforced by the stdlib `CookieJar`, so a cookie is only sent when it matches the URL of the request being sent.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00274147,
+  "duration_ms": 12146,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7269,
+    "cache_read": 39637,
+    "output": 1781,
+    "context": 7277,
+    "total": 48695
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Client cookies redirect"
+      },
+      "result_chars": 1601,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "cookies",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 8114,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 475,
+        "limit": 20
+      },
+      "result_chars": 870,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 964,
+        "limit": 75
+      },
+      "result_chars": 2674,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 1084,
+        "limit": 25
+      },
+      "result_chars": 1144,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 546,
+        "limit": 26
+      },
+      "result_chars": 1240,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 19.2,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": true,
+      "redirect": true,
+      "deprecated": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

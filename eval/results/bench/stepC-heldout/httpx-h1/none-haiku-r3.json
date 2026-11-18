@@ -1,0 +1,120 @@
+{
+  "answer": "**Storage:** Each `Client` owns a `Cookies` object, created in `__init__` at `httpx/_client.py:211` (`self._cookies = Cookies(cookies)`) and exposed as the `cookies` property at `_client.py:319-327`. `Cookies` wraps a standard `http.cookiejar.CookieJar` as `self.jar` (`httpx/_models.py:1084-1099`).\n\n**Sending:** When a request is built, `_merge_cookies` (`_client.py:413-422`) combines the client's jar with any per-call cookies, and `build_request` uses the result (`_client.py:368`). `Request.__init__` then writes matching cookies into the `Cookie` header via `Cookies.set_cookie_header` (`httpx/_models.py:403-404`, `1110-1114`).\n\n**Receiving:** Every response goes through `_send_single_request`, which calls `self.cookies.extract_cookies(response)` at `_client.py:1022`. That parses `Set-Cookie` headers into the client's jar (`_models.py:1101-1108`). The same happens for each hop, so the jar is updated before any redirect is followed.\n\n**Redirects:** `_send_handling_redirects` (`_client.py:964-999`) loops over hops. For each redirect response it calls `_build_redirect_request` (`_client.py:988`), which:\n- builds a fresh `Request` seeded with a copy of the client's current cookies (`_client.py:484-489`), so cookies set by the redirect response are included on the next hop;\n- drops the original `Cookie` header in `_redirect_headers` (`_client.py:567-569`), so the client's jar is the only source of cookie headers.\n\nThe loop only follows redirects when `follow_redirects` is true; otherwise it returns the redirect response with `next_request` set (`_client.py:991-995`). It raises `TooManyRedirects` past `max_redirects` (`_client.py:971-974`).\n\n**Per-response view:** `response.cookies` (`_models.py:835-839`) builds a `Cookies` object from that single response's `Set-Cookie` headers. It is separate from the client's jar.\n\nDomain and path matching are delegated to `http.cookiejar` through the compatibility wrappers in `_models.py`. I did not read the wrapper internals, so I'm relying on the stdlib behavior there.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 5,
+  "cost_usd": 0.0032208200000000005,
+  "duration_ms": 17030,
+  "tokens": {
+    "input": 10,
+    "cache_write": 7274,
+    "cache_read": 48802,
+    "output": 2554,
+    "context": 7284,
+    "total": 58640
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "cookies|_cookies|extract_cookies|_merge_cookies|set_cookie|cookie_jar",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 8381,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Glob",
+      "input": {
+        "pattern": "**/*.py",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx"
+      },
+      "result_chars": 463,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 950,
+        "limit": 80
+      },
+      "result_chars": 2949,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "offset": 1100,
+        "limit": 15
+      },
+      "result_chars": 655,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def _build_redirect_request|def _redirect_headers|def _redirect_stream|Cookie",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 15
+      },
+      "result_chars": 879,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 475,
+        "limit": 20
+      },
+      "result_chars": 870,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 562,
+        "limit": 12
+      },
+      "result_chars": 515,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 18.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": true,
+      "redirect": true,
+      "deprecated": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

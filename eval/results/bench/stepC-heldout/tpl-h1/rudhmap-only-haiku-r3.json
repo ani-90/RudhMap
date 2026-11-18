@@ -1,0 +1,115 @@
+{
+  "answer": "**Short answer:** the first superuser is created by `init_db()` when `backend/app/initial_data.py` runs. Nothing creates it at app import or startup. It is a one-time, idempotent seeding step that you run explicitly.\n\n**How it works**\n\n- `init_db(session)` at `backend/app/core/db.py:15` looks up a `User` whose email equals `settings.FIRST_SUPERUSER` (L24-26). If none exists, it builds a `UserCreate` with `is_superuser=True` and the `FIRST_SUPERUSER_PASSWORD` setting (L28-32), then calls `crud.create_user` (L33), which hashes the password via `get_password_hash` (`backend/app/core/security.py:35`).\n- The schema comes from Alembic, not from `SQLModel.metadata.create_all`. That call is commented out at `db.py:22`, so migrations must run before the seed.\n- `backend/app/initial_data.py` wraps this. `init()` (L11-13) opens a session on `engine` and calls `init_db`. `main()` (L16-19) logs and calls `init()`. The `__main__` guard (L22-23) makes the file runnable as a script.\n\n**When it runs**\n\n- Each run is idempotent: an existing user with that email is left alone, so re-running is safe.\n- The file's own code only runs when executed as a script. I could not confirm the invoking step. The call graph shows nothing in the repo calling `main`, and `backend/scripts/prestart.sh` is not indexed, so I could not read it. Check that script, or your Docker/compose entrypoint, to confirm the order: migrations first, then `python app/initial_data.py`.\n\n**Configuration**\n\n- `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` are read from `Settings` in `backend/app/core/config.py` (class at L15-88). `_enforce_non_default_secrets` (L80-88) guards against shipping default secrets. I did not read the individual field definitions, so I can't give their exact lines.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 5,
+  "cost_usd": 0.00185128,
+  "duration_ms": 13715,
+  "tokens": {
+    "input": 10,
+    "cache_write": 3503,
+    "cache_read": 35618,
+    "output": 1587,
+    "context": 3513,
+    "total": 40718
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "first superuser create"
+      },
+      "result_chars": 1541,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "init db superuser"
+      },
+      "result_chars": 2913,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/initial_data.py"
+      },
+      "result_chars": 557,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "prestart backend initial_data"
+      },
+      "result_chars": 1261,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "prestart.sh initial_data.py alembic upgrade"
+      },
+      "result_chars": 2976,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/app/core/config.py",
+        "detail": "outline"
+      },
+      "result_chars": 497,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "backend/scripts/prestart.sh"
+      },
+      "result_chars": 1159,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "FIRST_SUPERUSER",
+        "detail": "signature"
+      },
+      "result_chars": 111,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 36.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": false,
+      "init-db": true,
+      "hash": true,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

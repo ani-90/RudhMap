@@ -1,0 +1,104 @@
+{
+  "answer": "**Short answer:** rich decides in two steps. First, `Console.__init__` picks a colour *system* (or `None` for no colour). Then `NO_COLOR` is recorded as a separate flag. The rendering path that applies these was not traced here, so I can't cite where colour is stripped at output time.\n\n**Step 1: is the output a terminal?** (`Console.is_terminal`, `rich/console.py:925-970`)\n- An explicit `force_terminal` argument wins (`:933-934`).\n- Idle and Jupyter return False (`:937-945`).\n- `TTY_COMPATIBLE=0` or `1` forces the answer (`:949-955`).\n- `FORCE_COLOR` set to a non-empty value forces True (`:958-960`).\n- Otherwise it falls back to `file.isatty()` (`:963-970`).\n\n**Step 2: which colour system?** (`Console.__init__`, `rich/console.py:701-706`)\n- `color_system=None` disables colour.\n- `\"auto\"` calls `_detect_color_system()` (`:704`), which is at `rich/console.py:783-805`:\n  - Jupyter gives TRUECOLOR (`:785-786`).\n  - Not a terminal, or a dumb terminal, gives None (`:787-788`; `is_dumb_terminal` at `:973-982` checks `TERM` for `dumb` or `unknown`).\n  - On Windows (`:789-797`), it uses the console feature probe rather than env vars. Legacy Windows gives WINDOWS; otherwise TRUECOLOR if supported, else EIGHT_BIT.\n  - Elsewhere, `COLORTERM=truecolor` or `24bit` gives TRUECOLOR (`:799-801`). Otherwise the suffix of `TERM` is looked up in `_TERM_COLORS` (`rich/console.py:90`: `kitty` and `256color` map to EIGHT_BIT, `16color` to STANDARD), with STANDARD as the default (`:802-805`).\n- Naming a system explicitly (`\"standard\"`, `\"256\"`, `\"truecolor\"`, `\"windows\"`) bypasses detection (`:705-706`).\n\n**Environment variables**\n| Variable | Effect | Where |\n|---|---|---|\n| `NO_COLOR` | Non-empty sets `self.no_color` (overridable via the `no_color` argument) | `:719-723` |\n| `FORCE_COLOR` | Non-empty forces terminal mode | `:958-960` |\n| `TTY_COMPATIBLE` | `0`/`1` forces terminal mode off/on | `:949-955` |\n| `TTY_INTERACTIVE` | `0`/`1` sets `is_interactive` | `:725-730` |\n| `COLORTERM` | `truecolor`/`24bit` gives TRUECOLOR (non-Windows) | `:799-801` |\n| `TERM` | Dumb/unknown disables colour; suffix selects system | `:802-805`, `:980-981` |\n| `COLUMNS`, `LINES` | Default width/height | `:679-685` |\n| `JUPYTER_COLUMNS`, `JUPYTER_LINES` | Default size in Jupyter | `:654-664` |\n\nThe `_environ` mapping can be injected for testing (`:648-649`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 8,
+  "model_calls": 4,
+  "cost_usd": 0.00287039,
+  "duration_ms": 15487,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7520,
+    "cache_read": 28359,
+    "output": 2164,
+    "context": 7528,
+    "total": 38051
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "color system detection environment variable"
+      },
+      "result_chars": 1135,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "_environ NO_COLOR FORCE_COLOR"
+      },
+      "result_chars": 1228,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "detect_color_system"
+      },
+      "result_chars": 2744,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.__init__"
+      },
+      "result_chars": 7630,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.is_terminal"
+      },
+      "result_chars": 2353,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Console.is_dumb_terminal"
+      },
+      "result_chars": 677,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "no_color strip style render segments"
+      },
+      "result_chars": 1395,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 21.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

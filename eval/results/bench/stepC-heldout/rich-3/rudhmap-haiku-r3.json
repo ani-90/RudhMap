@@ -1,0 +1,81 @@
+{
+  "answer": "**Short answer:** `advance()` never draws anything. It only updates the task's numbers. A background thread redraws the bar about 10 times per second.\n\n**1. `advance()` only mutates state.** It increments `task.completed` and records a speed sample under `self._lock`, then returns (`rich/progress.py:1510-1538`). It doesn't call `refresh()`.\n\n**2. `Progress.__enter__` starts the display.** It calls `start()` (`rich/progress.py:1173-1175`), which starts the `Live` display (`rich/progress.py:1161-1164`).\n\n**3. `Live.start()` spawns the refresh thread.** With `auto_refresh=True` (the default), it creates and starts a `_RefreshThread` (`rich/live.py:141-143`). The default rate is `refresh_per_second=10` (`rich/progress.py:1075`).\n\n**4. The thread redraws on a timer.** `_RefreshThread.run()` loops on `done.wait(1 / refresh_per_second)` and calls `live.refresh()` under `live._lock` each time (`rich/live.py:34-38`). It's a daemon thread, so it won't keep the process alive.\n\n**5. `Live.refresh()` does the repaint.** It sets the renderable on `LiveRender` (`rich/live.py:247`), which calls `Progress.get_renderable()` through the `get_renderable` callback passed in at `rich/progress.py:1100`. It then prints a `Control()` to the console (`rich/live.py:269-271`). That print triggers the render hook installed at `rich/live.py:130`, which redraws the bar in place. I didn't read the hook's body, so the exact cursor-movement mechanics are inferred from the call path, not verified.\n\n**Other paths to a redraw:**\n- `Progress.refresh()` forces a repaint if the display is started and not disabled (`rich/progress.py:1540-1543`).\n- `update(..., refresh=True)` calls it (`rich/progress.py:1468-1469`). `advance()` has no such parameter.\n\n**Practical consequence:** the bar updates at most every 0.1 s regardless of how fast you call `advance()`. If you set `auto_refresh=False`, nothing redraws until you call `progress.refresh()` yourself.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.0028114200000000002,
+  "duration_ms": 12191,
+  "tokens": {
+    "input": 6,
+    "cache_write": 8895,
+    "cache_read": 25532,
+    "output": 1553,
+    "context": 8901,
+    "total": 35986
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress",
+        "detail": "full"
+      },
+      "result_chars": 8137,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Live refresh thread auto_refresh"
+      },
+      "result_chars": 1138,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Progress.advance, Progress.update, Progress.refresh",
+        "detail": "full"
+      },
+      "result_chars": 7165,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_RefreshThread, Live.refresh, Live.start",
+        "detail": "full"
+      },
+      "result_chars": 6104,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 19.8,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": false,
+      "in-place": false,
+      "redirect": false
+    },
+    "fact_score": 0.4,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

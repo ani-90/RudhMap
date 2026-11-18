@@ -1,0 +1,97 @@
+{
+  "answer": "A `Client` stores cookies in one persistent jar. It adds them to each outgoing request and updates the jar from every response, including each hop of a redirect chain.\n\n**Storage**\n- `Client.__init__` wraps the `cookies=` argument in `Cookies(cookies)` and keeps it as `self._cookies` (`httpx/_client.py:211`).\n- The `cookies` property and setter expose it (`_client.py:319-327`).\n- `Cookies` is a mutable mapping around a stdlib `http.cookiejar.CookieJar` (`httpx/_models.py:1079-1095`).\n\n**Sending**\n- `build_request` calls `_merge_cookies`, which copies the client cookies and overlays any per-request cookies (`_client.py:368`, `413-422`). Per-request cookies are deprecated (`_client.py:804-808`).\n- `Request.__init__` then calls `Cookies(cookies).set_cookie_header(self)` (`_models.py:404`).\n- `set_cookie_header` wraps the request in `_CookieCompatRequest` and asks the jar to add the `Cookie:` header (`_models.py:1110-1114`, `1243-1258`). The jar applies its own domain, path and expiry matching.\n\n**Receiving**\n- `_send_single_request` calls `self.cookies.extract_cookies(response)` after the transport returns (`_client.py:1022`). The async client does the same at line 1737.\n- `extract_cookies` feeds the `Set-Cookie` headers to the jar through `_CookieCompatResponse` (`_models.py:1101-1108`).\n\n**Redirects**\n- `_send_single_request` handles one hop. Each hop in the redirect loop therefore updates the jar with that response's cookies.\n- `_build_redirect_request` snapshots the current client cookies with `Cookies(self.cookies)` (`_client.py:484`). It passes them to the new `Request` (`_client.py:485-490`), which sets the `Cookie:` header again.\n- A cookie set by a 302 response is therefore sent on the redirected request. The jar's domain matching decides whether it goes to a different host.\n\nI didn't open the redirect loop in `_send_handling_redirects`, so the per-hop behaviour comes from the code above, not from that loop.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 3,
+  "cost_usd": 0.0320234,
+  "duration_ms": 14479,
+  "tokens": {
+    "input": 6,
+    "cache_write": 3705,
+    "cache_read": 18314,
+    "output": 1536,
+    "context": 3711,
+    "total": 23561
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "cookies|extract_cookies|set_cookie_header",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "output_mode": "content"
+      },
+      "result_chars": 3330,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 475,
+        "limit": 20
+      },
+      "result_chars": 870,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_client.py",
+        "offset": 1000,
+        "limit": 28
+      },
+      "result_chars": 1094,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def extract_cookies|def set_cookie_header|class _CookieCompatRequest|add_unredirected_header|def (set|update)\\b",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "output_mode": "content"
+      },
+      "result_chars": 590,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "Cookie",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\httpx-b5addb6\\httpx\\_models.py",
+        "output_mode": "content",
+        "head_limit": 30
+      },
+      "result_chars": 1605,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 3,
+  "wall_s": 16.6,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": true,
+      "redirect": false,
+      "deprecated": true
+    },
+    "fact_score": 0.75,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": false
+  }
+}

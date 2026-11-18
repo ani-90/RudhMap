@@ -1,0 +1,116 @@
+{
+  "answer": "**Short answer:** `advance()` never draws anything. It only updates task state. A background thread redraws the display about 4 times per second.\n\n1. **`advance()` only updates data.** It takes the lock, increments `task.completed`, and records a speed sample (`rich/progress.py:1510-1538`). It never calls `refresh()`.\n\n2. **Progress owns a `Live` with auto-refresh on.** `Progress` builds `self.live = Live(...)` with `auto_refresh=auto_refresh` and `get_renderable=self.get_renderable` (`rich/progress.py:1093-1100`). `refresh_per_second` defaults to 4 (`rich/live.py:64`).\n\n3. **A daemon thread redraws on a timer.** When `Live.start()` runs with auto-refresh, it spawns a `_RefreshThread` (`rich/live.py:141-142`). That thread loops every `1 / refresh_per_second` seconds, takes `live._lock`, and calls `live.refresh()` (`rich/live.py:31-38`).\n\n4. **`Live.refresh()` rebuilds and prints the frame.** It sets the live render's renderable (`rich/live.py:244-247`). The renderable comes from `Progress.get_renderable()`, which rebuilds the task table from current state (`rich/live.py:103-106`, `rich/progress.py:1545-1553`). In a terminal, it prints `Control()` through the console (`rich/live.py:269-271`).\n\n5. **Old output is overwritten in place.** `process_renderables` prepends a cursor reset (`position_cursor()`, or cursor-home in alt-screen mode) when the console is interactive (`rich/live.py:283-289`). The new frame therefore lands over the previous one instead of scrolling. I did not read `position_cursor` itself, so I haven't confirmed its exact escape sequences.\n\n**Practical consequences:**\n- Your loop can call `advance()` thousands of times per second. Only the latest state appears, roughly every 0.25 s.\n- To force an immediate redraw, call `progress.refresh()` (`rich/progress.py:1540-1543`). It is a no-op if the progress is disabled or the live display isn't started.\n- `Progress(auto_refresh=False)` disables the thread, and then you must call `refresh()` yourself.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00261519,
+  "duration_ms": 14368,
+  "tokens": {
+    "input": 8,
+    "cache_write": 5525,
+    "cache_read": 32489,
+    "output": 2369,
+    "context": 5533,
+    "total": 40391
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def advance|def refresh|def update\\b|def _live_render|def start|def stop|def __enter__|def __exit__",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 2508,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def refresh|def process_renderables|def _enter_buffer|def __enter__|def start|def stop|auto_refresh|refresh_per_second",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1158,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\progress.py",
+        "offset": 1510,
+        "limit": 60
+      },
+      "result_chars": 2508,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 230,
+        "limit": 60
+      },
+      "result_chars": 2799,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\live.py",
+        "offset": 20,
+        "limit": 20
+      },
+      "result_chars": 633,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "self.live = Live\\(|auto_refresh=|get_renderable\\b|def renderable",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1562,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-3",
+  "repo": "rich",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 16.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "advance-no-draw": true,
+      "live": true,
+      "refresh": true,
+      "in-place": true,
+      "redirect": false
+    },
+    "fact_score": 0.8,
+    "critical_ok": true,
+    "false_claims": [
+      "refresh_per_second defaults to 4 / redraw about 4 times per second (Progress default is 10 per second; 4 is Live's default, not Progress's)",
+      "Progress's refresh_per_second defaults to 4 / redraws about 4 times per second (key says Progress default is 10 per second); the answer cites Live's default rather than Progress's",
+      "refresh_per_second defaults to 4 / redraw about 4 times per second (Progress default is 10 per second)",
+      "Your loop's latest state appears roughly every 0.25 s (should be ~0.1 s)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

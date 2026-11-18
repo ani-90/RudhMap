@@ -1,0 +1,102 @@
+{
+  "answer": "The first superuser is created by an idempotent startup step, not by a migration or an API call.\n\n**How**\n\n- The account is defined by settings `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` (`backend/app/core/config.py:65-66`).\n- `init_db(session)` in `backend/app/core/db.py:15` looks up a user whose email equals `settings.FIRST_SUPERUSER` (lines 24-26). If none exists, it calls `crud.create_user` with `is_superuser=True` (lines 27-33).\n- Because of that lookup, re-running it does nothing once the user exists. It never resets an existing password or superuser flag.\n- The `create_all` call is commented out (`db.py:19-22`). Tables come from Alembic migrations.\n\n**When**\n\n- `backend/scripts/prestart.sh:7` runs `alembic upgrade head` to apply migrations.\n- `backend/scripts/prestart.sh:10` then runs `python app/initial_data.py`.\n- `backend/app/initial_data.py:11-13` opens a session on the engine and calls `init_db`.\n- `prestart.sh` is invoked by the developer setup (`development.md:17`, `backend/README.md:22`), by the Docker Compose flows (`development.md:60`, `deployment-docker-compose.md:55`), and by the CI and deploy workflows (`.github/workflows/deploy.yml:42`, `.github/workflows/test-backend.yml:31`, `.github/workflows/deploy-docker-compose.yml:39`).\n- The test fixture `backend/tests/conftest.py:18` also calls `init_db` directly.\n\n**Deployment inputs**\n\n- Compose requires both variables to be set (`compose.yml:58-59`).\n- The deploy workflows pass them from repository variables and secrets (`.github/workflows/deploy.yml:48-49`).\n\nSo the superuser exists once `prestart.sh` has run after migrations, and each later run is a no-op for that email.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.0031289500000000006,
+  "duration_ms": 10844,
+  "tokens": {
+    "input": 8,
+    "cache_write": 9986,
+    "cache_read": 45695,
+    "output": 1348,
+    "context": 9994,
+    "total": 57037
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "create superuser first"
+      },
+      "result_chars": 1541,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "superuser|is_superuser|FIRST_SUPERUSER",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 15488,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "init_db|initial_data|prestart",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "!frontend/**"
+      },
+      "result_chars": 2272,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\initial_data.py"
+      },
+      "result_chars": 465,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 3,
+  "wall_s": 20.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": true,
+    "false_claims": [
+      "Described as an 'idempotent startup step' \u2014 it is not run at app startup but in prestart script (though the answer later clarifies prestart.sh)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

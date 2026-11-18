@@ -1,0 +1,114 @@
+{
+  "answer": "**Short answer:** Rich decides on colour output in two separate steps. First, `is_terminal` decides whether the output is a terminal (honouring `FORCE_COLOR` and friends). Then `color_system` picks the depth, either from an explicit argument or by auto-detection from the environment.\n\n**1. Whether to emit colour at all**\n\n- `Console.is_terminal` (`rich/console.py:925`) checks in order:\n  - an explicit `force_terminal` argument (`:933`);\n  - `TTY_COMPATIBLE`: `\"0\"` forces off, `\"1\"` forces on (`:949-955`);\n  - `FORCE_COLOR`: any non-empty value forces on (`:958-960`, see force-color.org);\n  - otherwise `isatty()` on the output file (`:963-970`).\n  - Jupyter always returns False (`:943-945`).\n- `color_system` is `None` when the terminal is not a TTY or is `dumb`/`unknown` (`:787-788`). Styles then render as plain text (`rich/style.py:710`).\n- `NO_COLOR` (any non-empty value) sets `self.no_color` (`:719-723`). When set, colours are stripped even if a colour system exists (`:2130-2133`).\n\n**2. Which colour system to use**\n\n- The `color_system` argument: `None`, `\"auto\"`, or a name in `COLOR_SYSTEMS` (`:701-706`). The names map to `standard`, `256`, `truecolor` and `windows` (`rich/console.py:520-523`).\n- For `\"auto\"`, `_detect_color_system` (`:783-805`) does the following:\n  - Jupyter returns truecolor.\n  - On Windows it uses the console features, returning truecolor or 8-bit (`:789-797`).\n  - Elsewhere, `COLORTERM` set to `truecolor` or `24bit` returns truecolor (`:799-801`).\n  - Otherwise it takes the suffix of `TERM` (e.g. `xterm-256color` gives `256color`) and looks it up in `_TERM_COLORS` (`:802-805`, table at `:90-93`). Anything unknown falls back to `STANDARD`.\n\n**Environment variables**\n\n| Variable | Effect | Location |\n|---|---|---|\n| `NO_COLOR` | Disables colour | `console.py:722` |\n| `FORCE_COLOR` | Forces terminal mode on | `console.py:958` |\n| `TTY_COMPATIBLE` | Forces terminal mode on/off | `console.py:949` |\n| `TTY_INTERACTIVE` | Forces interactive mode | `console.py:725` |\n| `COLORTERM` | `truecolor`/`24bit` selects truecolor | `console.py:799` |\n| `TERM` | `dumb`/`unknown` disables colour; suffix selects depth | `console.py:802, 980` |\n\n`rich/diagnose.py:19-27` lists these same variables for diagnostics.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 7,
+  "model_calls": 4,
+  "cost_usd": 0.00427215,
+  "duration_ms": 14097,
+  "tokens": {
+    "input": 8,
+    "cache_write": 13097,
+    "cache_read": 50545,
+    "output": 2293,
+    "context": 13105,
+    "total": 65943
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "color system detection environment variables"
+      },
+      "result_chars": 1136,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "COLORTERM|FORCE_COLOR|NO_COLOR|TERM|color_system|ColorSystem",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd",
+        "output_mode": "content",
+        "-n": true,
+        "glob": "*.py"
+      },
+      "result_chars": 19490,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 690,
+        "limit": 120
+      },
+      "result_chars": 4730,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 780,
+        "limit": 30
+      },
+      "result_chars": 1411,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 930,
+        "limit": 60
+      },
+      "result_chars": 2296,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def is_terminal|def is_jupyter|def color_system|def no_color",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 84,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 21.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [
+      "TTY_INTERACTIVE listed as an env var affecting colour (it affects interactive mode, not colour) - minor, labelled as interactive mode",
+      "Says color_system is None when not a TTY/dumb; fine. 'Windows returns truecolor or 8-bit' omits legacy windows system - minor omission",
+      "TTY_INTERACTIVE listed as an env var affecting colour/colour output decision is tangential; the claim that TTY_COMPATIBLE=1 'forces terminal mode on' is fine. 'On Windows it uses console features, returning truecolor or 8-bit' omits the legacy 'windows' system, a minor omission rather than false claim.",
+      "Says TTY_INTERACTIVE is in the env var table as affecting colour; it only forces interactive mode, not colour (minor, answer states it as interactive mode)",
+      "States 'FORCE_COLOR: Forces terminal mode on' without noting the non-empty condition in the table (minor, stated correctly in the body)"
+    ],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

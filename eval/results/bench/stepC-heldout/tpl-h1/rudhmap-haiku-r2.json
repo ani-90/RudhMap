@@ -1,0 +1,92 @@
+{
+  "answer": "The first superuser is created by an idempotent seed step that runs after database migrations, not by a migration or at app startup.\n\n**When:** The `prestart.sh` script runs `alembic upgrade head` to apply migrations, then `python app/initial_data.py` to seed data (`backend/scripts/prestart.sh:7`, `:10`). The README and deployment docs say to run this script before starting the app (`backend/README.md:22`, `deployment.md:74`). The test suite also calls `init_db` in its setup (`backend/tests/conftest.py:8`, `:18`).\n\n**How:**\n1. `initial_data.py` opens a session on the engine and calls `init_db(session)` (`backend/app/initial_data.py:11-13`).\n2. `init_db` looks up a user whose email equals `settings.FIRST_SUPERUSER` (`backend/app/core/db.py:24-26`).\n3. If none exists, it builds a `UserCreate` from `settings.FIRST_SUPERUSER` and `settings.FIRST_SUPERUSER_PASSWORD` with `is_superuser=True`, then calls `crud.create_user` (`backend/app/core/db.py:27-33`).\n\nBecause of the lookup in step 2, re-running the script does not create a duplicate. The email and password come from environment variables documented in `deployment.md:18` and `deployment.md:34`. Changing the password in `.env` after the user exists does not update the stored password, since `init_db` only creates the user and never modifies an existing one.\n\nThe `is_superuser` flag is what `get_current_active_superuser` checks for admin routes (`backend/app/api/deps.py:52-53`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.00243217,
+  "duration_ms": 10499,
+  "tokens": {
+    "input": 8,
+    "cache_write": 7577,
+    "cache_read": 31697,
+    "output": 1198,
+    "context": 7585,
+    "total": 40480
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "superuser|is_superuser|first_superuser|create_superuser",
+        "output_mode": "content",
+        "-n": true,
+        "head_limit": 60
+      },
+      "result_chars": 6041,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\core\\db.py"
+      },
+      "result_chars": 1283,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "init_db|prestart|initial_data",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 597,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\app\\initial_data.py"
+      },
+      "result_chars": 465,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\fastapi-template-aabb901\\backend\\scripts\\prestart.sh"
+      },
+      "result_chars": 155,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "tpl-h1",
+  "repo": "fastapi-template",
+  "arm": "rudhmap",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 22.0,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "prestart": true,
+      "init-db": true,
+      "hash": false,
+      "secrets": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

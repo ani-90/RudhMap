@@ -1,0 +1,89 @@
+{
+  "answer": "**Colour output on/off:** Rich decides in `Console.__init__`. Passing `color_system=None` disables colour entirely (`rich/console.py:701-702`). `no_color` is taken from the argument, or else from `NO_COLOR`: it is on when `NO_COLOR` is set to a non-empty value (`rich/console.py:719-723`). When colour is active, the output is still stripped if `no_color` is set (`rich/console.py:2133`).\n\n**Is it a terminal:** `is_terminal` (`rich/console.py:925-970`) checks in this order:\n1. An explicit `force_terminal` argument.\n2. `TTY_COMPATIBLE`: `0` means no, `1` means yes.\n3. `FORCE_COLOR`: any non-empty value means yes (the force-color.org convention).\n4. Otherwise, `file.isatty()`.\n\nJupyter always returns False here. `is_dumb_terminal` (`rich/console.py:972-982`) treats `TERM=dumb` or `unknown` as a dumb terminal.\n\n**Colour system:** `color_system=\"auto\"` calls `_detect_color_system` (`rich/console.py:783-805`):\n- Jupyter gets truecolor.\n- A non-terminal or dumb terminal gets no colour.\n- On Windows, a legacy console gets the legacy Windows system. Otherwise truecolor is used if the console supports it, else 256-colour (`rich/console.py:789-797`).\n- Elsewhere, `COLORTERM=truecolor` or `24bit` gives truecolor (`rich/console.py:799-801`).\n- Otherwise the suffix of `TERM` (for example `xterm-256color`) is looked up in `_TERM_COLORS` (`rich/console.py:90-93`), defaulting to standard.\n\n**Environment variables affecting this:**\n- `NO_COLOR`: disables colour.\n- `FORCE_COLOR`: forces terminal mode.\n- `TTY_COMPATIBLE`: overrides terminal detection.\n- `TTY_INTERACTIVE`: sets `is_interactive` (`rich/console.py:724-736`).\n- `COLORTERM`: selects truecolor.\n- `TERM`: selects the colour depth and marks dumb terminals.\n- `COLUMNS`, `LINES`: size (`rich/console.py:679`).\n- `JUPYTER_COLUMNS`, `JUPYTER_LINES`: size in Jupyter (`rich/console.py:654-664`).",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 5,
+  "model_calls": 3,
+  "cost_usd": 0.00237826,
+  "duration_ms": 10576,
+  "tokens": {
+    "input": 6,
+    "cache_write": 6215,
+    "cache_read": 22766,
+    "output": 1814,
+    "context": 6221,
+    "total": 30801
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "FORCE_COLOR|NO_COLOR|TTY_COMPATIBLE|TERM|COLORTERM|COLUMNS|JUPYTER|TERM_PROGRAM|is_terminal|isatty|color_system",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd",
+        "output_mode": "content",
+        "glob": "rich/console.py",
+        "-n": true
+      },
+      "result_chars": 3592,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "def _detect_color_system|def _environ|COLORTERM|truecolor|256color|windows_console|legacy_windows",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd",
+        "output_mode": "content",
+        "glob": "rich/console.py",
+        "-n": true
+      },
+      "result_chars": 3625,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 697,
+        "limit": 110
+      },
+      "result_chars": 4379,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\rich-3a109ccd\\rich\\console.py",
+        "offset": 923,
+        "limit": 65
+      },
+      "result_chars": 2444,
+      "model_call": 2,
+      "is_error": false
+    }
+  ],
+  "question_id": "rich-2",
+  "repo": "rich",
+  "arm": "none",
+  "model": "haiku",
+  "rep": 2,
+  "wall_s": 12.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "auto": true,
+      "is-terminal": true,
+      "which-system": true,
+      "no-color": true
+    },
+    "fact_score": 1.0,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

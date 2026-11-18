@@ -1,0 +1,114 @@
+{
+  "answer": "**Short answer:** The endpoint sends the article title, the first 3,000 characters of the article body, the client's chat history, and the new user message to Groq. The article body is cut at 3,000 characters.\n\n**Request flow**\n\n- `POST /api/debate/message` is handled by `debate_message` in `app/api/debate.py:13`. It looks up the article by `article_id` and returns 404 if it is missing (`app/api/debate.py:14-16`).\n- It calls `debate_reply(...)` with `article.title`, `article.raw_content or \"\"`, `request.history`, and `request.message` (`app/api/debate.py:17-22`).\n- The reply is returned with `turn = len(history) + 1` (`app/api/debate.py:23`).\n\n**What goes to the LLM**\n\n`debate_reply` in `app/services/groq_client.py:131-137` builds the messages array:\n\n1. **System message:** `_DEBATE_SYSTEM.format(title=article_title, content=article_content[:3000])` (`groq_client.py:133`). The title is included in full. The body is truncated to 3,000 characters.\n2. **History:** every item in `request.history` is appended unchanged (`groq_client.py:135`).\n3. **Current user message:** `request.message` is appended as a `user` turn (`groq_client.py:136`).\n\nThe array is then sent through `_call_messages` (`groq_client.py:137`, defined at `groq_client.py:38`).\n\n**Things to note**\n\n- **Article coverage:** Only the first 3,000 characters of `raw_content` are used. Anything later in the article is never seen by the model. The cut is by character count, not tokens.\n- **History is not capped:** `DebateRequest.history` is `List[Dict[str, str]]` with no length limit (`app/schemas/debate.py:9`). The client controls the roles and content, so a client can insert its own `system` messages after the real one. Prompt size is also unbounded apart from the article cap.\n- **Unused field:** `user_id` is in the request schema (`app/schemas/debate.py:7`) but the endpoint never reads it.\n- **Not verified:** I did not read the full text of `_DEBATE_SYSTEM` (`groq_client.py:121`), so I can't say what instructions it gives beyond the opening line.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 9,
+  "model_calls": 5,
+  "cost_usd": 0.0024068600000000002,
+  "duration_ms": 14046,
+  "tokens": {
+    "input": 10,
+    "cache_write": 6849,
+    "cache_read": 26756,
+    "output": 1537,
+    "context": 6859,
+    "total": 35152
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "debate endpoint"
+      },
+      "result_chars": 696,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "debate"
+      },
+      "result_chars": 687,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "debate_message"
+      },
+      "result_chars": 1566,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "debate_reply"
+      },
+      "result_chars": 1296,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "DebateRequest"
+      },
+      "result_chars": 70,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "_DEBATE_SYSTEM"
+      },
+      "result_chars": 742,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/schemas/debate.py"
+      },
+      "result_chars": 364,
+      "model_call": 4,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "app/services/groq_client.py",
+        "detail": "outline"
+      },
+      "result_chars": 1015,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-h1",
+  "repo": "knowledge-news-app",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 25.1,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "prompt": true,
+      "call": false,
+      "stateless": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}

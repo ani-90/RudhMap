@@ -1,0 +1,140 @@
+{
+  "answer": "**Storage:** A `Client` keeps a `Cookies` object (`httpx/_client.py:319`, `BaseClient.cookies`). `Cookies` is a `MutableMapping` wrapping a `CookieJar` in `.jar` (`httpx/_models.py:1079`).\n\n**Receiving:** After each transport call, `Client._send_single_request` runs `self.cookies.extract_cookies(response)` (`httpx/_client.py:1022`). `Cookies.extract_cookies` wraps the response and request in urllib-compatible shims and calls `jar.extract_cookies`, which parses `Set-Cookie` (`httpx/_models.py:1101-1108`). The async client does the same at `httpx/_client.py:1737`.\n\n**Sending:** `build_request` merges the client's cookies with per-call cookies via `_merge_cookies` (`httpx/_client.py:368`, `413-422`). That builds a `Request`, whose constructor calls `Cookies(cookies).set_cookie_header(self)` (`httpx/_models.py:403-404`). `set_cookie_header` asks the jar to add the `Cookie:` header (`httpx/_models.py:1110-1115`).\n\n**Redirects:** `_send_handling_redirects` loops (`httpx/_client.py:964-999`). For each 3xx it calls `_build_redirect_request` (`:988`), which:\n- builds a new `Request` with `cookies=Cookies(self.cookies)` (`httpx/_client.py:484-489`), so the client's jar, not the old request's header, supplies the cookies;\n- gets headers from `_redirect_headers`, which drops the old `Cookie` header (`httpx/_client.py:567-569`) and strips `Authorization` on cross-origin redirects (`:552-556`).\n\nEach hop's response is passed through `_send_single_request`, so `Set-Cookie` values from redirect responses are stored in the client jar before the next request is built. Redirects are followed only when `follow_redirects` is true; otherwise the redirect response is returned with `next_request` set (`:991-995`). Exceeding `max_redirects` raises `TooManyRedirects` (`:971-974`).\n\nI did not open the `CookieJar` storage code itself, so cookie-expiry and domain-matching rules come from the standard library's `http.cookiejar`, not from httpx.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 12,
+  "model_calls": 5,
+  "cost_usd": 0.00444209,
+  "duration_ms": 14689,
+  "tokens": {
+    "input": 10,
+    "cache_write": 15292,
+    "cache_read": 40369,
+    "output": 1958,
+    "context": 15302,
+    "total": 57629
+  },
+  "tool_calls": [
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Client cookies redirect"
+      },
+      "result_chars": 1601,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "extract_cookies"
+      },
+      "result_chars": 2215,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__find_symbol",
+      "input": {
+        "query": "Cookies class"
+      },
+      "result_chars": 637,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_handling_redirects"
+      },
+      "result_chars": 3043,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._build_redirect_request"
+      },
+      "result_chars": 2366,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._merge_cookies"
+      },
+      "result_chars": 1378,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Client._send_single_request"
+      },
+      "result_chars": 2672,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Request.__init__"
+      },
+      "result_chars": 5217,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "Cookies.set_cookie_header"
+      },
+      "result_chars": 844,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient.build_request"
+      },
+      "result_chars": 4788,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "mcp__rudhmap__show",
+      "input": {
+        "symbol": "BaseClient._redirect_headers"
+      },
+      "result_chars": 2286,
+      "model_call": 4,
+      "is_error": false
+    }
+  ],
+  "question_id": "httpx-h1",
+  "repo": "httpx",
+  "arm": "rudhmap-only",
+  "model": "haiku",
+  "rep": 1,
+  "wall_s": 21.9,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "store": true,
+      "send": true,
+      "redirect": true,
+      "deprecated": false
+    },
+    "fact_score": 0.75,
+    "critical_ok": true,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": true,
+    "unanimous": true
+  }
+}

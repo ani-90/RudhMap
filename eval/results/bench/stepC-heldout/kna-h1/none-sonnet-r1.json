@@ -1,0 +1,97 @@
+{
+  "answer": "The debate endpoint sends the LLM a system prompt that holds the article title and the first 3,000 characters of the article, followed by the chat history and the user's new message. Nothing else from the article is included.\n\n**Endpoint flow**\n- `POST /api/debate/message` loads the article by ID and returns a 404 if it doesn't exist (`app/api/debate.py:14-16`).\n- It calls `debate_reply` with `article.title`, `article.raw_content or \"\"`, `request.history` and `request.message` (`app/api/debate.py:17-22`).\n- The article text comes from the stored raw content, not the generated summary.\n\n**What the LLM receives** (`app/services/groq_client.py:131-137`)\n1. **System message:** the `_DEBATE_SYSTEM` template (`groq_client.py:121-128`) filled with the title and content. The template does three things:\n   - It sets a \"sharp, intellectually honest debate partner\" persona.\n   - It tells the model to cite passages, concede valid points and push back where warranted.\n   - It asks for 2-3 paragraph replies and says not to be sycophantic.\n2. **History:** `request.history` is appended as-is (`groq_client.py:135`). The schema is `List[Dict[str, str]]` (`app/schemas/debate.py:9`), so the client supplies the roles and content. The server doesn't trim it or check it.\n3. **The new message:** the user's message is added as a `user` role entry (`groq_client.py:136`).\n\n**How much of the article**\n- The content is cut to `article_content[:3000]` (`groq_client.py:133`). Anything after the first 3,000 characters is dropped without any notice to the model.\n- The summarizer is more generous and uses `raw_content[:4000]` (`groq_client.py:75`).\n\n**Other limits**\n- `_call_messages` caps the response length with `settings.groq_max_tokens` (`groq_client.py:46`).\n- The history is unbounded, so a long conversation can exceed the model's context window.",
+  "is_error": false,
+  "subtype": "success",
+  "turns": 6,
+  "model_calls": 4,
+  "cost_usd": 0.0344128,
+  "duration_ms": 16699,
+  "tokens": {
+    "input": 8,
+    "cache_write": 4610,
+    "cache_read": 21968,
+    "output": 1376,
+    "context": 4618,
+    "total": 27962
+  },
+  "tool_calls": [
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "debate",
+        "-i": true,
+        "output_mode": "files_with_matches",
+        "glob": "!node_modules"
+      },
+      "result_chars": 365,
+      "model_call": 1,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\api\\debate.py"
+      },
+      "result_chars": 922,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "debate|def |max_tokens|messages|content",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\groq_client.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 1450,
+      "model_call": 2,
+      "is_error": false
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\services\\groq_client.py",
+        "offset": 118,
+        "limit": 14
+      },
+      "result_chars": 602,
+      "model_call": 3,
+      "is_error": false
+    },
+    {
+      "tool": "Grep",
+      "input": {
+        "pattern": "history|class",
+        "path": "C:\\Users\\user\\AppData\\Local\\Temp\\rudhmap_bench\\knowledge-news-app-20d352e\\app\\schemas\\debate.py",
+        "output_mode": "content",
+        "-n": true
+      },
+      "result_chars": 110,
+      "model_call": 3,
+      "is_error": false
+    }
+  ],
+  "question_id": "kna-h1",
+  "repo": "knowledge-news-app",
+  "arm": "none",
+  "model": "sonnet",
+  "rep": 1,
+  "wall_s": 18.4,
+  "returncode": 0,
+  "grade": {
+    "grader": "sonnet x3",
+    "facts": {
+      "route": true,
+      "prompt": true,
+      "call": false,
+      "stateless": false
+    },
+    "fact_score": 0.5,
+    "critical_ok": false,
+    "false_claims": [],
+    "major_false_claim": false,
+    "correct": false,
+    "unanimous": true
+  }
+}
