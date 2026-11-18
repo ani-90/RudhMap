@@ -54,3 +54,8 @@ the product instead of shipping a token saver that doesn't save.
 ## Changes
 
 - 2026-11-11: held-out set and rule added (above), before any RudhMap run.
+- 2026-11-18: held-out set run with all setups (plain Haiku/Sonnet re-run, RudhMap natural/nudged/only)
+  at the project owner's request, after step C failed on cost. This spends the held-out set: any later
+  design (e.g. context pre-injection) needs a fresh held-out set written before its first run.
+  Results are scored against the original held-out targets (Haiku+RudhMap natural >= plain Haiku
+  correct, median tokens <= 0.7 x plain Haiku).
