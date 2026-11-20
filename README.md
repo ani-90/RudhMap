@@ -38,7 +38,7 @@ The full write-up is in [`blog/README.md`](blog/README.md). The step-by-step sto
 
 ## Where it's going
 
-The findings point to one approach that could work: give the assistant the relevant code *before* it starts, attached to the question, so it doesn't spend rounds finding it at all. That is the next experiment. Until it proves itself, RudhMap is a research project, not a product.
+The findings point to one approach that could work: give the assistant the relevant code *before* it starts, attached to the question, so it doesn't spend rounds finding it at all. That is the next experiment.
 
 ## Try it
 
