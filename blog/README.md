@@ -186,4 +186,4 @@ python eval/engine_eval.py --label mine
 - **The full write-up with every root-cause analysis:** `eval/reports/`.
 - **Every run's raw log and grade:** `eval/results/bench/`.
 
-The benchmark uses your own Claude Code login. A full round (180 sessions plus grading) costs a few dollars at API prices.
+The benchmark uses your own Claude Code login. A full round of 180 sessions costs about $2 at API prices, and grading them with 3 Sonnet votes each adds about $8. Most of the cost is the grader.
