@@ -68,7 +68,18 @@ RudhMap keeps its cache in your user cache folder, never inside your repository.
 
 ## Limits
 
-RudhMap only understands what the code states. Calls decided at runtime, such as a function picked from a dictionary, a callback received as a parameter, or a type written as a string, can be missing. So treat "called by" as a starting point, not a complete list. It reads Python and TypeScript files only, not shell scripts, configuration or documentation.
+RudhMap reads code; it doesn't run it. So when the function being called is chosen only while the program runs (for example, a name read from a config file), no connection is drawn.
+
+Some connections can be worked out from the code but aren't resolved yet:
+
+- **Types written as strings.** In `def render(console: "Console")`, calls like `console.render_lines()` aren't connected. Libraries that use this style (such as `rich`) will have callers missing from `show` and `trace`.
+- **A function looked up in a dictionary.** For example, `agent = AGENTS[name]` followed by `agent.run()`, even when every entry in the dictionary is written out in the code.
+- **A function passed in as a parameter** and called inside the receiving function.
+- **TypeScript method calls on typed variables.** Python has this type tracking; TypeScript doesn't yet.
+
+Because of these, a "called by" list can be incomplete. Treat it as a starting point rather than the full list.
+
+RudhMap reads Python and TypeScript files only. Shell scripts, configuration files and documentation aren't part of the map.
 
 ## Background
 
