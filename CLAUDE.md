@@ -129,4 +129,5 @@ So: **4 more phases after the current one (7→8→9→10)** stand between here 
 - At the start of a session, read this status section and just proceed — don't ask the user where the project stands.
 - After any commit that finishes or advances a phase, update the "Current status" section above (and the date) in the same turn.
 - After each step: write its report in `eval/reports/`, and keep raw eval output in `eval/results/`.
-- Also update the published "RudhMap, explained" interview-FAQ artifact whenever a phase completes: https://claude.ai/code/artifact/85d1a127-451e-4688-ab14-f9f8f5c0946b — update the pipeline strip, status pills, footer phase count, and add/revise Q&A sections covering the newly completed work.
+- **Journey FAQ (current, since the 2026-11-10 pivot):** https://claude.ai/artifact/FjaNCRWFVZi1JhWnoTWV4A — update its step strip, pills and Q&A sections whenever a step completes. The older "RudhMap, explained" page below covers only the diagram era and is kept as history.
+- (History) The published "RudhMap, explained" interview-FAQ artifact (diagram era): https://claude.ai/code/artifact/85d1a127-451e-4688-ab14-f9f8f5c0946b — update the pipeline strip, status pills, footer phase count, and add/revise Q&A sections covering the newly completed work.
