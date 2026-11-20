@@ -80,9 +80,3 @@ Some connections can be worked out from the code but aren't resolved yet:
 Because of these, a "called by" list can be incomplete. Treat it as a starting point rather than the full list.
 
 RudhMap reads Python and TypeScript files only. Shell scripts, configuration files and documentation aren't part of the map.
-
-## Background
-
-RudhMap began as a generator of architecture diagrams in which every box and arrow is backed by a line of code. Those commands (`rudhmap scan`, `slice`, `diagram`) still work but are no longer developed. The project changed direction in November 2026, when it became clear the map itself was more useful than the pictures.
-
-To re-run the benchmark or the accuracy checks, see [`eval/`](eval/). The commands are listed at the end of [`blog/README.md`](blog/README.md).
