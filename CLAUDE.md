@@ -6,7 +6,9 @@ Every step ends with a report in `eval/reports/` (goal + pass criteria written f
 
 ## Current status (update this section whenever a phase completes or work resumes)
 
-**Last updated:** 2026-11-14
+**Last updated:** 2026-11-20
+
+**All step branches merged into `main` (2026-11-20).** README rewritten to the current status (research project; engine + tools work; benchmark found no token saving; held-out showed no accuracy gain). Write-up: `blog/README.md`; overview: `docs/journey.md`; journey FAQ page linked under Working agreement. Next: redesign around removing agent rounds (pre-injection), needs fresh criteria and a fresh held-out set.
 
 **Step C (benchmark + iterate) FAILED on cost after 3 rounds (2026-11-14) -> stop rule for the token-saving claim**, branch `stepC-benchmark`. Report (incl. intended-vs-actual model behaviour): `eval/reports/stepC-benchmark.md`; per-run tables: `eval/results/bench/stepC-r{1,2,3}/runs.md`.
 - Final round (Haiku, 15 q x 3): Plain 12/15, 31.4k median tokens; RudhMap natural 13/15, 35.4k (113%); nudged 13/15 (40/45 runs, best of all incl. Sonnet 36/45), 41.7k (133%); RudhMap-only 10/15, 29.9k (95%). Cost criterion (<=70%) failed in all rounds.

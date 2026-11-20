@@ -1,7 +1,7 @@
 [project]
 name = "rudhmap"
 version = "0.1.0"
-description = "MCP server that generates verified data flow diagrams from source code"
+description = "Deterministic code graph for AI coding assistants: MCP server and CLI that return file:line-cited context for Python and TypeScript repos"
 requires-python = ">=3.10"
 dependencies = [
     "python-hcl2>=8.1.2",
